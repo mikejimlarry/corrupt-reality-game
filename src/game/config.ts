@@ -14,5 +14,10 @@ export const phaserConfig: Phaser.Types.Core.GameConfig = {
     width: '100%',
     height: '100%',
   },
+  render: {
+    antialias: true,
+    antialiasGL: true,
+    roundPixels: true,
+  },
   scene: [BootScene, PreloadScene, GameScene],
 };

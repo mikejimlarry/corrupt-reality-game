@@ -30,9 +30,9 @@ export class GameScene extends Phaser.Scene {
     // Fan layout — mirrors Wargrum style:
     //   tight overlap, strong rotation, parabolic arc drop at edges,
     //   cards partially clipped by bottom edge
-    const OVERLAP  = CARD_W * 0.52;      // how far apart each card steps
-    const FAN_DEG  = 42;                 // total rotation spread (±21°)
-    const ARC_DROP = 40;                 // how much lower edge cards sit
+    const OVERLAP  = CARD_W * 0.68;      // how far apart each card steps
+    const FAN_DEG  = 38;                 // total rotation spread (±19°)
+    const ARC_DROP = 36;                 // how much lower edge cards sit
     const count    = hand.length;
     const totalW   = (count - 1) * OVERLAP;
     const startX   = width / 2 - totalW / 2;

@@ -3,8 +3,8 @@ import Phaser from 'phaser';
 import type { Card as CardData, CardCategory, CardRarity } from '../../types/cards';
 
 // ── Dimensions ───────────────────────────────────────────────────────────────
-export const CARD_W = 120;
-export const CARD_H = 168;
+export const CARD_W = 150;
+export const CARD_H = 210;
 const PAD = 8;
 const ART_H = 52;
 const RADIUS = 8;
@@ -55,6 +55,14 @@ export class Card extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
+  // Sharp text helper — applies device pixel ratio resolution to every label
+  private txt(x: number, y: number, content: string, style: Phaser.Types.GameObjects.Text.TextStyle) {
+    return this.scene.add.text(x, y, content, {
+      ...style,
+      resolution: window.devicePixelRatio,
+    });
+  }
+
   private build() {
     const { cardData: d } = this;
     const catColor  = CAT_COLOR[d.category];
@@ -83,7 +91,7 @@ export class Card extends Phaser.GameObjects.Container {
     badge.strokeRoundedRect(badgeX, badgeY, badgeW, badgeH, 4);
     this.add(badge);
 
-    const rarityLabel = this.scene.add.text(
+    const rarityLabel = this.txt(
       badgeX + badgeW / 2, badgeY + badgeH / 2,
       d.rarity,
       { fontFamily: 'monospace', fontSize: '6px', color: rarityHex, letterSpacing: 1 }
@@ -92,7 +100,7 @@ export class Card extends Phaser.GameObjects.Container {
 
     // ── Card name ─────────────────────────────────────────────────────────
     const nameY = top + 24;
-    const name = this.scene.add.text(
+    const name = this.txt(
       left + PAD, nameY,
       d.name.toUpperCase(),
       { fontFamily: 'monospace', fontSize: '8px', color: '#ffffff',
@@ -101,7 +109,7 @@ export class Card extends Phaser.GameObjects.Container {
     this.add(name);
 
     // ── Category label ────────────────────────────────────────────────────
-    const catLabel = this.scene.add.text(
+    const catLabel = this.txt(
       left + PAD, nameY + 12,
       CAT_LABEL[d.category],
       { fontFamily: 'monospace', fontSize: '5.5px', color: catHex, letterSpacing: 2 }
@@ -143,7 +151,7 @@ export class Card extends Phaser.GameObjects.Container {
       pill.strokeRoundedRect(pillX, pillY, pillW, pillH, 3);
       this.add(pill);
 
-      const stat = this.scene.add.text(
+      const stat = this.txt(
         pillX + pillW / 2, pillY + pillH / 2,
         statText,
         { fontFamily: 'monospace', fontSize: '7px', color: catHex, fontStyle: 'bold' }
@@ -161,7 +169,7 @@ export class Card extends Phaser.GameObjects.Container {
     effectBg.strokeRoundedRect(left + PAD, effectY, CARD_W - PAD * 2, effectH, 4);
     this.add(effectBg);
 
-    const desc = this.scene.add.text(
+    const desc = this.txt(
       left + PAD + 4, effectY + 5,
       d.description,
       {
@@ -174,7 +182,7 @@ export class Card extends Phaser.GameObjects.Container {
     // ── Footer: flavour text + card number ────────────────────────────────
     const footerY = top + CARD_H - 10;
     if (d.flavourText) {
-      const flavour = this.scene.add.text(
+      const flavour = this.txt(
         left + PAD, footerY,
         `"${d.flavourText}"`,
         { fontFamily: 'monospace', fontSize: '5px', color: '#33445566',
@@ -184,7 +192,7 @@ export class Card extends Phaser.GameObjects.Container {
     }
 
     if (d.cardNumber !== undefined) {
-      const num = this.scene.add.text(
+      const num = this.txt(
         left + CARD_W - PAD, footerY,
         `#${String(d.cardNumber).padStart(3, '0')}`,
         { fontFamily: 'monospace', fontSize: '5px', color: '#334455' }
