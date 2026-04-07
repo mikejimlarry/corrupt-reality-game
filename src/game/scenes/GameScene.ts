@@ -1,6 +1,7 @@
 // src/game/scenes/GameScene.ts
 import Phaser from 'phaser';
 import { Card, CARD_W, CARD_H } from '../objects/Card';
+import { CardBack } from '../objects/CardBack';
 import { PlayerZone } from '../objects/PlayerZone';
 import { CentreZone } from '../objects/CentreZone';
 import { generateDeck } from '../../data/deck';
@@ -32,9 +33,10 @@ export class GameScene extends Phaser.Scene {
     // ── 1. Background ──────────────────────────────────────────────────────
     this.drawBackground(width, height);
 
-    // ── 2. AI player zones (top) ───────────────────────────────────────────
+    // ── 2. AI player zones + hands (top) ──────────────────────────────────
     const aiPlayers = SAMPLE_PLAYERS.filter(p => !p.isHuman);
     this.placeAIZones(aiPlayers, width, height);
+    this.dealAIHands(aiPlayers, width, height);
 
     // ── 3. Centre zone ─────────────────────────────────────────────────────
     const centre = new CentreZone(this, width / 2, height * 0.46);
@@ -96,6 +98,41 @@ export class GameScene extends Phaser.Scene {
       row1.forEach((p, i) => new PlayerZone(this, width * (0.2 + i * 0.3), y,            p).setDepth(1));
       row2.forEach((p, i) => new PlayerZone(this, width * (0.35 + i * 0.3), y + 120, p).setDepth(1));
     }
+  }
+
+  // ── AI hands (fanned card backs at top, flipped 180°) ─────────────────────
+  private dealAIHands(players: PlayerState[], width: number, height: number) {
+    const count = players.length;
+    const positions = count === 1
+      ? [width / 2]
+      : count === 2
+        ? [width * 0.28, width * 0.72]
+        : [width * 0.2, width * 0.5, width * 0.8];
+
+    players.forEach((player, pi) => {
+      const cardCount = player.hand.length || 5;
+      const centreX   = positions[pi];
+      const OVERLAP   = CARD_W * 0.55;
+      const FAN_DEG   = 28;
+      const ARC_DROP  = 24;
+      const totalW    = (cardCount - 1) * OVERLAP;
+      const startX    = centreX - totalW / 2;
+      // Position just above the player zone — partially clipped at top edge
+      const baseY     = height * 0.14 - 58;
+
+      for (let i = 0; i < cardCount; i++) {
+        const t       = cardCount > 1 ? i / (cardCount - 1) : 0.5;
+        const c       = t - 0.5;
+        const x       = startX + OVERLAP * i;
+        const angle   = -(c * FAN_DEG) + 180; // flipped: fan opens downward
+        const yOffset = c * c * ARC_DROP * 4;
+
+        const back = new CardBack(this, x, baseY - yOffset);
+        back.setAngle(angle);
+        back.setDepth(5 + i);
+        back.dealIn(centreX, height * 0.46, pi * 120 + i * 55);
+      }
+    });
   }
 
   // ── Human hand (fan layout) ────────────────────────────────────────────────
