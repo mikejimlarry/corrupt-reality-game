@@ -8,11 +8,16 @@ export type CardCategory =
   | 'COUNTER'
   | 'IMPROVEMENT';
 
+export type CardRarity = 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY';
+
 export interface BaseCard {
   id: string;
   name: string;
   category: CardCategory;
   description: string;
+  rarity: CardRarity;
+  flavourText?: string;
+  cardNumber?: number;
 }
 
 export interface PopulationCard extends BaseCard {
