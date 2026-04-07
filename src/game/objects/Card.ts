@@ -46,6 +46,7 @@ const RARITY_TEXT_COLOR: Record<CardRarity, string> = {
 export class Card extends Phaser.GameObjects.Container {
   readonly cardData: CardData;
   private isHovered = false;
+  private restY = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, data: CardData) {
     super(scene, x, y);
@@ -263,21 +264,22 @@ export class Card extends Phaser.GameObjects.Container {
   private onHover() {
     if (this.isHovered) return;
     this.isHovered = true;
+    this.restY = this.y;
     this.scene.tweens.add({
-      targets: this, y: this.y - 16, scaleX: 1.08, scaleY: 1.08,
-      duration: 140, ease: 'Quad.easeOut',
+      targets: this, y: this.restY - 28, scaleX: 1.1, scaleY: 1.1,
+      duration: 150, ease: 'Quad.easeOut',
     });
-    this.setDepth(10);
+    this.setDepth(50);
   }
 
   private onOut() {
     if (!this.isHovered) return;
     this.isHovered = false;
     this.scene.tweens.add({
-      targets: this, y: this.y + 16, scaleX: 1, scaleY: 1,
-      duration: 140, ease: 'Quad.easeOut',
+      targets: this, y: this.restY, scaleX: 1, scaleY: 1,
+      duration: 150, ease: 'Quad.easeOut',
     });
-    this.setDepth(0);
+    this.setDepth(this.cardData.cardNumber ?? 0);
   }
 
   // ── Animations ──────────────────────────────────────────────────────────

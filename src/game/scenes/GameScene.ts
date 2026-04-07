@@ -22,25 +22,33 @@ export class GameScene extends Phaser.Scene {
       duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
     });
 
-    // ── Render a sample hand of 5 cards ───────────────────────────────────
+    // ── Render a sample hand of 6 cards ───────────────────────────────────
     initRNG(12345);
     const deck = generateDeck();
-    const hand = deck.slice(0, 5);
+    const hand = deck.slice(0, 6);
 
-    const spread = Math.min(hand.length * (CARD_W + 12), width * 0.8);
-    const startX = width / 2 - spread / 2 + CARD_W / 2;
-    const baseY = height - CARD_H / 2 - 20;
-    const fanAngle = 16; // total fan spread in degrees
+    // Fan layout — mirrors Wargrum style:
+    //   tight overlap, strong rotation, parabolic arc drop at edges,
+    //   cards partially clipped by bottom edge
+    const OVERLAP  = CARD_W * 0.52;      // how far apart each card steps
+    const FAN_DEG  = 42;                 // total rotation spread (±21°)
+    const ARC_DROP = 40;                 // how much lower edge cards sit
+    const count    = hand.length;
+    const totalW   = (count - 1) * OVERLAP;
+    const startX   = width / 2 - totalW / 2;
+    const baseY    = height - CARD_H * 0.38; // show top ~62% of cards
 
     hand.forEach((cardData, i) => {
-      const t = hand.length > 1 ? i / (hand.length - 1) : 0.5;
-      const x = startX + (spread - CARD_W) * t;
-      const angle = (t - 0.5) * fanAngle;
-      const yOffset = Math.abs(t - 0.5) * 12;
+      const t       = count > 1 ? i / (count - 1) : 0.5; // 0→1 left to right
+      const c       = t - 0.5;                             // -0.5→0.5 centred
+      const x       = startX + OVERLAP * i;
+      const angle   = c * FAN_DEG;
+      const yOffset = c * c * ARC_DROP * 4;               // parabolic drop
 
       const card = new Card(this, x, baseY + yOffset, cardData);
       card.setAngle(angle);
-      card.dealIn(width / 2, height / 2, i * 80);
+      card.setDepth(i);                                    // left-to-right stacking
+      card.dealIn(width / 2, height / 2, i * 70);
     });
 
     // ── Resize handler ─────────────────────────────────────────────────────
