@@ -2,38 +2,182 @@
 import Phaser from 'phaser';
 import type { PlayerState } from '../../types/gameState';
 
+const W = 230;
+const H = 108;
+const PAD = 10;
+const DPR = () => window.devicePixelRatio;
+
+const HUMAN_COLOR  = 0x00ffcc;
+const AI_COLOR     = 0xff3366;
+const BAR_BG_COLOR = 0x1a1a2e;
+const BAR_FG_COLOR_HUMAN = 0x00ffcc;
+const BAR_FG_COLOR_AI    = 0xff3366;
+const MAX_POP = 200;
+
+const IMP_LABEL: Record<string, string> = {
+  FIREWALL:      '🔥 FIREWALL',
+  ENCRYPTION:    '🔐 ENCRYPT',
+  HARDENED_NODE: '🛡 H-NODE',
+};
+
 export class PlayerZone extends Phaser.GameObjects.Container {
-  private bg!: Phaser.GameObjects.Rectangle;
-  private nameText!: Phaser.GameObjects.Text;
-  private popText!: Phaser.GameObjects.Text;
+  private popBar!:  Phaser.GameObjects.Graphics;
+  private popLabel!: Phaser.GameObjects.Text;
+  private statusDot!: Phaser.GameObjects.Arc;
+  private player: PlayerState;
 
   constructor(scene: Phaser.Scene, x: number, y: number, player: PlayerState) {
     super(scene, x, y);
-    this.build(player);
+    this.player = player;
+    this.build();
     scene.add.existing(this);
   }
 
-  private build(player: PlayerState) {
-    this.bg = this.scene.add.rectangle(0, 0, 160, 80, 0x0d0d1a)
-      .setStrokeStyle(1, player.isHuman ? 0x00ffcc : 0xff3366);
-
-    this.nameText = this.scene.add.text(0, -20, player.name.toUpperCase(), {
-      fontFamily: 'monospace',
-      fontSize: '10px',
-      color: player.isHuman ? '#00ffcc' : '#ff3366',
-      letterSpacing: 2,
-    }).setOrigin(0.5);
-
-    this.popText = this.scene.add.text(0, 10, `POP: ${player.population}`, {
-      fontFamily: 'monospace',
-      fontSize: '14px',
-      color: '#ffffff',
-    }).setOrigin(0.5);
-
-    this.add([this.bg, this.nameText, this.popText]);
+  private txt(x: number, y: number, str: string, style: Phaser.Types.GameObjects.Text.TextStyle) {
+    return this.scene.add.text(x, y, str, { ...style, resolution: DPR() });
   }
 
-  update(player: PlayerState) {
-    this.popText.setText(`POP: ${player.population}`);
+  private build() {
+    const p = this.player;
+    const accent = p.isHuman ? HUMAN_COLOR : AI_COLOR;
+    const accentHex = p.isHuman ? '#00ffcc' : '#ff3366';
+    const left = -W / 2, top = -H / 2;
+
+    // ── Background ──────────────────────────────────────────────────────────
+    const bg = this.scene.add.graphics();
+    bg.fillStyle(0x080810, 1);
+    bg.fillRoundedRect(left, top, W, H, 8);
+    bg.lineStyle(1.5, accent, 0.7);
+    bg.strokeRoundedRect(left, top, W, H, 8);
+    this.add(bg);
+
+    // Corner accent lines (top-left + bottom-right)
+    const corner = this.scene.add.graphics();
+    corner.lineStyle(2, accent, 1);
+    corner.beginPath(); corner.moveTo(left + 2, top + 18); corner.lineTo(left + 2, top + 2); corner.lineTo(left + 18, top + 2); corner.strokePath();
+    corner.beginPath(); corner.moveTo(-left - 2, -top - 18); corner.lineTo(-left - 2, -top - 2); corner.lineTo(-left - 18, -top - 2); corner.strokePath();
+    this.add(corner);
+
+    // ── Status dot ──────────────────────────────────────────────────────────
+    this.statusDot = this.scene.add.circle(left + W - PAD - 5, top + PAD + 5, 4, accent, 1);
+    this.scene.tweens.add({
+      targets: this.statusDot, alpha: { from: 1, to: 0.3 },
+      duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
+    this.add(this.statusDot);
+
+    const statusLabel = this.txt(left + W - PAD - 14, top + PAD + 5, 'ONLINE', {
+      fontFamily: 'monospace', fontSize: '7px', color: accentHex, letterSpacing: 1,
+    }).setOrigin(1, 0.5);
+    this.add(statusLabel);
+
+    // ── Player handle ────────────────────────────────────────────────────────
+    const handle = this.txt(left + PAD, top + PAD + 2, `▶ ${p.name.toUpperCase()}`, {
+      fontFamily: 'monospace', fontSize: '10px', color: accentHex,
+      fontStyle: 'bold', letterSpacing: 1,
+    }).setOrigin(0, 0);
+    this.add(handle);
+
+    if (!p.isHuman) {
+      const tag = this.txt(left + PAD, top + PAD + 18, p.personality ?? 'AI', {
+        fontFamily: 'monospace', fontSize: '7px', color: '#556677', letterSpacing: 2,
+      }).setOrigin(0, 0);
+      this.add(tag);
+    }
+
+    // ── Population bar ────────────────────────────────────────────────────────
+    const barY = top + 42;
+    const barW = W - PAD * 2 - 36;
+    const barH = 8;
+
+    const barBg = this.scene.add.graphics();
+    barBg.fillStyle(BAR_BG_COLOR, 1);
+    barBg.fillRoundedRect(left + PAD, barY, barW, barH, 3);
+    this.add(barBg);
+
+    this.popBar = this.scene.add.graphics();
+    this.drawBar(p.population);
+    this.add(this.popBar);
+
+    // ── Population label ──────────────────────────────────────────────────────
+    this.popLabel = this.txt(left + W - PAD, barY + barH / 2, `${p.population}`, {
+      fontFamily: 'monospace', fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(1, 0.5);
+    this.add(this.popLabel);
+
+    const popUnit = this.txt(left + W - PAD, barY + barH + 6, 'POP', {
+      fontFamily: 'monospace', fontSize: '7px', color: '#334455', letterSpacing: 3,
+    }).setOrigin(1, 0);
+    this.add(popUnit);
+
+    // ── Separator ─────────────────────────────────────────────────────────────
+    const sep = this.scene.add.graphics();
+    sep.lineStyle(0.5, accent, 0.2);
+    sep.beginPath();
+    sep.moveTo(left + PAD, barY + barH + 14);
+    sep.lineTo(-left - PAD, barY + barH + 14);
+    sep.strokePath();
+    this.add(sep);
+
+    // ── Improvements ─────────────────────────────────────────────────────────
+    const impY = barY + barH + 22;
+    if (p.improvements.length > 0) {
+      p.improvements.forEach((imp, i) => {
+        const label = IMP_LABEL[imp] ?? imp;
+        const pill = this.scene.add.graphics();
+        const pillX = left + PAD + i * 76;
+        pill.fillStyle(accent, 0.12);
+        pill.fillRoundedRect(pillX, impY, 70, 16, 3);
+        pill.lineStyle(0.5, accent, 0.5);
+        pill.strokeRoundedRect(pillX, impY, 70, 16, 3);
+        this.add(pill);
+
+        const impText = this.txt(pillX + 35, impY + 8, label, {
+          fontFamily: 'monospace', fontSize: '6px', color: accentHex,
+        }).setOrigin(0.5);
+        this.add(impText);
+      });
+    } else {
+      const noImp = this.txt(left + PAD, impY + 8, 'NO IMPROVEMENTS', {
+        fontFamily: 'monospace', fontSize: '6px', color: '#223344', letterSpacing: 2,
+      }).setOrigin(0, 0.5);
+      this.add(noImp);
+    }
+
+    // ── Card count badge (AI only) ────────────────────────────────────────────
+    if (!p.isHuman) {
+      const cards = this.txt(-left - PAD, impY + 8, `🃏 ${p.hand.length} CARDS`, {
+        fontFamily: 'monospace', fontSize: '7px', color: '#334455',
+      }).setOrigin(1, 0.5);
+      this.add(cards);
+    }
+
+    this.setSize(W, H);
+  }
+
+  private drawBar(pop: number) {
+    const p = this.player;
+    const accent = p.isHuman ? BAR_FG_COLOR_HUMAN : BAR_FG_COLOR_AI;
+    const left = -W / 2;
+    const barY = -H / 2 + 42;
+    const barW = W - PAD * 2 - 36;
+    const barH = 8;
+    const fillW = Math.max(2, (Math.min(pop, MAX_POP) / MAX_POP) * barW);
+
+    this.popBar.clear();
+    this.popBar.fillStyle(accent, 0.9);
+    this.popBar.fillRoundedRect(left + PAD, barY, fillW, barH, 3);
+
+    // Glow segment at the right edge of the bar
+    if (fillW > 6) {
+      this.popBar.fillStyle(0xffffff, 0.4);
+      this.popBar.fillRoundedRect(left + PAD + fillW - 4, barY + 1, 4, barH - 2, 2);
+    }
+  }
+
+  refresh(player: PlayerState) {
+    this.player = player;
+    this.drawBar(player.population);
+    this.popLabel.setText(`${player.population}`);
   }
 }

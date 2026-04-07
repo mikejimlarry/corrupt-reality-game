@@ -46,11 +46,14 @@ const RARITY_TEXT_COLOR: Record<CardRarity, string> = {
 export class Card extends Phaser.GameObjects.Container {
   readonly cardData: CardData;
   private isHovered = false;
+  private isDealt = false;
   private restY = 0;
+  private restDepth = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, data: CardData) {
     super(scene, x, y);
     this.cardData = data;
+    this.restY = y;   // lock in rest position before any animation
     this.build();
     scene.add.existing(this);
   }
@@ -270,9 +273,10 @@ export class Card extends Phaser.GameObjects.Container {
 
   // ── Hover effects ───────────────────────────────────────────────────────
   private onHover() {
-    if (this.isHovered) return;
+    if (this.isHovered || !this.isDealt) return;
     this.isHovered = true;
-    this.restY = this.y;
+    this.restDepth = this.depth;
+    this.scene.tweens.killTweensOf(this);
     this.scene.tweens.add({
       targets: this, y: this.restY - 28, scaleX: 1.1, scaleY: 1.1,
       duration: 150, ease: 'Quad.easeOut',
@@ -283,11 +287,12 @@ export class Card extends Phaser.GameObjects.Container {
   private onOut() {
     if (!this.isHovered) return;
     this.isHovered = false;
+    this.scene.tweens.killTweensOf(this);
     this.scene.tweens.add({
       targets: this, y: this.restY, scaleX: 1, scaleY: 1,
       duration: 150, ease: 'Quad.easeOut',
     });
-    this.setDepth(this.cardData.cardNumber ?? 0);
+    this.setDepth(this.restDepth);
   }
 
   // ── Animations ──────────────────────────────────────────────────────────
@@ -307,7 +312,10 @@ export class Card extends Phaser.GameObjects.Container {
     this.scene.tweens.add({
       targets: this, x: targetX, y: targetY, alpha: 1, scaleX: 1, scaleY: 1,
       duration: 300, delay, ease: 'Quad.easeOut',
-      onComplete,
+      onComplete: () => {
+        this.isDealt = true;
+        onComplete?.();
+      },
     });
   }
 }
