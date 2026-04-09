@@ -1,12 +1,12 @@
 // src/types/cards.ts
 
 export type CardCategory =
-  | 'POPULATION'
+  | 'CREDITS'
   | 'EVENT_POSITIVE'
   | 'EVENT_NEGATIVE'
   | 'WAR'
   | 'COUNTER'
-  | 'IMPROVEMENT';
+  | 'DAEMON';
 
 export type CardRarity = 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY';
 
@@ -20,8 +20,8 @@ export interface BaseCard {
   cardNumber?: number;
 }
 
-export interface PopulationCard extends BaseCard {
-  category: 'POPULATION';
+export interface CreditsCard extends BaseCard {
+  category: 'CREDITS';
   amount: number;
 }
 
@@ -42,26 +42,28 @@ export interface WarCard extends BaseCard {
   category: 'WAR';
   winnerLoses: number;
   loserLoses: number;
+  /** When true the loser also loses one random daemon (Grid War / Major War). */
+  loserLosesImprovement?: boolean;
 }
 
 export interface CounterCard extends BaseCard {
   category: 'COUNTER';
-  counterType: 'TACTICAL_ADVANTAGE' | 'NEGOTIATE';
+  counterType: 'TACTICAL_ADVANTAGE' | 'NEGOTIATE' | 'SHIELD';
 }
 
-export type ImprovementType = 'FIREWALL' | 'ENCRYPTION' | 'HARDENED_NODE';
+export type DaemonType = 'FIREWALL' | 'ENCRYPTION' | 'HARDENED_NODE';
 
-export interface ImprovementCard extends BaseCard {
-  category: 'IMPROVEMENT';
-  improvementType: ImprovementType;
+export interface DaemonCard extends BaseCard {
+  category: 'DAEMON';
+  daemonType: DaemonType;
   prosperityBonus: number;
   corruptionPenalty: number;
 }
 
 export type Card =
-  | PopulationCard
+  | CreditsCard
   | PositiveEventCard
   | NegativeEventCard
   | WarCard
   | CounterCard
-  | ImprovementCard;
+  | DaemonCard;
