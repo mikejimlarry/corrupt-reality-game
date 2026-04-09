@@ -10,6 +10,8 @@ import { generateDeck } from '../data/deck';
 // Written by applyCardEffect when a Quarantine shield absorbs an attack.
 // Read (and cleared) by applyPlayCard so it can emit the right log entry.
 let _quarantineBlockedBy: string | null = null;
+// Written by applyCardEffect when a Cease & Desist cancels a WAR or EVENT_NEGATIVE.
+let _negotiateBlockedBy: string | null = null;
 
 // targetIndex — when provided (human targeting), use it directly.
 // When omitted (AI turn), fall back to a random live opponent.
@@ -76,6 +78,11 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         _quarantineBlockedBy = players[ti].name;
         return players.map((p, i) => i === ti ? { ...p, quarantined: false } : p);
       }
+      // Cease & Desist — broader diplomatic block also covers EVENT_NEGATIVE
+      if (players[ti].negotiating) {
+        _negotiateBlockedBy = players[ti].name;
+        return players.map((p, i) => i === ti ? { ...p, negotiating: false } : p);
+      }
 
       // STEAL — actor gains amount, target loses amount (e.g. Signal Theft / Pied Piper)
       if (neg.effect === 'STEAL') {
@@ -126,8 +133,15 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       if (liveOpponents.length === 0) return players;
       const ti = resolveTarget();
       if (ti === -1) return players;
+      // Cease & Desist — target's diplomatic block cancels the war entirely
+      if (players[ti].negotiating) {
+        _negotiateBlockedBy = players[ti].name;
+        return players.map((p, i) => i === ti ? { ...p, negotiating: false } : p);
+      }
+      // Firewall Surge — actor's war cost is waived this turn, then flag clears
+      const actorWarCost = players[actorIndex].tacticalBonus ? 0 : w.winnerLoses;
       return players.map((p, i) => {
-        if (i === actorIndex) return { ...p, credits: Math.max(0, p.credits - w.winnerLoses) };
+        if (i === actorIndex) return { ...p, credits: Math.max(0, p.credits - actorWarCost), tacticalBonus: false };
         if (i === ti) {
           let imps = [...p.daemons];
           if (w.loserLosesImprovement && imps.length > 0) {
@@ -150,11 +164,19 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
 
     case 'COUNTER': {
       const cnt = card as CounterCard;
-      // SHIELD (Quarantine) — protect the actor from the next incoming targeted attack
+      // SHIELD (Quarantine) — protect the actor from the next incoming targeted EVENT_NEGATIVE
       if (cnt.counterType === 'SHIELD') {
         return players.map((p, i) => i === actorIndex ? { ...p, quarantined: true } : p);
       }
-      return players; // TACTICAL_ADVANTAGE / NEGOTIATE — no immediate effect yet
+      // TACTICAL_ADVANTAGE (Firewall Surge) — waive own war cost on the next WAR card played
+      if (cnt.counterType === 'TACTICAL_ADVANTAGE') {
+        return players.map((p, i) => i === actorIndex ? { ...p, tacticalBonus: true } : p);
+      }
+      // NEGOTIATE (Cease & Desist) — block the next WAR or EVENT_NEGATIVE targeting this player
+      if (cnt.counterType === 'NEGOTIATE') {
+        return players.map((p, i) => i === actorIndex ? { ...p, negotiating: true } : p);
+      }
+      return players;
     }
 
     default:
@@ -165,13 +187,25 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
 function pickAiCard(ai: PlayerState): Card | null {
   if (ai.hand.length === 0) return null;
   switch (ai.personality) {
-    case 'AGGRESSIVE':
+    case 'AGGRESSIVE': {
+      const hasWar = ai.hand.some(c => c.category === 'WAR');
+      // Play Firewall Surge just before going to war — waives own losses
+      if (hasWar && !ai.tacticalBonus)
+        return ai.hand.find(c => c.category === 'COUNTER' && (c as CounterCard).counterType === 'TACTICAL_ADVANTAGE')
+          ?? ai.hand.find(c => c.category === 'WAR')
+          ?? ai.hand.find(c => c.category === 'EVENT_NEGATIVE')
+          ?? ai.hand[0];
       return ai.hand.find(c => c.category === 'WAR')
         ?? ai.hand.find(c => c.category === 'EVENT_NEGATIVE')
         ?? ai.hand[0];
+    }
     case 'CAUTIOUS':
+      // Play Cease & Desist when low on credits as a defensive shield
       return ai.hand.find(c => c.category === 'DAEMON')
         ?? ai.hand.find(c => c.category === 'CREDITS')
+        ?? (ai.credits < 20
+          ? ai.hand.find(c => c.category === 'COUNTER' && (c as CounterCard).counterType === 'NEGOTIATE')
+          : undefined)
         ?? ai.hand[0];
     case 'TACTICAL': {
       const score = (c: Card): number => {
@@ -218,7 +252,11 @@ function cardLogText(card: Card, actorName: string): string {
     case 'COUNTER': {
       const cnt = card as CounterCard;
       if (cnt.counterType === 'SHIELD')
-        return `${actorName} activated ${card.name} — next attack blocked`;
+        return `${actorName} activated ${card.name} — next hack blocked`;
+      if (cnt.counterType === 'TACTICAL_ADVANTAGE')
+        return `${actorName} activated ${card.name} — war costs waived for next conflict`;
+      if (cnt.counterType === 'NEGOTIATE')
+        return `${actorName} deployed ${card.name} — next war or hack will be cancelled`;
       return `${actorName} played ${card.name}`;
     }
   }
@@ -310,6 +348,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       eliminated: false,
       quarantined: false,
       overclocked: false,
+      tacticalBonus: false,
+      negotiating: false,
     }));
 
     // Deal 5 cards to each player (round-robin so distribution is fair)
@@ -441,9 +481,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     );
 
     _quarantineBlockedBy = null;
+    _negotiateBlockedBy = null;
     players = applyCardEffect(card, players, actorIndex, targetIndex);
     const blockedBy = _quarantineBlockedBy;
+    const negotiateBlockedBy = _negotiateBlockedBy;
     _quarantineBlockedBy = null;
+    _negotiateBlockedBy = null;
 
     const isCorruption = card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).effect === 'CORRUPTION';
     const globalCorruptionMode = isCorruption ? true : state.globalCorruptionMode;
@@ -481,6 +524,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     get().addLog(cardLogText(card, actor.name), 'card');
     if (blockedBy) get().addLog(`${blockedBy}'s Quarantine absorbed the attack!`, 'effect');
+    if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Cease & Desist cancelled the attack!`, 'effect');
 
     if (humanDmsPending) {
       // Mark AI eliminations now; keep the human's eliminated flag clear until they resolve

@@ -26,6 +26,10 @@ export interface PlayerState {
   quarantined: boolean;
   /** Set by Overclock — doubles the gain on the player's next Stability Roll, then clears. */
   overclocked: boolean;
+  /** Set by Firewall Surge — waives the actor's own credit cost on their next WAR card. */
+  tacticalBonus: boolean;
+  /** Set by Cease & Desist — blocks the next incoming WAR or EVENT_NEGATIVE targeting this player. */
+  negotiating: boolean;
 }
 
 export interface LogEntry {
