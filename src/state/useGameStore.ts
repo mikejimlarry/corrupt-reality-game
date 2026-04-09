@@ -177,7 +177,7 @@ function pickAiCard(ai: PlayerState): Card | null {
       const score = (c: Card): number => {
         if (c.category === 'WAR') return (c as WarCard).loserLoses;
         if (c.category === 'EVENT_NEGATIVE') return (c as NegativeEventCard).amount + 5;
-        if (c.category === 'CREDITS') return (c as PopulationCard).amount;
+        if (c.category === 'CREDITS') return (c as CreditsCard).amount;
         if (c.category === 'EVENT_POSITIVE') return (c as PositiveEventCard).amount;
         if (c.category === 'DAEMON') return 8;
         return 0;
@@ -221,7 +221,6 @@ function cardLogText(card: Card, actorName: string): string {
         return `${actorName} activated ${card.name} — next attack blocked`;
       return `${actorName} played ${card.name}`;
     }
-    default: return `${actorName} played ${card.name}`;
   }
 }
 
@@ -452,7 +451,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // ── Dead Man's Switch — players who just hit 0 may fire one last negative card ──
     // AI players auto-pick; the human player gets a choice overlay.
-    let humanDmsPending: { playerIndex: number; eligibleCards: Card[] } | null = null;
+    let humanDmsPending: { playerIndex: number; eligibleCards: NegativeEventCard[] } | null = null;
 
     if (state.deadMansSwitch) {
       for (let i = 0; i < players.length; i++) {
@@ -485,7 +484,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (humanDmsPending) {
       // Mark AI eliminations now; keep the human's eliminated flag clear until they resolve
-      players = players.map((p, i) => ({
+      players = players.map((p) => ({
         ...p,
         eliminated: p.eliminated || (!p.isHuman && p.credits <= 0),
       }));

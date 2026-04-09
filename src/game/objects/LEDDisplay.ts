@@ -16,7 +16,6 @@ const BELOW_DIGITS = DIGIT_TOP_Y + DIGIT_H + 10; // first row below digits
 
 const COLOR_DIM   = 0x001508;
 const COLOR_GREEN = 0x00ff55;
-const COLOR_RED   = 0xff2233;
 const COLOR_AMBER = 0xffaa00;
 
 // 7 segments: [top, topRight, botRight, bottom, botLeft, topLeft, middle]

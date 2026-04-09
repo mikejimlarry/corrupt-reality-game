@@ -10,9 +10,6 @@ import { useGameStore } from '../../state/useGameStore';
 import type { Card as CardData } from '../../types/cards';
 import type { PlayerState } from '../../types/gameState';
 
-// ── Cyberpunk AI handles ──────────────────────────────────────────────────────
-const AI_HANDLES = ['Cipher', 'Null.Byte', 'Phantom'];
-const AI_PERSONALITIES: PlayerState['personality'][] = ['AGGRESSIVE', 'CAUTIOUS', 'TACTICAL'];
 
 export class GameScene extends Phaser.Scene {
   private unsubscribeStore?: () => void;
