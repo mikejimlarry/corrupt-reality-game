@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { createGame, destroyGame } from './game';
 import { useGameStore } from './state/useGameStore';
 import { SetupScreen } from './ui/SetupScreen';
+import { HUD } from './ui/HUD';
+import { DeadMansSwitchOverlay } from './ui/DeadMansSwitchOverlay';
 
 function App() {
   const phase = useGameStore(s => s.phase);
@@ -19,6 +21,8 @@ function App() {
 
       {/* React UI overlays */}
       {phase === 'SETUP' && <SetupScreen />}
+      {phase !== 'SETUP' && <HUD />}
+      <DeadMansSwitchOverlay />
     </>
   );
 }
