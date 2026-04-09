@@ -1,18 +1,39 @@
 // src/game/objects/CentreZone.ts
 import Phaser from 'phaser';
+import type { Card as CardData, CardCategory } from '../../types/cards';
 
 const W = 400;
-const H = 170;
-const PILE_W = 90;
-const PILE_H = 126;
+const H = 200;
+// Card area: 80 × 112 = exactly 5:7 — matches the playing card aspect ratio.
+// Label zone sits below the card area with enough room to breathe.
+const PILE_W      = 80;
+const PILE_CARD_H = 112;   // card area height only
+const PILE_H      = 158;   // card area (112) + label zone (46)
 const ACCENT = 0x00ffcc;
 const DPR = () => window.devicePixelRatio;
+
+// Local coords of the discard pile top-card rect
+const DISCARD_X = W / 2 - PILE_W - 16;          // 104
+const DISCARD_Y = -PILE_H / 2;                   // -79
+// Exposed as offsets from the container centre for world-position use
+export const DISCARD_LOCAL_CX = DISCARD_X + PILE_W / 2;          // 144
+export const DISCARD_LOCAL_CY = DISCARD_Y + PILE_CARD_H / 2;     // -23
+
+const CAT_COLOR: Record<CardCategory, number> = {
+  CREDITS:          0x00ff88,
+  EVENT_POSITIVE: 0x00ccff,
+  EVENT_NEGATIVE: 0xff4466,
+  WAR:            0xff2200,
+  DAEMON:         0xaa44ff,
+  COUNTER:        0xffaa00,
+};
 
 export class CentreZone extends Phaser.GameObjects.Container {
   private drawCountLabel!: Phaser.GameObjects.Text;
   private discardCountLabel!: Phaser.GameObjects.Text;
   private phaseLabel!: Phaser.GameObjects.Text;
   private turnLabel!: Phaser.GameObjects.Text;
+  private discardFaceContainer?: Phaser.GameObjects.Container;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
@@ -33,16 +54,18 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
     // ── Draw pile ─────────────────────────────────────────────────────────────
     this.buildPile(-W / 2 + 16, -PILE_H / 2, 'DRAW', true);
-    this.drawCountLabel = this.txt(-W / 2 + 16 + PILE_W / 2, PILE_H / 2 - 28, '54', {
-      fontFamily: 'monospace', fontSize: '22px', color: '#00ffcc', fontStyle: 'bold',
-    }).setOrigin(0.5);
+    // Count label: 12px below card area bottom
+    this.drawCountLabel = this.txt(-W / 2 + 16 + PILE_W / 2, DISCARD_Y + PILE_CARD_H + 12, '54', {
+      fontFamily: 'monospace', fontSize: '18px', color: '#00ffcc', fontStyle: 'bold',
+    }).setOrigin(0.5, 0);
     this.add(this.drawCountLabel);
 
     // ── Discard pile ──────────────────────────────────────────────────────────
     this.buildPile(W / 2 - PILE_W - 16, -PILE_H / 2, 'DISCARD', false);
-    this.discardCountLabel = this.txt(W / 2 - PILE_W / 2 - 16, PILE_H / 2 - 28, '0', {
-      fontFamily: 'monospace', fontSize: '22px', color: '#334455', fontStyle: 'bold',
-    }).setOrigin(0.5);
+    // Count label: 12px below card area bottom
+    this.discardCountLabel = this.txt(W / 2 - PILE_W / 2 - 16, DISCARD_Y + PILE_CARD_H + 12, '0', {
+      fontFamily: 'monospace', fontSize: '18px', color: '#334455', fontStyle: 'bold',
+    }).setOrigin(0.5, 0);
     this.add(this.discardCountLabel);
 
     // ── Centre protocol zone ──────────────────────────────────────────────────
@@ -65,18 +88,18 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
     const g = this.scene.add.graphics();
 
-    // Stack effect (offset rectangles)
+    // Stack effect (offset rectangles — card area only)
     for (let i = 2; i >= 0; i--) {
       g.fillStyle(isDraw ? 0x0d1520 : 0x0a0a12, 1);
-      g.fillRoundedRect(x + i * 2, y + i * 2, PILE_W, PILE_H - 30, 6);
+      g.fillRoundedRect(x + i * 2, y + i * 2, PILE_W, PILE_CARD_H, 6);
       g.lineStyle(0.75, accent, isDraw ? 0.3 - i * 0.08 : 0.1);
-      g.strokeRoundedRect(x + i * 2, y + i * 2, PILE_W, PILE_H - 30, 6);
+      g.strokeRoundedRect(x + i * 2, y + i * 2, PILE_W, PILE_CARD_H, 6);
     }
 
     // Circuit pattern on top card (draw pile only)
     if (isDraw) {
       const cx = x + PILE_W / 2;
-      const cy = y + (PILE_H - 30) / 2;
+      const cy = y + PILE_CARD_H / 2;
       g.lineStyle(0.5, ACCENT, 0.25);
       // Simple diamond
       g.beginPath();
@@ -92,11 +115,11 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
     this.add(g);
 
-    // Label below pile
-    const lbl = this.txt(x + PILE_W / 2, y + PILE_H - 26, label, {
+    // "DRAW" / "DISCARD" label — sits just above the pile
+    const lbl = this.txt(x + PILE_W / 2, y - 6, label, {
       fontFamily: 'monospace', fontSize: '7px',
       color: isDraw ? '#00ffcc' : '#334455', letterSpacing: 3,
-    }).setOrigin(0.5, 0);
+    }).setOrigin(0.5, 1);
     this.add(lbl);
   }
 
@@ -165,5 +188,62 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
   setTurn(turn: number) {
     this.turnLabel.setText(`TURN ${turn}`);
+  }
+
+  /** Show the top card of the discard pile face-up on the pile. Pass null to clear. */
+  setDiscardTop(card: CardData | null) {
+    // Remove previous face-up card
+    this.discardFaceContainer?.destroy();
+    this.discardFaceContainer = undefined;
+    if (!card) return;
+
+    const catColor = CAT_COLOR[card.category];
+    const catHex   = `#${catColor.toString(16).padStart(6, '0')}`;
+    const cardW    = PILE_W - 4;
+    const cardH    = PILE_CARD_H - 4;
+
+    const con = this.scene.add.container(DISCARD_X + 2 + cardW / 2, DISCARD_Y + 2 + cardH / 2);
+
+    // Background
+    const bg = this.scene.add.graphics();
+    bg.fillStyle(0x0d0d1f, 1);
+    bg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 5);
+    bg.lineStyle(1.5, catColor, 0.85);
+    bg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 5);
+    con.add(bg);
+
+    // Category colour strip at top
+    const stripH = 8;
+    const strip = this.scene.add.graphics();
+    strip.fillStyle(catColor, 0.35);
+    strip.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, stripH, { tl: 5, tr: 5, bl: 0, br: 0 });
+    con.add(strip);
+
+    // Card name
+    const name = this.scene.add.text(0, -cardH / 2 + stripH + 6, card.name.toUpperCase(), {
+      fontFamily: 'monospace', fontSize: '7px', color: '#ffffff',
+      fontStyle: 'bold', wordWrap: { width: cardW - 8 },
+      resolution: DPR(),
+    }).setOrigin(0.5, 0);
+    con.add(name);
+
+    // Category label
+    const cat = this.scene.add.text(0, cardH / 2 - 10, card.category.replace('_', ' '), {
+      fontFamily: 'monospace', fontSize: '5px', color: catHex,
+      letterSpacing: 1, resolution: DPR(),
+    }).setOrigin(0.5, 1);
+    con.add(cat);
+
+    // Inner glow
+    const glow = this.scene.add.graphics();
+    glow.fillStyle(catColor, 0.04);
+    glow.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 5);
+    con.add(glow);
+
+    con.setAlpha(0);
+    this.scene.tweens.add({ targets: con, alpha: 1, duration: 200, ease: 'Quad.easeOut' });
+
+    this.add(con);
+    this.discardFaceContainer = con;
   }
 }

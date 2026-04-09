@@ -12,7 +12,7 @@ const AI_COLOR     = 0xff3366;
 const BAR_BG_COLOR = 0x1a1a2e;
 const BAR_FG_COLOR_HUMAN = 0x00ffcc;
 const BAR_FG_COLOR_AI    = 0xff3366;
-const MAX_POP = 200;
+const MAX_CREDITS = 200;
 
 const IMP_LABEL: Record<string, string> = {
   FIREWALL:      '🔥 FIREWALL',
@@ -25,10 +25,14 @@ export class PlayerZone extends Phaser.GameObjects.Container {
   private popLabel!: Phaser.GameObjects.Text;
   private statusDot!: Phaser.GameObjects.Arc;
   private player: PlayerState;
+  private hidePop: boolean;
+  private targetGlow?: Phaser.GameObjects.Graphics;
+  private targetTween?: Phaser.Tweens.Tween;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, player: PlayerState) {
+  constructor(scene: Phaser.Scene, x: number, y: number, player: PlayerState, hidePop = false) {
     super(scene, x, y);
     this.player = player;
+    this.hidePop = hidePop;
     this.build();
     scene.add.existing(this);
   }
@@ -96,16 +100,16 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     this.add(barBg);
 
     this.popBar = this.scene.add.graphics();
-    this.drawBar(p.population);
+    this.drawBar(p.credits);
     this.add(this.popBar);
 
     // ── Population label ──────────────────────────────────────────────────────
-    this.popLabel = this.txt(left + W - PAD, barY + barH / 2, `${p.population}`, {
+    this.popLabel = this.txt(left + W - PAD, barY + barH / 2, this.hidePop ? '???' : `${p.credits}`, {
       fontFamily: 'monospace', fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(1, 0.5);
     this.add(this.popLabel);
 
-    const popUnit = this.txt(left + W - PAD, barY + barH + 6, 'POP', {
+    const popUnit = this.txt(left + W - PAD, barY + barH + 6, 'CREDITS', {
       fontFamily: 'monospace', fontSize: '7px', color: '#334455', letterSpacing: 3,
     }).setOrigin(1, 0);
     this.add(popUnit);
@@ -121,8 +125,8 @@ export class PlayerZone extends Phaser.GameObjects.Container {
 
     // ── Improvements ─────────────────────────────────────────────────────────
     const impY = barY + barH + 22;
-    if (p.improvements.length > 0) {
-      p.improvements.forEach((imp, i) => {
+    if (p.daemons.length > 0) {
+      p.daemons.forEach((imp, i) => {
         const label = IMP_LABEL[imp] ?? imp;
         const pill = this.scene.add.graphics();
         const pillX = left + PAD + i * 76;
@@ -138,7 +142,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
         this.add(impText);
       });
     } else {
-      const noImp = this.txt(left + PAD, impY + 8, 'NO IMPROVEMENTS', {
+      const noImp = this.txt(left + PAD, impY + 8, 'NO DAEMONS', {
         fontFamily: 'monospace', fontSize: '6px', color: '#223344', letterSpacing: 2,
       }).setOrigin(0, 0.5);
       this.add(noImp);
@@ -162,7 +166,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     const barY = -H / 2 + 42;
     const barW = W - PAD * 2 - 36;
     const barH = 8;
-    const fillW = Math.max(2, (Math.min(pop, MAX_POP) / MAX_POP) * barW);
+    const fillW = Math.max(2, (Math.min(pop, MAX_CREDITS) / MAX_CREDITS) * barW);
 
     this.popBar.clear();
     this.popBar.fillStyle(accent, 0.9);
@@ -177,7 +181,45 @@ export class PlayerZone extends Phaser.GameObjects.Container {
 
   refresh(player: PlayerState) {
     this.player = player;
-    this.drawBar(player.population);
-    this.popLabel.setText(`${player.population}`);
+    this.drawBar(player.credits);
+    this.popLabel.setText(this.hidePop ? '???' : `${player.credits}`);
+  }
+
+  /**
+   * Show or hide the targeting highlight. When active, adds a pulsing red
+   * border and makes the zone clickable. Pass null for onClick to deactivate.
+   */
+  setTargetable(active: boolean, onClick?: () => void) {
+    // Clean up any existing highlight + listener
+    this.targetTween?.stop();
+    this.targetGlow?.destroy();
+    this.targetGlow = undefined;
+    this.removeInteractive();
+    this.removeAllListeners('pointerdown');
+
+    if (!active) return;
+
+    const left = -W / 2, top = -H / 2;
+    const glow = this.scene.add.graphics();
+    const TARGET_COLOR = 0xff3333;
+    glow.lineStyle(2.5, TARGET_COLOR, 0.9);
+    glow.strokeRoundedRect(left - 3, top - 3, W + 6, H + 6, 10);
+    glow.fillStyle(TARGET_COLOR, 0.06);
+    glow.fillRoundedRect(left - 3, top - 3, W + 6, H + 6, 10);
+    this.add(glow);
+    this.targetGlow = glow;
+
+    this.targetTween = this.scene.tweens.add({
+      targets: glow,
+      alpha: { from: 1, to: 0.3 },
+      duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
+
+    this.setInteractive();
+    if (onClick) {
+      this.on('pointerdown', onClick);
+      // Cursor hint
+      this.scene.input.setDefaultCursor('crosshair');
+    }
   }
 }

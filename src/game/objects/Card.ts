@@ -1,31 +1,32 @@
 // src/game/objects/Card.ts
 import Phaser from 'phaser';
 import type { Card as CardData, CardCategory, CardRarity } from '../../types/cards';
+import { useGameStore } from '../../state/useGameStore';
 
 // ── Dimensions ───────────────────────────────────────────────────────────────
 export const CARD_W = 150;
 export const CARD_H = 210;
-const PAD = 8;
-const ART_H = 52;
+const PAD = 9;
+const ART_H = 36;
 const RADIUS = 8;
 
 // ── Colour palettes ──────────────────────────────────────────────────────────
 const CAT_COLOR: Record<CardCategory, number> = {
-  POPULATION:    0x00ff88,
+  CREDITS:         0x00ff88,
   EVENT_POSITIVE:0x00ccff,
   EVENT_NEGATIVE:0xff3355,
   WAR:           0xff8800,
   COUNTER:       0xbb44ff,
-  IMPROVEMENT:   0x00ffcc,
+  DAEMON:        0x00ffcc,
 };
 
 const CAT_LABEL: Record<CardCategory, string> = {
-  POPULATION:    'DATA HARVEST',
+  CREDITS:         'DATA HARVEST',
   EVENT_POSITIVE:'SYSTEM EVENT',
   EVENT_NEGATIVE:'HACK PROTOCOL',
   WAR:           'GRID CONFLICT',
   COUNTER:       'COUNTERMEASURE',
-  IMPROVEMENT:   'INFRASTRUCTURE',
+  DAEMON:        'DAEMON',
 };
 
 const RARITY_COLOR: Record<CardRarity, number> = {
@@ -45,10 +46,13 @@ const RARITY_TEXT_COLOR: Record<CardRarity, string> = {
 // ── Card class ───────────────────────────────────────────────────────────────
 export class Card extends Phaser.GameObjects.Container {
   readonly cardData: CardData;
-  private isHovered = false;
-  private isDealt = false;
-  private restY = 0;
-  private restDepth = 0;
+  private isHovered  = false;
+  private isSelected = false;
+  private isDealt    = false;
+  private restY      = 0;
+  private restScale  = 1;   // set from whatever scale was applied before dealIn
+  private restDepth  = 0;
+  private selectionGlow!: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene, x: number, y: number, data: CardData) {
     super(scene, x, y);
@@ -83,44 +87,53 @@ export class Card extends Phaser.GameObjects.Container {
     bg.strokeRoundedRect(left, top, CARD_W, CARD_H, RADIUS);
     this.add(bg);
 
-    // ── Rarity badge (top-right) ──────────────────────────────────────────
-    const badgeW = 54, badgeH = 13;
-    const badgeX = left + CARD_W - PAD - badgeW;
-    const badgeY = top + 5;
-    const badge = this.scene.add.graphics();
-    badge.fillStyle(rarityColor, 0.2);
-    badge.fillRoundedRect(badgeX, badgeY, badgeW, badgeH, 4);
-    badge.lineStyle(0.75, rarityColor, 0.8);
-    badge.strokeRoundedRect(badgeX, badgeY, badgeW, badgeH, 4);
-    this.add(badge);
+    // ── Rarity badge (right side, rotated vertical) ──────────────────────
+    // Natural rect: badgeW × badgeH. After –90° rotation it appears badgeH px
+    // wide and badgeW px tall, flush with the right card edge.
+    const badgeW = 42, badgeH = 13;
+    const badgeConX = left + CARD_W - 2 - badgeH / 2; // centre-x of rotated badge
+    const badgeConY = top  + 6 + badgeW / 2;           // centre-y of rotated badge
+    const badgeCon = this.scene.add.container(badgeConX, badgeConY);
 
-    const rarityLabel = this.txt(
-      badgeX + badgeW / 2, badgeY + badgeH / 2,
-      d.rarity,
-      { fontFamily: 'monospace', fontSize: '6px', color: rarityHex, letterSpacing: 1 }
-    ).setOrigin(0.5);
-    this.add(rarityLabel);
+    const badgeGfx = this.scene.add.graphics();
+    badgeGfx.fillStyle(rarityColor, 0.25);
+    badgeGfx.fillRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 4);
+    badgeGfx.lineStyle(1, rarityColor, 0.9);
+    badgeGfx.strokeRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 4);
+    badgeCon.add(badgeGfx);
+
+    const rarityLbl = this.scene.add.text(0, 0, d.rarity, {
+      fontFamily: 'monospace', fontSize: '8px', color: rarityHex,
+      letterSpacing: 1, resolution: window.devicePixelRatio,
+    }).setOrigin(0.5);
+    badgeCon.add(rarityLbl);
+    badgeCon.setAngle(-90);
+    this.add(badgeCon);
+
+    // Name spans from left pad to just before the badge (badge visual width = badgeH px)
+    const nameLeft = left + PAD;                           // left edge for name & category
+    const nameWrap = CARD_W - PAD - (badgeH + 2 + 5);     // stop before badge
 
     // ── Card name ─────────────────────────────────────────────────────────
-    const nameY = top + 24;
+    const nameY = top + 25;
     const name = this.txt(
-      left + PAD, nameY,
+      nameLeft, nameY,
       d.name.toUpperCase(),
-      { fontFamily: 'monospace', fontSize: '8px', color: '#ffffff',
-        fontStyle: 'bold', wordWrap: { width: CARD_W - PAD * 2 - badgeW - 4 } }
+      { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff',
+        fontStyle: 'bold', wordWrap: { width: nameWrap } }
     ).setOrigin(0, 0.5);
     this.add(name);
 
     // ── Category label ────────────────────────────────────────────────────
     const catLabel = this.txt(
-      left + PAD, nameY + 12,
+      nameLeft, nameY + 14,
       CAT_LABEL[d.category],
-      { fontFamily: 'monospace', fontSize: '5.5px', color: catHex, letterSpacing: 2 }
+      { fontFamily: 'monospace', fontSize: '7px', color: catHex, letterSpacing: 2 }
     ).setOrigin(0, 0.5);
     this.add(catLabel);
 
     // ── Separator line ────────────────────────────────────────────────────
-    const sepY = top + 44;
+    const sepY = top + 48;
     const sep = this.scene.add.graphics();
     sep.lineStyle(0.5, catColor, 0.3);
     sep.beginPath();
@@ -145,19 +158,19 @@ export class Card extends Phaser.GameObjects.Container {
     const statText = this.getStatText(d);
     if (statText) {
       const pill = this.scene.add.graphics();
-      const pillW = 42, pillH = 14;
+      const pillW = 46, pillH = 15;
       const pillX = left + CARD_W - PAD - pillW;
-      const pillY = artY + ART_H - pillH - 3;
-      pill.fillStyle(catColor, 0.2);
+      const pillY = artY + ART_H - pillH - 2;
+      pill.fillStyle(catColor, 0.25);
       pill.fillRoundedRect(pillX, pillY, pillW, pillH, 3);
-      pill.lineStyle(0.75, catColor, 0.6);
+      pill.lineStyle(1, catColor, 0.7);
       pill.strokeRoundedRect(pillX, pillY, pillW, pillH, 3);
       this.add(pill);
 
       const stat = this.txt(
         pillX + pillW / 2, pillY + pillH / 2,
         statText,
-        { fontFamily: 'monospace', fontSize: '7px', color: catHex, fontStyle: 'bold' }
+        { fontFamily: 'monospace', fontSize: '9px', color: catHex, fontStyle: 'bold' }
       ).setOrigin(0.5);
       this.add(stat);
     }
@@ -173,11 +186,11 @@ export class Card extends Phaser.GameObjects.Container {
     this.add(effectBg);
 
     const desc = this.txt(
-      left + PAD + 4, effectY + 5,
+      left + PAD + 4, effectY + 4,
       d.description,
       {
-        fontFamily: 'monospace', fontSize: '6px', color: '#99aabb',
-        wordWrap: { width: CARD_W - PAD * 2 - 8 }, lineSpacing: 2,
+        fontFamily: 'monospace', fontSize: '9px', color: '#c8d8e8',
+        wordWrap: { width: CARD_W - PAD * 2 - 8 }, lineSpacing: 0,
       }
     ).setOrigin(0, 0);
     this.add(desc);
@@ -188,8 +201,8 @@ export class Card extends Phaser.GameObjects.Container {
       const flavour = this.txt(
         left + PAD, footerY,
         `"${d.flavourText}"`,
-        { fontFamily: 'monospace', fontSize: '5px', color: '#33445566',
-          fontStyle: 'italic', wordWrap: { width: CARD_W - PAD * 2 - 20 } }
+        { fontFamily: 'monospace', fontSize: '7px', color: '#4a5c6a',
+          fontStyle: 'italic', wordWrap: { width: CARD_W - PAD * 2 - 22 } }
       ).setOrigin(0, 1);
       this.add(flavour);
     }
@@ -198,7 +211,7 @@ export class Card extends Phaser.GameObjects.Container {
       const num = this.txt(
         left + CARD_W - PAD, footerY,
         `#${String(d.cardNumber).padStart(3, '0')}`,
-        { fontFamily: 'monospace', fontSize: '5px', color: '#334455' }
+        { fontFamily: 'monospace', fontSize: '7px', color: '#334455' }
       ).setOrigin(1, 1);
       this.add(num);
     }
@@ -208,6 +221,75 @@ export class Card extends Phaser.GameObjects.Container {
     this.setInteractive();
     this.on('pointerover', this.onHover, this);
     this.on('pointerout', this.onOut, this);
+
+    // Selection glow (hidden by default)
+    const selGlow = this.scene.add.graphics();
+    selGlow.lineStyle(3, 0x00ffcc, 0.85);
+    selGlow.strokeRoundedRect(-CARD_W / 2 - 3, -CARD_H / 2 - 3, CARD_W + 6, CARD_H + 6, RADIUS + 2);
+    selGlow.fillStyle(0x00ffcc, 0.05);
+    selGlow.fillRoundedRect(-CARD_W / 2 - 3, -CARD_H / 2 - 3, CARD_W + 6, CARD_H + 6, RADIUS + 2);
+    selGlow.setVisible(false);
+    this.add(selGlow);
+    this.selectionGlow = selGlow;
+
+    // Click to select
+    this.on('pointerdown', this.onClick, this);
+  }
+
+  setSelected(selected: boolean) {
+    this.isSelected = selected;
+    this.selectionGlow.setVisible(selected);
+
+    if (selected) {
+      // Raise and lock in the lifted state (same treatment as hover)
+      this.restDepth = this.depth;
+      this.scene.tweens.killTweensOf(this);
+      this.scene.tweens.add({
+        targets: this,
+        y: this.restY - 30,
+        scaleX: this.restScale * 1.08,
+        scaleY: this.restScale * 1.08,
+        duration: 150, ease: 'Quad.easeOut',
+      });
+      this.setDepth(50);
+    } else {
+      // Lower back to rest position on deselection
+      this.isHovered = false;
+      this.scene.tweens.killTweensOf(this);
+      this.scene.tweens.add({
+        targets: this,
+        y: this.restY,
+        scaleX: this.restScale,
+        scaleY: this.restScale,
+        duration: 150, ease: 'Quad.easeOut',
+      });
+      this.setDepth(this.restDepth);
+    }
+  }
+
+  /** Update the rest-Y so hover lift/restore uses the correct target after a reposition tween. */
+  updateRestY(y: number) {
+    this.restY = y;
+  }
+
+  /**
+   * Reset selection state immediately (no tween, no killTweensOf).
+   * Use this when a reposition tween is already in flight so we don't cancel it.
+   */
+  clearSelectionState() {
+    this.isSelected = false;
+    this.isHovered  = false;
+    this.selectionGlow.setVisible(false);
+  }
+
+  private onClick() {
+    // No isDealt guard here — selection should work immediately even during deal-in animation
+    const store = useGameStore.getState();
+    if (store.phase !== 'MAIN') return;
+    const current = store.players[store.currentPlayerIndex];
+    if (!current?.isHuman) return;
+    const newId = store.selectedCardId === this.cardData.id ? null : this.cardData.id;
+    store.selectCard(newId);
   }
 
   // ── Circuit art pattern ─────────────────────────────────────────────────
@@ -263,9 +345,9 @@ export class Card extends Phaser.GameObjects.Container {
   // ── Stat text helper ────────────────────────────────────────────────────
   private getStatText(d: CardData): string | null {
     switch (d.category) {
-      case 'POPULATION':    return `+${d.amount} POP`;
-      case 'EVENT_POSITIVE':return `+${d.amount} POP`;
-      case 'EVENT_NEGATIVE':return `-${d.amount} POP`;
+      case 'CREDITS':         return `+${d.amount} CREDITS`;
+      case 'EVENT_POSITIVE':return `+${d.amount} CREDITS`;
+      case 'EVENT_NEGATIVE':return `-${d.amount} CREDITS`;
       case 'WAR':           return `W:-${d.winnerLoses}`;
       default:              return null;
     }
@@ -274,22 +356,34 @@ export class Card extends Phaser.GameObjects.Container {
   // ── Hover effects ───────────────────────────────────────────────────────
   private onHover() {
     if (this.isHovered || !this.isDealt) return;
+    const { phase, players, currentPlayerIndex, selectedCardId } = useGameStore.getState();
+    // Cards are inactive until the dice roll and draw are both done
+    const isHuman = players[currentPlayerIndex]?.isHuman;
+    if (isHuman && (phase === 'PHASE_ROLL' || phase === 'DRAW')) return;
+    // Don't lift other cards while one is selected
+    if (selectedCardId !== null && selectedCardId !== this.cardData.id) return;
     this.isHovered = true;
     this.restDepth = this.depth;
     this.scene.tweens.killTweensOf(this);
     this.scene.tweens.add({
-      targets: this, y: this.restY - 28, scaleX: 1.1, scaleY: 1.1,
+      targets: this,
+      y: this.restY - 30,
+      scaleX: this.restScale * 1.08,
+      scaleY: this.restScale * 1.08,
       duration: 150, ease: 'Quad.easeOut',
     });
     this.setDepth(50);
   }
 
   private onOut() {
-    if (!this.isHovered) return;
+    if (!this.isHovered || this.isSelected) return;
     this.isHovered = false;
     this.scene.tweens.killTweensOf(this);
     this.scene.tweens.add({
-      targets: this, y: this.restY, scaleX: 1, scaleY: 1,
+      targets: this,
+      y: this.restY,
+      scaleX: this.restScale,
+      scaleY: this.restScale,
       duration: 150, ease: 'Quad.easeOut',
     });
     this.setDepth(this.restDepth);
@@ -305,12 +399,34 @@ export class Card extends Phaser.GameObjects.Container {
     });
   }
 
-  dealIn(fromX: number, fromY: number, delay = 0, onComplete?: () => void) {
+  /** Animate the card flying to the discard pile, then call onComplete. */
+  playOut(targetX: number, targetY: number, onComplete?: () => void) {
+    this.setDepth(100);
+    this.scene.tweens.killTweensOf(this);
+    // Spin slightly toward centre for a natural "thrown" feel
+    const spinDir = this.x < targetX ? 1 : -1;
+    this.scene.tweens.add({
+      targets: this,
+      x: targetX, y: targetY,
+      scaleX: this.restScale * 0.55,
+      scaleY: this.restScale * 0.55,
+      alpha: 0,
+      angle: this.angle + spinDir * 20,
+      duration: 380,
+      ease: 'Quad.easeIn',
+      onComplete,
+    });
+  }
+
+  dealIn(fromX: number, fromY: number, delay = 0, targetAlpha = 1, onComplete?: () => void) {
     const targetX = this.x;
     const targetY = this.y;
-    this.setPosition(fromX, fromY).setAlpha(0).setScale(0.6);
+    // Capture whatever scale was set externally (e.g. 1.25 for human cards)
+    this.restScale = this.scaleX;
+    this.setPosition(fromX, fromY).setAlpha(0).setScale(this.restScale * 0.5);
     this.scene.tweens.add({
-      targets: this, x: targetX, y: targetY, alpha: 1, scaleX: 1, scaleY: 1,
+      targets: this, x: targetX, y: targetY, alpha: targetAlpha,
+      scaleX: this.restScale, scaleY: this.restScale,
       duration: 300, delay, ease: 'Quad.easeOut',
       onComplete: () => {
         this.isDealt = true;

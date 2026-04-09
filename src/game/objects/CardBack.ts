@@ -156,14 +156,50 @@ export class CardBack extends Phaser.GameObjects.Container {
     this.add(pulse);
   }
 
-  // Deals in from a position with a flip animation
-  dealIn(fromX: number, fromY: number, delay = 0) {
+  // Deals in from a position with a flip animation.
+  // targetAlpha defaults to 1 but can be set lower (e.g. 0.25) so the card
+  // arrives already dimmed when it's not the active player's turn.
+  dealIn(fromX: number, fromY: number, delay = 0, targetAlpha = 1) {
     const targetX = this.x;
     const targetY = this.y;
     this.setPosition(fromX, fromY).setAlpha(0).setScale(0.6);
     this.scene.tweens.add({
-      targets: this, x: targetX, y: targetY, alpha: 1, scaleX: 1, scaleY: 1,
+      targets: this, x: targetX, y: targetY, alpha: targetAlpha, scaleX: 1, scaleY: 1,
       duration: 280, delay, ease: 'Quad.easeOut',
+    });
+  }
+
+  /**
+   * Pull the card out from behind the edge toward (centerX, centerY) to
+   * simulate an AI "selecting" the card from their hand.
+   */
+  liftOut(centerX: number, centerY: number, onComplete: () => void) {
+    const dx = centerX - this.x;
+    const dy = centerY - this.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    this.scene.tweens.killTweensOf(this);
+    this.scene.tweens.add({
+      targets: this,
+      x: this.x + (dx / len) * 55,
+      y: this.y + (dy / len) * 55,
+      scaleX: 1.12, scaleY: 1.12,
+      angle: 0,
+      duration: 280, ease: 'Back.easeOut',
+      onComplete,
+    });
+  }
+
+  /** Fly the card to (targetX, targetY), shrink and fade — mirrors Card.playOut. */
+  playOut(targetX: number, targetY: number, onComplete?: () => void) {
+    this.setDepth(100);
+    this.scene.tweens.killTweensOf(this);
+    this.scene.tweens.add({
+      targets: this,
+      x: targetX, y: targetY,
+      scaleX: 0.55, scaleY: 0.55,
+      alpha: 0, angle: 0,
+      duration: 420, ease: 'Quad.easeIn',
+      onComplete,
     });
   }
 }
