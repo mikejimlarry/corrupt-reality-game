@@ -9,6 +9,20 @@ const PULSE_STYLE = `
 }
 .hud-pulse { animation: hud-pulse 1.4s ease-in-out infinite; }
 
+@keyframes corruption-pulse {
+  0%, 100% { box-shadow: 0 0 8px 2px rgba(255,30,60,0.35), 0 0 0 1px rgba(255,30,60,0.25); }
+  50%       { box-shadow: 0 0 28px 6px rgba(255,30,60,0.75), 0 0 0 1px rgba(255,30,60,0.55); }
+}
+.corruption-pulse { animation: corruption-pulse 1.1s ease-in-out infinite; }
+
+@keyframes corruption-flicker {
+  0%, 92%, 100% { opacity: 1; }
+  93%           { opacity: 0.4; }
+  95%           { opacity: 1; }
+  97%           { opacity: 0.6; }
+}
+.corruption-flicker { animation: corruption-flicker 3s infinite; }
+
 .log-scroll::-webkit-scrollbar { width: 3px; }
 .log-scroll::-webkit-scrollbar-track { background: transparent; }
 .log-scroll::-webkit-scrollbar-thumb { background: #00ffcc33; border-radius: 2px; }
@@ -24,16 +38,6 @@ function useInjectStyle(css: string) {
   }, [css]);
 }
 
-const PANEL: React.CSSProperties = {
-  background: 'rgba(5,5,15,0.88)',
-  border: '1px solid #00ffcc33',
-  borderRadius: 6,
-  padding: '10px 14px',
-  fontFamily: 'monospace',
-  color: '#c0d0e0',
-  marginBottom: 8,
-};
-
 const BTN_BASE: React.CSSProperties = {
   fontFamily: 'monospace',
   fontSize: 12,
@@ -45,36 +49,51 @@ const BTN_BASE: React.CSSProperties = {
   fontWeight: 'bold',
 };
 
-const BTN_CYAN: React.CSSProperties = {
-  ...BTN_BASE,
-  background: '#00ffcc',
-  color: '#000',
-};
+function panel(accent: string): React.CSSProperties {
+  return {
+    background: 'rgba(5,5,15,0.88)',
+    border: `1px solid ${accent}33`,
+    borderRadius: 6,
+    padding: '10px 14px',
+    fontFamily: 'monospace',
+    color: '#c0d0e0',
+    marginBottom: 8,
+  };
+}
 
-const BTN_DIM: React.CSSProperties = {
-  ...BTN_BASE,
-  background: 'rgba(0,255,204,0.12)',
-  color: '#00ffcc88',
-  border: '1px solid #00ffcc33',
-};
+function btnPrimary(accent: string): React.CSSProperties {
+  return { ...BTN_BASE, background: accent, color: '#000' };
+}
+
+function btnDim(accent: string): React.CSSProperties {
+  return {
+    ...BTN_BASE,
+    background: `${accent}1a`,
+    color: `${accent}88`,
+    border: `1px solid ${accent}33`,
+  };
+}
 
 export function HUD() {
   useInjectStyle(PULSE_STYLE);
-  const phase             = useGameStore(s => s.phase);
-  const players           = useGameStore(s => s.players);
-  const currentPlayerIndex = useGameStore(s => s.currentPlayerIndex);
-  const selectedCardId    = useGameStore(s => s.selectedCardId);
-  const turnNumber        = useGameStore(s => s.turnNumber);
-  const winnerId          = useGameStore(s => s.winnerId);
-  const log               = useGameStore(s => s.log);
-  const drawCard          = useGameStore(s => s.drawCard);
-  const playCard          = useGameStore(s => s.playCard);
-  const discardCard       = useGameStore(s => s.discardCard);
-  const resetToSetup      = useGameStore(s => s.resetToSetup);
-  const triggerRoll       = useGameStore(s => s.triggerRoll);
-  const rollTriggered     = useGameStore(s => s.rollTriggered);
-  const validTargetIds    = useGameStore(s => s.validTargetIds);
-  const cancelTargeting   = useGameStore(s => s.cancelTargeting);
+  const phase               = useGameStore(s => s.phase);
+  const players             = useGameStore(s => s.players);
+  const currentPlayerIndex  = useGameStore(s => s.currentPlayerIndex);
+  const selectedCardId      = useGameStore(s => s.selectedCardId);
+  const turnNumber          = useGameStore(s => s.turnNumber);
+  const winnerId            = useGameStore(s => s.winnerId);
+  const log                 = useGameStore(s => s.log);
+  const corruption          = useGameStore(s => s.globalCorruptionMode);
+  const drawCard            = useGameStore(s => s.drawCard);
+  const playCard            = useGameStore(s => s.playCard);
+  const discardCard         = useGameStore(s => s.discardCard);
+  const resetToSetup        = useGameStore(s => s.resetToSetup);
+  const triggerRoll         = useGameStore(s => s.triggerRoll);
+  const rollTriggered       = useGameStore(s => s.rollTriggered);
+  const validTargetIds      = useGameStore(s => s.validTargetIds);
+  const cancelTargeting     = useGameStore(s => s.cancelTargeting);
+
+  const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
 
   const [logExpanded, setLogExpanded] = useState(false);
 
@@ -110,17 +129,43 @@ export function HUD() {
         flexDirection: 'column',
       }}
     >
+      {/* Corruption banner */}
+      {corruption && (
+        <div
+          className="corruption-pulse corruption-flicker"
+          style={{
+            background: 'rgba(20,0,5,0.92)',
+            border: '1px solid #ff1e3c88',
+            borderRadius: 6,
+            padding: '8px 14px',
+            marginBottom: 8,
+            fontFamily: 'monospace',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ fontSize: 9, color: '#ff1e3c', letterSpacing: 3, marginBottom: 2 }}>
+            ⚠ SYSTEM ALERT ⚠
+          </div>
+          <div style={{ fontSize: 11, color: '#ff4466', fontWeight: 'bold', letterSpacing: 2 }}>
+            CORRUPTION DETECTED
+          </div>
+          <div style={{ fontSize: 8, color: '#ff1e3c66', letterSpacing: 1, marginTop: 3 }}>
+            STABILITY ROLLS INVERTED
+          </div>
+        </div>
+      )}
+
       {/* Status panel */}
-      <div style={PANEL}>
-        <div style={{ fontSize: 10, color: '#00ffcc88', letterSpacing: 2, marginBottom: 4 }}>
+      <div style={panel(ACCENT)}>
+        <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 4 }}>
           TURN {turnNumber} · {phase}
         </div>
         {phase === 'GAME_OVER' ? (
-          <div style={{ fontSize: 13, color: '#00ffcc', fontWeight: 'bold' }}>
+          <div style={{ fontSize: 13, color: ACCENT, fontWeight: 'bold' }}>
             🏆 {winner?.name ?? 'Unknown'} WINS
           </div>
         ) : (
-          <div style={{ fontSize: 13, color: isHuman ? '#00ffcc' : '#ff9955', fontWeight: 'bold' }}>
+          <div style={{ fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold' }}>
             {isHuman ? '▶ YOUR TURN' : `⏳ ${currentPlayer?.name ?? '...'}`}
           </div>
         )}
@@ -128,11 +173,11 @@ export function HUD() {
 
       {/* BEGIN SEQUENCE button — human PHASE_ROLL only, appears after animations settle */}
       {phase === 'PHASE_ROLL' && isHuman && rollReady && !rollTriggered && (
-        <div style={PANEL} className="hud-pulse">
-          <div style={{ fontSize: 10, color: '#00ffcc55', letterSpacing: 3, marginBottom: 8 }}>
+        <div style={panel(ACCENT)} className={corruption ? 'corruption-pulse' : 'hud-pulse'}>
+          <div style={{ fontSize: 10, color: `${ACCENT}55`, letterSpacing: 3, marginBottom: 8 }}>
             SEQUENCE READY
           </div>
-          <button style={BTN_CYAN} onClick={() => triggerRoll()}>
+          <button style={btnPrimary(ACCENT)} onClick={() => triggerRoll()}>
             ▶ BEGIN SEQUENCE
           </button>
         </div>
@@ -140,14 +185,14 @@ export function HUD() {
 
       {/* Targeting banner — click an opponent on the board to select them */}
       {phase === 'TARGETING' && (
-        <div style={{ ...PANEL, borderColor: '#ff333388' }} className="hud-pulse">
+        <div style={{ ...panel(ACCENT), borderColor: '#ff333388' }} className="hud-pulse">
           <div style={{ fontSize: 10, color: '#ff3333', letterSpacing: 3, marginBottom: 8 }}>
             SELECT A TARGET
           </div>
           <div style={{ fontSize: 10, color: '#667788', marginBottom: 10 }}>
             {validTargetIds.length} opponent{validTargetIds.length !== 1 ? 's' : ''} available
           </div>
-          <button style={{ ...BTN_DIM, borderColor: '#ff333344', color: '#ff3333aa' }} onClick={() => cancelTargeting()}>
+          <button style={{ ...btnDim('#ff3333'), borderColor: '#ff333344', color: '#ff3333aa' }} onClick={() => cancelTargeting()}>
             ✕ CANCEL
           </button>
         </div>
@@ -155,29 +200,29 @@ export function HUD() {
 
       {/* Action panel — only when game active, human turn, and not rolling */}
       {phase !== 'GAME_OVER' && phase !== 'PHASE_ROLL' && phase !== 'TARGETING' && isHuman && (
-        <div style={PANEL} className={phase === 'DRAW' ? 'hud-pulse' : ''}>
+        <div style={panel(ACCENT)} className={phase === 'DRAW' ? (corruption ? 'corruption-pulse' : 'hud-pulse') : ''}>
           {phase === 'DRAW' && (
-            <button style={BTN_CYAN} onClick={() => drawCard()}>
+            <button style={btnPrimary(ACCENT)} onClick={() => drawCard()}>
               DRAW CARD
             </button>
           )}
 
           {phase === 'MAIN' && !selectedCard && (
-            <div style={{ fontSize: 11, color: '#00ffcc55', letterSpacing: 1 }}>
+            <div style={{ fontSize: 11, color: `${ACCENT}55`, letterSpacing: 1 }}>
               SELECT A CARD TO PLAY
             </div>
           )}
 
           {phase === 'MAIN' && selectedCard && (
             <>
-              <div style={{ fontSize: 10, color: '#00ffcc', marginBottom: 8, letterSpacing: 1 }}>
+              <div style={{ fontSize: 10, color: ACCENT, marginBottom: 8, letterSpacing: 1 }}>
                 {selectedCard.name.toUpperCase()}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button style={BTN_CYAN} onClick={() => playCard(selectedCard.id)}>
+                <button style={btnPrimary(ACCENT)} onClick={() => playCard(selectedCard.id)}>
                   PLAY
                 </button>
-                <button style={BTN_DIM} onClick={() => discardCard(selectedCard.id)}>
+                <button style={btnDim(ACCENT)} onClick={() => discardCard(selectedCard.id)}>
                   DISCARD
                 </button>
               </div>
@@ -188,8 +233,8 @@ export function HUD() {
 
       {/* Game over action */}
       {phase === 'GAME_OVER' && (
-        <div style={PANEL}>
-          <button style={BTN_CYAN} onClick={() => resetToSetup()}>
+        <div style={panel(ACCENT)}>
+          <button style={btnPrimary(ACCENT)} onClick={() => resetToSetup()}>
             PLAY AGAIN
           </button>
         </div>
@@ -197,7 +242,7 @@ export function HUD() {
 
       {/* Game log */}
       {log.length > 0 && (
-        <div style={{ ...PANEL, padding: 0, overflow: 'hidden' }}>
+        <div style={{ ...panel(ACCENT), padding: 0, overflow: 'hidden' }}>
 
           {/* Header row — always visible, click to expand/collapse */}
           <button
@@ -207,11 +252,11 @@ export function HUD() {
               width: '100%', padding: '8px 12px',
               background: 'none', border: 'none', cursor: 'pointer',
               fontFamily: 'monospace', fontSize: 9,
-              color: '#00ffcc55', letterSpacing: 2,
+              color: `${ACCENT}55`, letterSpacing: 2,
             }}
           >
             <span>ACTIVITY LOG</span>
-            <span style={{ color: '#00ffcc44' }}>{logExpanded ? '▲ COLLAPSE' : `▼ ${log.length} ENTRIES`}</span>
+            <span style={{ color: `${ACCENT}44` }}>{logExpanded ? '▲ COLLAPSE' : `▼ ${log.length} ENTRIES`}</span>
           </button>
 
           {/* Collapsed — show last 4 entries */}
@@ -240,7 +285,7 @@ export function HUD() {
                 <div key={entry.id} style={{
                   fontSize: 10, lineHeight: 1.6, letterSpacing: 0.5,
                   color: i === log.length - 1 ? '#aabbcc' : '#667788',
-                  borderLeft: entry.type === 'turn'   ? '2px solid #00ffcc33' :
+                  borderLeft: entry.type === 'turn'   ? `2px solid ${ACCENT}33` :
                               entry.type === 'card'   ? '2px solid #aa44ff55' :
                               entry.type === 'effect' ? '2px solid #ff996655' :
                               entry.type === 'combat' ? '2px solid #ff336655' : 'none',

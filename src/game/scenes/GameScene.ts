@@ -62,9 +62,17 @@ export class GameScene extends Phaser.Scene {
     let prevTurnNumber = useGameStore.getState().turnNumber ?? 1;
     let prevRollTriggered = false;
     let prevCurrentPlayerIndex = useGameStore.getState().currentPlayerIndex;
+    let prevCorruption = useGameStore.getState().globalCorruptionMode;
 
     this.unsubscribeStore = useGameStore.subscribe(state => {
       const { players, selectedCardId } = state;
+
+      // ── Corruption mode — shift background from near-black to dark red ──
+      if (state.globalCorruptionMode !== prevCorruption) {
+        prevCorruption = state.globalCorruptionMode;
+        const targetColor = state.globalCorruptionMode ? 0x0d0003 : 0x050510;
+        this.cameras.main.setBackgroundColor(targetColor);
+      }
       const { width: w, height: h } = this.scale;
       let handUpdated = false;
       let rebuilt = false;
