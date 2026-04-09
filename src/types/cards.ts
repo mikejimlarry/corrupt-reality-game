@@ -36,6 +36,8 @@ export interface NegativeEventCard extends BaseCard {
   effect: string;
   amount: number;
   targetsOther: boolean;
+  /** If set, a target who owns this daemon type is completely immune to this card. */
+  immuneDaemon?: 'FIREWALL' | 'ENCRYPTION' | 'HARDENED_NODE';
 }
 
 export interface WarCard extends BaseCard {

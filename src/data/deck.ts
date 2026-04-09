@@ -68,7 +68,7 @@ const negativeEvents: Card[] = [
   ...Array(3).fill(null).map(() => ({
     id: uid(), name: 'Data Drought', category: 'EVENT_NEGATIVE' as const,
     description: 'Cut off a faction\'s data supply. Target loses 10 credits. (Firewall immune)',
-    rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true,
+    rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true, immuneDaemon: 'FIREWALL' as const,
     flavourText: 'No packets. No future.',
   })),
   // System Quake ×3 — P&P Earthquake (5 damage + one daemon removed)
@@ -89,14 +89,14 @@ const negativeEvents: Card[] = [
   ...Array(3).fill(null).map(() => ({
     id: uid(), name: 'Inferno Protocol', category: 'EVENT_NEGATIVE' as const,
     description: 'Torch a faction\'s daemons. Target loses 10 credits and one daemon. (Firewall immune)',
-    rarity: 'UNCOMMON' as const, effect: 'DAMAGE_DAEMON', amount: 10, targetsOther: true,
+    rarity: 'UNCOMMON' as const, effect: 'DAMAGE_DAEMON', amount: 10, targetsOther: true, immuneDaemon: 'FIREWALL' as const,
     flavourText: 'Burn rate: maximum.',
   })),
   // Data Flood ×3 — P&P Flood (10 damage to target; Encryption immune)
   ...Array(3).fill(null).map(() => ({
     id: uid(), name: 'Data Flood', category: 'EVENT_NEGATIVE' as const,
     description: 'Overwhelm a faction\'s buffers with junk traffic. Target loses 10 credits. (Encryption immune)',
-    rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true,
+    rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true, immuneDaemon: 'ENCRYPTION' as const,
     flavourText: 'Packet storm. Infinite loop.',
   })),
   // Network Storm ×2 — P&P Mongol Raid (10 damage + daemon removed from ALL opponents)
@@ -117,7 +117,7 @@ const negativeEvents: Card[] = [
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Raid Protocol', category: 'EVENT_NEGATIVE' as const,
     description: 'Strike fast and hard at a rival faction. Target loses 10 credits. (Hardened Node immune)',
-    rarity: 'UNCOMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true,
+    rarity: 'UNCOMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true, immuneDaemon: 'HARDENED_NODE' as const,
     flavourText: 'In and out before the firewall wakes.',
   })),
   // The Corruption ×1 — P&P Death Ship (10 damage; triggers Corruption mode)

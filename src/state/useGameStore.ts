@@ -12,6 +12,8 @@ import { generateDeck } from '../data/deck';
 let _quarantineBlockedBy: string | null = null;
 // Written by applyCardEffect when a Cease & Desist cancels a WAR or EVENT_NEGATIVE.
 let _negotiateBlockedBy: string | null = null;
+// Written by applyCardEffect when a daemon immunity blocks a targeted attack.
+let _daemonImmunityBlockedBy: string | null = null;
 
 // targetIndex — when provided (human targeting), use it directly.
 // When omitted (AI turn), fall back to a random live opponent.
@@ -83,6 +85,11 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         _negotiateBlockedBy = players[ti].name;
         return players.map((p, i) => i === ti ? { ...p, negotiating: false } : p);
       }
+      // Daemon immunity — target's daemon type blocks this specific card entirely
+      if (neg.immuneDaemon && players[ti].daemons.includes(neg.immuneDaemon)) {
+        _daemonImmunityBlockedBy = `${players[ti].name}'s ${neg.immuneDaemon.replace('_', ' ')}`;
+        return players;
+      }
 
       // STEAL — actor gains amount, target loses amount (e.g. Signal Theft / Pied Piper)
       if (neg.effect === 'STEAL') {
@@ -140,6 +147,10 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       }
       // Firewall Surge — actor's war cost is waived this turn, then flag clears
       const actorWarCost = players[actorIndex].tacticalBonus ? 0 : w.winnerLoses;
+      // Hardened Node — target's war losses are reduced by 5 (min 0)
+      const targetWarLoss = players[ti].daemons.includes('HARDENED_NODE')
+        ? Math.max(0, w.loserLoses - 5)
+        : w.loserLoses;
       return players.map((p, i) => {
         if (i === actorIndex) return { ...p, credits: Math.max(0, p.credits - actorWarCost), tacticalBonus: false };
         if (i === ti) {
@@ -147,7 +158,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
           if (w.loserLosesImprovement && imps.length > 0) {
             imps.splice(Math.floor(random() * imps.length), 1);
           }
-          return { ...p, credits: Math.max(0, p.credits - w.loserLoses), daemons: imps };
+          return { ...p, credits: Math.max(0, p.credits - targetWarLoss), daemons: imps };
         }
         return p;
       });
@@ -482,11 +493,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     _quarantineBlockedBy = null;
     _negotiateBlockedBy = null;
+    _daemonImmunityBlockedBy = null;
     players = applyCardEffect(card, players, actorIndex, targetIndex);
     const blockedBy = _quarantineBlockedBy;
     const negotiateBlockedBy = _negotiateBlockedBy;
+    const daemonBlockedBy = _daemonImmunityBlockedBy;
     _quarantineBlockedBy = null;
     _negotiateBlockedBy = null;
+    _daemonImmunityBlockedBy = null;
 
     const isCorruption = card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).effect === 'CORRUPTION';
     const globalCorruptionMode = isCorruption ? true : state.globalCorruptionMode;
@@ -525,6 +539,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().addLog(cardLogText(card, actor.name), 'card');
     if (blockedBy) get().addLog(`${blockedBy}'s Quarantine absorbed the attack!`, 'effect');
     if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Cease & Desist cancelled the attack!`, 'effect');
+    if (daemonBlockedBy) get().addLog(`${daemonBlockedBy} blocked the attack!`, 'effect');
 
     if (humanDmsPending) {
       // Mark AI eliminations now; keep the human's eliminated flag clear until they resolve
@@ -686,39 +701,48 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const actorIndex = state.currentPlayerIndex;
     let players = state.players;
 
-    // Prosperity phase roll table (matches reference card):
-    //  ≤ 3  → no gain
-    //  4-5  → gain 5
-    //  6-8  → gain 10
-    //  9-11 → gain 15
-    //  12   → gain 20
-    // Plague phase will invert this once implemented.
-    const baseGain =
+    const inCorruption = state.globalCorruptionMode;
+
+    // Prosperity roll table:  ≤3 → 0 | 4-5 → +5 | 6-8 → +10 | 9-11 → +15 | 12 → +20
+    // Corruption roll table:  ≤3 → 0 | 4-5 → −5 | 6-8 → −10 | 9-11 → −15 | 12 → −20
+    const baseAmount =
       total <= 3  ? 0  :
       total <= 5  ? 5  :
       total <= 8  ? 10 :
       total <= 11 ? 15 : 20;
 
-    const rollLabel =
-      total <= 3  ? 'Low sequence — no gain'         :
-      total <= 5  ? 'Low sequence'                   :
-      total <= 8  ? 'Stable sequence'                :
-      total <= 11 ? 'Stability bonus'                : 'Peak stability';
+    const rollLabel = inCorruption
+      ? (total <= 3  ? 'Corruption held — no losses'  :
+         total <= 5  ? 'Corruption surge'             :
+         total <= 8  ? 'System corrupted'             :
+         total <= 11 ? 'Critical corruption'          : 'Total corruption')
+      : (total <= 3  ? 'Low sequence — no gain'       :
+         total <= 5  ? 'Low sequence'                 :
+         total <= 8  ? 'Stable sequence'              :
+         total <= 11 ? 'Stability bonus'              : 'Peak stability');
 
     const isOverclocked = players[actorIndex]?.overclocked ?? false;
-    const popGain = isOverclocked ? baseGain * 2 : baseGain;
+    // Overclock doubles the magnitude — gains or losses
+    const finalAmount = isOverclocked ? baseAmount * 2 : baseAmount;
 
-    // Clear the overclocked flag whether or not the roll produced a gain
+    // Clear the overclocked flag whether or not the roll produced an effect
     if (isOverclocked) {
       players = players.map((p, i) => i === actorIndex ? { ...p, overclocked: false } : p);
     }
 
-    if (popGain > 0) {
-      players = players.map((p, i) =>
-        i === actorIndex ? { ...p, credits: Math.min(200, p.credits + popGain) } : p
-      );
+    if (finalAmount > 0) {
       const overclock = isOverclocked ? ` [OVERCLOCKED ×2]` : '';
-      get().addLog(`${rollLabel} — gained ${popGain} credits. (${r1}+${r2}=${total})${overclock}`, 'effect');
+      if (inCorruption) {
+        players = players.map((p, i) =>
+          i === actorIndex ? { ...p, credits: Math.max(0, p.credits - finalAmount) } : p
+        );
+        get().addLog(`${rollLabel} — lost ${finalAmount} credits. (${r1}+${r2}=${total})${overclock}`, 'effect');
+      } else {
+        players = players.map((p, i) =>
+          i === actorIndex ? { ...p, credits: Math.min(200, p.credits + finalAmount) } : p
+        );
+        get().addLog(`${rollLabel} — gained ${finalAmount} credits. (${r1}+${r2}=${total})${overclock}`, 'effect');
+      }
     } else {
       get().addLog(`${rollLabel}. (${r1}+${r2}=${total})`, 'roll');
     }
