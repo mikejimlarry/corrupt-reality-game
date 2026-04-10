@@ -722,26 +722,35 @@ export const useGameStore = create<GameStore>((set, get) => ({
          total <= 11 ? 'Stability bonus'              : 'Peak stability');
 
     const isOverclocked = players[actorIndex]?.overclocked ?? false;
-    // Overclock doubles the magnitude — gains or losses
-    const finalAmount = isOverclocked ? baseAmount * 2 : baseAmount;
+    // Overclock doubles the base amount before daemon bonuses are applied
+    const overclockAmount = isOverclocked ? baseAmount * 2 : baseAmount;
+
+    // Each daemon adds +1 to stability gains and -1 to corruption losses
+    const daemonCount = players[actorIndex]?.daemons.length ?? 0;
+    const finalAmount = inCorruption
+      ? Math.max(0, overclockAmount - daemonCount)
+      : overclockAmount + (baseAmount > 0 ? daemonCount : 0);
 
     // Clear the overclocked flag whether or not the roll produced an effect
     if (isOverclocked) {
       players = players.map((p, i) => i === actorIndex ? { ...p, overclocked: false } : p);
     }
 
-    if (finalAmount > 0) {
-      const overclock = isOverclocked ? ` [OVERCLOCKED ×2]` : '';
+    const overclock  = isOverclocked  ? ` [OVERCLOCKED ×2]` : '';
+    const daemonNote = daemonCount > 0 && baseAmount > 0 ? ` [+${daemonCount} DAEMON BONUS]` : '';
+
+    if (finalAmount > 0 || (inCorruption && overclockAmount > 0)) {
       if (inCorruption) {
         players = players.map((p, i) =>
           i === actorIndex ? { ...p, credits: Math.max(0, p.credits - finalAmount) } : p
         );
-        get().addLog(`${rollLabel} — lost ${finalAmount} credits. (${r1}+${r2}=${total})${overclock}`, 'effect');
+        const lossNote = finalAmount === 0 ? 'daemons absorbed all losses' : `lost ${finalAmount} credits`;
+        get().addLog(`${rollLabel} — ${lossNote}. (${r1}+${r2}=${total})${overclock}${daemonNote}`, 'effect');
       } else {
         players = players.map((p, i) =>
           i === actorIndex ? { ...p, credits: Math.min(200, p.credits + finalAmount) } : p
         );
-        get().addLog(`${rollLabel} — gained ${finalAmount} credits. (${r1}+${r2}=${total})${overclock}`, 'effect');
+        get().addLog(`${rollLabel} — gained ${finalAmount} credits. (${r1}+${r2}=${total})${overclock}${daemonNote}`, 'effect');
       }
     } else {
       get().addLog(`${rollLabel}. (${r1}+${r2}=${total})`, 'roll');

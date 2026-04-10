@@ -158,7 +158,7 @@ export class Card extends Phaser.GameObjects.Container {
     const statText = this.getStatText(d);
     if (statText) {
       const pill = this.scene.add.graphics();
-      const pillW = 46, pillH = 15;
+      const pillW = 36, pillH = 15;
       const pillX = left + CARD_W - PAD - pillW;
       const pillY = artY + ART_H - pillH - 2;
       pill.fillStyle(catColor, 0.25);
@@ -345,11 +345,11 @@ export class Card extends Phaser.GameObjects.Container {
   // ── Stat text helper ────────────────────────────────────────────────────
   private getStatText(d: CardData): string | null {
     switch (d.category) {
-      case 'CREDITS':         return `+${d.amount} CREDITS`;
-      case 'EVENT_POSITIVE':return `+${d.amount} CREDITS`;
-      case 'EVENT_NEGATIVE':return `-${d.amount} CREDITS`;
-      case 'WAR':           return `W:-${d.winnerLoses}`;
-      default:              return null;
+      case 'CREDITS':        return `+${d.amount}`;
+      case 'EVENT_POSITIVE': return d.amount > 0 ? `+${d.amount}` : null;
+      case 'EVENT_NEGATIVE': return d.amount > 0 ? `-${d.amount}` : null;
+      case 'WAR':            return `W -${d.winnerLoses}`;
+      default:               return null;
     }
   }
 
