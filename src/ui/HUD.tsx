@@ -1,6 +1,7 @@
 // src/ui/HUD.tsx
 import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../state/useGameStore';
+import { HelpModal } from './HelpModal';
 
 const PULSE_STYLE = `
 @keyframes hud-pulse {
@@ -95,6 +96,7 @@ export function HUD() {
   const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
 
   const [logExpanded, setLogExpanded] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Delay the BEGIN SEQUENCE button so it appears after the table + card animations settle
   const [rollReady, setRollReady] = useState(false);
@@ -127,6 +129,8 @@ export function HUD() {
         flexDirection: 'column',
       }}
     >
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+
       {/* Corruption banner */}
       {corruption && (
         <div
@@ -234,6 +238,30 @@ export function HUD() {
           </button>
         </div>
       )}
+
+      {/* Help button */}
+      <button
+        onClick={() => setShowHelp(true)}
+        style={{
+          ...BTN_BASE,
+          background: 'transparent',
+          border: `1px solid ${ACCENT}22`,
+          color: `${ACCENT}44`,
+          fontSize: 10, letterSpacing: 2,
+          marginBottom: 8,
+          transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLElement).style.color = ACCENT;
+          (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`;
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.color = `${ACCENT}44`;
+          (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}22`;
+        }}
+      >
+        ? FIELD MANUAL
+      </button>
 
       {/* Game log */}
       {log.length > 0 && (
