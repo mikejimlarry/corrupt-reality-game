@@ -103,8 +103,8 @@ export class Card extends Phaser.GameObjects.Container {
     badgeCon.add(badgeGfx);
 
     const rarityLbl = this.scene.add.text(0, 0, d.rarity, {
-      fontFamily: 'monospace', fontSize: '8px', color: rarityHex,
-      letterSpacing: 1, resolution: window.devicePixelRatio,
+      fontFamily: 'monospace', fontSize: '7px', color: rarityHex,
+      resolution: window.devicePixelRatio,
     }).setOrigin(0.5);
     badgeCon.add(rarityLbl);
     badgeCon.setAngle(-90);
