@@ -52,16 +52,16 @@ const CARDS: CardEntry[] = [
   { name: 'Network Storm',       category: 'EVENT_NEGATIVE', count: 2, effect: 'Every opponent loses 10 credits and one daemon.' },
   { name: 'The Corruption',      category: 'EVENT_NEGATIVE', count: 1, effect: 'Target loses 10 credits. Corruption mode begins.' },
   // Wars
-  { name: 'Proxy War',           category: 'WAR',            count: 4, effect: 'Roll dice vs. target. Winner −5 credits · Loser −10 credits.' },
-  { name: 'Grid War',            category: 'WAR',            count: 3, effect: 'Roll dice vs. target. Winner −10 credits · Loser −20 credits and one daemon.' },
+  { name: 'Proxy War',           category: 'WAR',            count: 4, effect: 'Attack a target. You lose 5 credits · Target loses 10 credits.' },
+  { name: 'Grid War',            category: 'WAR',            count: 3, effect: 'Attack a target. You lose 10 credits · Target loses 20 credits and one daemon.' },
   // Counters
-  { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Play before a war roll. Add +1 to your die result.' },
-  { name: 'Cease & Desist',      category: 'COUNTER',        count: 3, effect: 'Cancel a War or Hack card before it resolves.' },
-  { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Block the next targeted attack against you. One use.' },
+  { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Your next WAR card costs you 0 credits instead of the usual loss.' },
+  { name: 'Cease & Desist',      category: 'COUNTER',        count: 3, effect: 'Block the next WAR or hack protocol targeting you. One use.' },
+  { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Block the next hack protocol targeting you. One use. (Does not block WAR — use Cease & Desist for that.)' },
   // Daemons
-  { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 Stability Roll · −1 Corruption Roll · Immune to Data Drought & Inferno Protocol.' },
-  { name: 'Encryption',          category: 'DAEMON',    count: 3, effect: '+1 Stability Roll · −1 Corruption Roll · Immune to Data Flood.' },
-  { name: 'Hardened Node',       category: 'DAEMON',    count: 5, effect: '+1 Stability Roll · −1 Corruption Roll · Immune to Raid Protocol · Reduces war losses by 5.' },
+  { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Data Drought & Inferno Protocol.' },
+  { name: 'Encryption',          category: 'DAEMON',    count: 3, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Data Flood.' },
+  { name: 'Hardened Node',       category: 'DAEMON',    count: 5, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Raid Protocol · Reduces WAR losses by 5.' },
 ];
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -173,7 +173,7 @@ function TabHowToPlay() {
       </Section>
 
       <Section title="YOUR TURN">
-        <Bullet><Highlight>1. Stability Roll</Highlight> — Roll two dice. Gain credits based on the table below.</Bullet>
+        <Bullet><Highlight>1. Stability Roll</Highlight> — Roll two dice. Gain credits based on the table below. Each daemon you own adds <Highlight>+1 credit</Highlight> to any roll that produces a gain.</Bullet>
         <Bullet><Highlight>2. Draw</Highlight> — Draw cards from the pile until you hold 6.</Bullet>
         <Bullet><Highlight>3. Play or Discard</Highlight> — Play one card from your hand, or discard one. All played and discarded cards go face-up in the discard pile.</Bullet>
         <P>Once all players have gone, the round repeats. Play continues until only one faction remains.</P>
@@ -182,7 +182,7 @@ function TabHowToPlay() {
 
       <Section title="THE CORRUPTION">
         <P>
-          When <Highlight>The Corruption</Highlight> card is played, the targeted player loses 10 credits and Corruption Mode begins. The die roll table flips — players now lose credits each roll instead of gaining them. This is the turning point of the game.
+          When <Highlight>The Corruption</Highlight> card is played, the targeted player loses 10 credits and Corruption Mode begins — the entire board shifts red. Stability Rolls now deal damage instead of granting credits, using the same thresholds in reverse. Each daemon you own <Highlight>absorbs 1 credit of corruption loss</Highlight> per roll — enough daemons can negate a roll entirely.
         </P>
       </Section>
 
