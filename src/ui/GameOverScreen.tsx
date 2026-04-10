@@ -1,5 +1,5 @@
 // src/ui/GameOverScreen.tsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGameStore } from '../state/useGameStore';
 
 const STYLE = `
