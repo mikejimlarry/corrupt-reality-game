@@ -81,13 +81,11 @@ export function HUD() {
   const currentPlayerIndex  = useGameStore(s => s.currentPlayerIndex);
   const selectedCardId      = useGameStore(s => s.selectedCardId);
   const turnNumber          = useGameStore(s => s.turnNumber);
-  const winnerId            = useGameStore(s => s.winnerId);
   const log                 = useGameStore(s => s.log);
   const corruption          = useGameStore(s => s.globalCorruptionMode);
   const drawCard            = useGameStore(s => s.drawCard);
   const playCard            = useGameStore(s => s.playCard);
   const discardCard         = useGameStore(s => s.discardCard);
-  const resetToSetup        = useGameStore(s => s.resetToSetup);
   const triggerRoll         = useGameStore(s => s.triggerRoll);
   const rollTriggered       = useGameStore(s => s.rollTriggered);
   const validTargetIds      = useGameStore(s => s.validTargetIds);
@@ -115,7 +113,6 @@ export function HUD() {
   const selectedCard = selectedCardId
     ? players.find(p => p.isHuman)?.hand.find(c => c.id === selectedCardId)
     : null;
-  const winner = winnerId ? players.find(p => p.id === winnerId) : null;
   const logTail = log.slice(-4);
 
   return (
@@ -161,15 +158,9 @@ export function HUD() {
         <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 4 }}>
           TURN {turnNumber} · {phase}
         </div>
-        {phase === 'GAME_OVER' ? (
-          <div style={{ fontSize: 13, color: ACCENT, fontWeight: 'bold' }}>
-            🏆 {winner?.name ?? 'Unknown'} WINS
-          </div>
-        ) : (
-          <div style={{ fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold' }}>
-            {isHuman ? '▶ YOUR TURN' : `⏳ ${currentPlayer?.name ?? '...'}`}
-          </div>
-        )}
+        <div style={{ fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold' }}>
+          {isHuman ? '▶ YOUR TURN' : `⏳ ${currentPlayer?.name ?? '...'}`}
+        </div>
       </div>
 
       {/* BEGIN SEQUENCE button — human PHASE_ROLL only, appears after animations settle */}
@@ -240,15 +231,6 @@ export function HUD() {
           </div>
           <button style={btnPrimary(ACCENT)} onClick={() => endTurn()}>
             END TURN ›
-          </button>
-        </div>
-      )}
-
-      {/* Game over action */}
-      {phase === 'GAME_OVER' && (
-        <div style={panel(ACCENT)}>
-          <button style={btnPrimary(ACCENT)} onClick={() => resetToSetup()}>
-            PLAY AGAIN
           </button>
         </div>
       )}
