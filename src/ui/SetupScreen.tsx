@@ -145,18 +145,30 @@ export const SetupScreen: React.FC = () => {
 
         <div style={SEP} />
 
-        {/* Starting population */}
+        {/* Starting credits */}
         <div>
-          <div style={LABEL}>STARTING CREDITS</div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {([30, 50, 70] as const).map(pop => (
-              <SegmentButton key={pop} active={startingPop === pop} onClick={() => setStartingPop(pop)}>
-                {pop}
-              </SegmentButton>
-            ))}
+          <div style={{ ...LABEL, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span>STARTING CREDITS</span>
+            <span style={{ fontSize: '0.85rem', color: '#00ffcc', letterSpacing: 2 }}>{startingPop}</span>
           </div>
-          <div style={{ fontSize: '0.58rem', color: '#334455', letterSpacing: 1, marginTop: '0.4rem', textAlign: 'center' }}>
-            {startingPop === 30 ? 'SHORT GAME' : startingPop === 50 ? 'STANDARD GAME LENGTH' : 'LONG GAME'}
+          <input
+            type="range"
+            className="credits-slider"
+            min={30}
+            max={100}
+            step={5}
+            value={startingPop}
+            onChange={e => setStartingPop(Number(e.target.value))}
+            style={{
+              '--fill': `${((startingPop - 30) / 70) * 100}%`,
+            } as React.CSSProperties}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#334455', letterSpacing: 1, marginTop: '0.3rem' }}>
+            <span>30</span>
+            <span style={{ color: startingPop < 45 ? '#446655' : startingPop > 55 ? '#446655' : '#334455' }}>
+              {startingPop < 45 ? 'SHORT GAME' : startingPop > 55 ? 'LONG GAME' : 'STANDARD'}
+            </span>
+            <span>100</span>
           </div>
         </div>
 
