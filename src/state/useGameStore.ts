@@ -303,6 +303,7 @@ interface GameStore extends GameState {
   selectTarget(targetId: string): void;
   cancelTargeting(): void;
   resolveDeadMansSwitch(card: Card | null): void;
+  endTurn(): void;
   advanceTurn(): void;
   triggerRoll(): void;
   rollComplete(): void;
@@ -565,18 +566,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (winnerId) get().addLog(`${alive[0].name} wins the game!`, 'turn');
 
+    const isHuman = state.players[actorIndex]?.isHuman ?? false;
+
     set({
       players, discard, globalCorruptionMode, winnerId,
-      phase: winnerId ? 'GAME_OVER' : 'MAIN',
+      phase: winnerId ? 'GAME_OVER' : (isHuman ? 'END_TURN' : 'MAIN'),
       selectedCardId: null,
       pendingCardId: null,
       validTargetIds: [],
       deadMansSwitchPending: null,
     });
 
-    // Wait for the card fly-out animation (~420ms) to complete, then add
-    // a deliberate pause before the next player's dice roll begins.
-    if (!winnerId) setTimeout(() => get().advanceTurn(), 950);
+    // AI players advance automatically after the card fly-out animation settles.
+    if (!winnerId && !isHuman) setTimeout(() => get().advanceTurn(), 950);
   },
 
   selectTarget: (targetId: string) => {
@@ -617,13 +619,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const winnerId = alive.length === 1 ? alive[0].id : null;
     if (winnerId) get().addLog(`${alive[0].name} wins the game!`, 'turn');
 
+    const humanResolved = state.players[state.deadMansSwitchPending.playerIndex]?.isHuman ?? false;
+
     set({
       players, discard, winnerId,
-      phase: winnerId ? 'GAME_OVER' : 'MAIN',
+      phase: winnerId ? 'GAME_OVER' : (humanResolved ? 'END_TURN' : 'MAIN'),
       deadMansSwitchPending: null,
     });
 
-    if (!winnerId) setTimeout(() => get().advanceTurn(), 950);
+    if (!winnerId && !humanResolved) setTimeout(() => get().advanceTurn(), 950);
   },
 
   discardCard: (cardId: string) => {
@@ -641,10 +645,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     );
     const discard = [...state.discard, card];
 
-    set({ players, discard, selectedCardId: null });
+    set({ players, discard, selectedCardId: null, phase: 'END_TURN' });
     get().addLog(`${actor.name} discarded ${card.name}.`, 'card');
+  },
 
-    setTimeout(() => get().advanceTurn(), 950);
+  endTurn: () => {
+    if (get().phase !== 'END_TURN') return;
+    get().advanceTurn();
   },
 
   advanceTurn: () => {

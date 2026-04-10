@@ -92,6 +92,7 @@ export function HUD() {
   const rollTriggered       = useGameStore(s => s.rollTriggered);
   const validTargetIds      = useGameStore(s => s.validTargetIds);
   const cancelTargeting     = useGameStore(s => s.cancelTargeting);
+  const endTurn             = useGameStore(s => s.endTurn);
 
   const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
 
@@ -228,6 +229,18 @@ export function HUD() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* End turn panel */}
+      {phase === 'END_TURN' && (
+        <div style={panel(ACCENT)} className={corruption ? 'corruption-pulse' : 'hud-pulse'}>
+          <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 8 }}>
+            TURN COMPLETE
+          </div>
+          <button style={btnPrimary(ACCENT)} onClick={() => endTurn()}>
+            END TURN ›
+          </button>
         </div>
       )}
 
