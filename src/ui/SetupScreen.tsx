@@ -74,12 +74,21 @@ function Toggle({
 
 export const SetupScreen: React.FC = () => {
   const startGame = useGameStore(s => s.startGame);
-  const [name, setName]             = useState('');
-  const [count, setCount]           = useState(1);
-  const [startingPop, setStartingPop] = useState(50);
-  const [hidePpCounts, setHidePpCounts] = useState(false);
-  const [deadMansSwitch, setDeadMansSwitch] = useState(false);
+  const [name, setName]             = useState(() => localStorage.getItem('crg-handle') ?? '');
+  const [count, setCount]           = useState(() => Number(localStorage.getItem('crg-count') ?? '1'));
+  const [startingPop, setStartingPop] = useState(() => Number(localStorage.getItem('crg-credits') ?? '50'));
+  const [hidePpCounts, setHidePpCounts] = useState(() => localStorage.getItem('crg-hide-credits') === 'true');
+  const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
   const [showHelp, setShowHelp] = useState(false);
+
+  const handleStart = () => {
+    localStorage.setItem('crg-handle', name.trim() || 'Ghost');
+    localStorage.setItem('crg-count', String(count));
+    localStorage.setItem('crg-credits', String(startingPop));
+    localStorage.setItem('crg-hide-credits', String(hidePpCounts));
+    localStorage.setItem('crg-dead-mans-switch', String(deadMansSwitch));
+    startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch);
+  };
 
   return (
     <div style={{
@@ -194,7 +203,7 @@ export const SetupScreen: React.FC = () => {
 
         {/* Start */}
         <button
-          onClick={() => startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch)}
+          onClick={handleStart}
           style={{
             padding: '0.75rem',
             background: '#00ffcc11',
