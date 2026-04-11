@@ -14,6 +14,8 @@ let _quarantineBlockedBy: string | null = null;
 let _negotiateBlockedBy: string | null = null;
 // Written by applyCardEffect when a daemon immunity blocks a targeted attack.
 let _daemonImmunityBlockedBy: string | null = null;
+// Written by applyCardEffect when a WAR card resolves — captures both rolls and outcome.
+let _warRollResult: { actorRoll: number; targetRoll: number; actorWins: boolean; targetName: string } | null = null;
 
 // targetIndex — when provided (human targeting), use it directly.
 // When omitted (AI turn), fall back to a random live opponent.
@@ -145,20 +147,33 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         _negotiateBlockedBy = players[ti].name;
         return players.map((p, i) => i === ti ? { ...p, negotiating: false } : p);
       }
-      // Firewall Surge — actor's war cost is waived this turn, then flag clears
-      const actorWarCost = players[actorIndex].tacticalBonus ? 0 : w.winnerLoses;
-      // Hardened Node — target's war losses are reduced by 5 (min 0)
-      const targetWarLoss = players[ti].daemons.includes('HARDENED_NODE')
-        ? Math.max(0, w.loserLoses - 5)
-        : w.loserLoses;
+      // Roll 2d6 for each side — ties go to the attacker
+      const actorRoll = Math.floor(random() * 6) + 1 + Math.floor(random() * 6) + 1;
+      const targetRoll = Math.floor(random() * 6) + 1 + Math.floor(random() * 6) + 1;
+      const actorWins = actorRoll >= targetRoll;
+      _warRollResult = { actorRoll, targetRoll, actorWins, targetName: players[ti].name };
+      // Determine base credit losses based on who won
+      let actorLoss = actorWins ? w.winnerLoses : w.loserLoses;
+      let targetLoss = actorWins ? w.loserLoses : w.winnerLoses;
+      // Firewall Surge — waives the actor's credit loss entirely
+      if (players[actorIndex].tacticalBonus) actorLoss = 0;
+      // Hardened Node — reduces the loser's credit loss by 5 (min 0)
+      if (!actorWins && players[actorIndex].daemons.includes('HARDENED_NODE'))
+        actorLoss = Math.max(0, actorLoss - 5);
+      if (actorWins && players[ti].daemons.includes('HARDENED_NODE'))
+        targetLoss = Math.max(0, targetLoss - 5);
       return players.map((p, i) => {
-        if (i === actorIndex) return { ...p, credits: Math.max(0, p.credits - actorWarCost), tacticalBonus: false };
+        if (i === actorIndex) {
+          let daemons = [...p.daemons];
+          if (!actorWins && w.loserLosesImprovement && daemons.length > 0)
+            daemons.splice(Math.floor(random() * daemons.length), 1);
+          return { ...p, credits: Math.max(0, p.credits - actorLoss), tacticalBonus: false, daemons };
+        }
         if (i === ti) {
-          let imps = [...p.daemons];
-          if (w.loserLosesImprovement && imps.length > 0) {
-            imps.splice(Math.floor(random() * imps.length), 1);
-          }
-          return { ...p, credits: Math.max(0, p.credits - targetWarLoss), daemons: imps };
+          let daemons = [...p.daemons];
+          if (actorWins && w.loserLosesImprovement && daemons.length > 0)
+            daemons.splice(Math.floor(random() * daemons.length), 1);
+          return { ...p, credits: Math.max(0, p.credits - targetLoss), daemons };
         }
         return p;
       });
@@ -258,7 +273,14 @@ function cardLogText(card: Card, actorName: string): string {
         return `${actorName} deployed ${card.name} (hit all opponents for ${neg.amount} credits)`;
       return `${actorName} deployed ${card.name}`;
     }
-    case 'WAR': return `${actorName} initiated ${card.name}`;
+    case 'WAR': {
+      if (_warRollResult) {
+        const { actorRoll, targetRoll, actorWins, targetName } = _warRollResult;
+        const winner = actorWins ? actorName : targetName;
+        return `${actorName} played ${card.name} — rolled ${actorRoll} vs ${targetName} ${targetRoll} — ${winner} wins the conflict`;
+      }
+      return `${actorName} played ${card.name}`;
+    }
     case 'DAEMON': return `${actorName} deployed daemon ${card.name}`;
     case 'COUNTER': {
       const cnt = card as CounterCard;
@@ -495,6 +517,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     _quarantineBlockedBy = null;
     _negotiateBlockedBy = null;
     _daemonImmunityBlockedBy = null;
+    _warRollResult = null;
     players = applyCardEffect(card, players, actorIndex, targetIndex);
     const blockedBy = _quarantineBlockedBy;
     const negotiateBlockedBy = _negotiateBlockedBy;
@@ -538,6 +561,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     get().addLog(cardLogText(card, actor.name), 'card');
+    _warRollResult = null;
     if (blockedBy) get().addLog(`${blockedBy}'s Quarantine absorbed the attack!`, 'effect');
     if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Cease & Desist cancelled the attack!`, 'effect');
     if (daemonBlockedBy) get().addLog(`${daemonBlockedBy} blocked the attack!`, 'effect');
