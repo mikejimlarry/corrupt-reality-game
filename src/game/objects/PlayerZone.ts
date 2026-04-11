@@ -27,7 +27,9 @@ export class PlayerZone extends Phaser.GameObjects.Container {
   private player: PlayerState;
   private hidePop: boolean;
   private targetGlow?: Phaser.GameObjects.Graphics;
+  private targetLabel?: Phaser.GameObjects.Text;
   private targetTween?: Phaser.Tweens.Tween;
+  private targetLabelTween?: Phaser.Tweens.Tween;
 
   constructor(scene: Phaser.Scene, x: number, y: number, player: PlayerState, hidePop = false) {
     super(scene, x, y);
@@ -190,35 +192,56 @@ export class PlayerZone extends Phaser.GameObjects.Container {
    * border and makes the zone clickable. Pass null for onClick to deactivate.
    */
   setTargetable(active: boolean, onClick?: () => void) {
-    // Clean up any existing highlight + listener
+    // Clean up any existing highlight + listeners
     this.targetTween?.stop();
+    this.targetLabelTween?.stop();
     this.targetGlow?.destroy();
+    this.targetLabel?.destroy();
     this.targetGlow = undefined;
+    this.targetLabel = undefined;
     this.removeInteractive();
     this.removeAllListeners('pointerdown');
 
     if (!active) return;
 
     const left = -W / 2, top = -H / 2;
-    const glow = this.scene.add.graphics();
     const TARGET_COLOR = 0xff3333;
+
+    // Pulsing red border glow
+    const glow = this.scene.add.graphics();
     glow.lineStyle(2.5, TARGET_COLOR, 0.9);
     glow.strokeRoundedRect(left - 3, top - 3, W + 6, H + 6, 10);
-    glow.fillStyle(TARGET_COLOR, 0.06);
+    glow.fillStyle(TARGET_COLOR, 0.08);
     glow.fillRoundedRect(left - 3, top - 3, W + 6, H + 6, 10);
     this.add(glow);
     this.targetGlow = glow;
 
     this.targetTween = this.scene.tweens.add({
       targets: glow,
+      alpha: { from: 1, to: 0.25 },
+      duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
+
+    // "CLICK TO TARGET" label centred in zone
+    const label = this.scene.add.text(0, H / 2 - 18, '▼  CLICK TO TARGET  ▼', {
+      fontFamily: 'monospace',
+      fontSize: '8px',
+      color: '#ff4444',
+      letterSpacing: 2,
+      resolution: window.devicePixelRatio,
+    }).setOrigin(0.5);
+    this.add(label);
+    this.targetLabel = label;
+
+    this.targetLabelTween = this.scene.tweens.add({
+      targets: label,
       alpha: { from: 1, to: 0.3 },
-      duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
     });
 
     this.setInteractive();
     if (onClick) {
       this.on('pointerdown', onClick);
-      // Cursor hint
       this.scene.input.setDefaultCursor('crosshair');
     }
   }

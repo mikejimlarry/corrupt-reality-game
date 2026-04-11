@@ -323,7 +323,7 @@ export class GameScene extends Phaser.Scene {
     const isHuman = players[currentPlayerIndex]?.isHuman;
     // Dim during PHASE_ROLL and DRAW — cards are non-interactive until MAIN
     const shouldDim = isHuman && (phase === 'PHASE_ROLL' || phase === 'DRAW');
-    const targetAlpha = shouldDim ? 0.3 : 1;
+    const targetAlpha = shouldDim ? 0.55 : 1;
     this.humanCardObjects.forEach(card => {
       // Only add an alpha tween; don't kill other tweens (e.g. hover y/scale)
       this.tweens.add({
@@ -345,7 +345,7 @@ export class GameScene extends Phaser.Scene {
     const { phase, players, currentPlayerIndex } = useGameStore.getState();
     const isHuman  = players[currentPlayerIndex]?.isHuman;
     const shouldDim = isHuman && (phase === 'PHASE_ROLL' || phase === 'DRAW');
-    const targetAlpha = shouldDim ? 0.3 : 1;
+    const targetAlpha = shouldDim ? 0.55 : 1;
 
     // Fan layout constants
     const SCALE    = 1.25;
@@ -595,8 +595,10 @@ export class GameScene extends Phaser.Scene {
     // Step 1 — pull the card visibly out from the edge
     back.setDepth(50);
     back.liftOut(centerX, centerY, () => {
-      // Step 2 — brief pause so the player can see the card being "chosen"
-      this.time.delayedCall(300, () => {
+      // Step 2 — flash the card name so the player knows what was played
+      this.flashAiCardBanner(topCard, centerX, centerY - 80);
+      // Step 3 — brief pause then fly to discard (extended to let banner be read)
+      this.time.delayedCall(600, () => {
         const discardWorldX = centerX + DISCARD_LOCAL_CX;
         const discardWorldY = centerY + DISCARD_LOCAL_CY;
         back.playOut(discardWorldX, discardWorldY, () => {
@@ -604,6 +606,75 @@ export class GameScene extends Phaser.Scene {
           this.centreZone?.setDiscardTop(topCard);
         });
       });
+    });
+  }
+
+  // ── AI card reveal banner — brief overlay showing which card the AI played ──
+  private flashAiCardBanner(card: CardData, x: number, y: number) {
+    const CAT_COLORS: Record<string, number> = {
+      CREDITS:        0x00ff88,
+      EVENT_POSITIVE: 0x00ccff,
+      EVENT_NEGATIVE: 0xff3355,
+      WAR:            0xff8800,
+      COUNTER:        0xbb44ff,
+      DAEMON:         0x00ffcc,
+    };
+    const CAT_LABELS: Record<string, string> = {
+      CREDITS:        'DATA HARVEST',
+      EVENT_POSITIVE: 'SYSTEM EVENT',
+      EVENT_NEGATIVE: 'HACK PROTOCOL',
+      WAR:            'GRID CONFLICT',
+      COUNTER:        'COUNTERMEASURE',
+      DAEMON:         'DAEMON',
+    };
+
+    const catColor = CAT_COLORS[card.category] ?? 0x00ffcc;
+    const catHex   = `#${catColor.toString(16).padStart(6, '0')}`;
+    const BW = 230, BH = 58;
+
+    const con = this.add.container(x, y).setDepth(200).setAlpha(0);
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x08080f, 0.96);
+    bg.fillRoundedRect(-BW / 2, -BH / 2, BW, BH, 7);
+    bg.lineStyle(1.5, catColor, 0.9);
+    bg.strokeRoundedRect(-BW / 2, -BH / 2, BW, BH, 7);
+    // Thin top accent stripe
+    bg.fillStyle(catColor, 0.18);
+    bg.fillRoundedRect(-BW / 2, -BH / 2, BW, 14, { tl: 7, tr: 7, bl: 0, br: 0 });
+    con.add(bg);
+
+    const catLbl = this.add.text(0, -BH / 2 + 7, `${CAT_LABELS[card.category] ?? card.category}`, {
+      fontFamily: 'monospace', fontSize: '7px', color: catHex, letterSpacing: 3,
+      resolution: window.devicePixelRatio,
+    }).setOrigin(0.5);
+    con.add(catLbl);
+
+    const nameLbl = this.add.text(0, -BH / 2 + 30, card.name.toUpperCase(), {
+      fontFamily: 'monospace', fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
+      resolution: window.devicePixelRatio,
+    }).setOrigin(0.5);
+    con.add(nameLbl);
+
+    const agentLbl = this.add.text(-BW / 2 + 8, BH / 2 - 6, '⚡ AI PLAYS', {
+      fontFamily: 'monospace', fontSize: '7px', color: `${catHex}88`, letterSpacing: 2,
+      resolution: window.devicePixelRatio,
+    }).setOrigin(0, 1);
+    con.add(agentLbl);
+
+    // Fade in → hold → fade out
+    this.tweens.add({
+      targets: con, alpha: 1,
+      duration: 150, ease: 'Quad.easeOut',
+      onComplete: () => {
+        this.time.delayedCall(450, () => {
+          this.tweens.add({
+            targets: con, alpha: 0,
+            duration: 200, ease: 'Quad.easeIn',
+            onComplete: () => con.destroy(),
+          });
+        });
+      },
     });
   }
 
