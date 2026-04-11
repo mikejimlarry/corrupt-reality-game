@@ -108,6 +108,14 @@ export function HUD() {
     }
   }, [phase]);
 
+  // Auto-advance when the human's turn ends — no button needed since there's nothing left to do
+  useEffect(() => {
+    if (phase === 'END_TURN') {
+      const t = setTimeout(() => endTurn(), 900);
+      return () => clearTimeout(t);
+    }
+  }, [phase, endTurn]);
+
   if (phase === 'SETUP') return null;
 
   const currentPlayer = players[currentPlayerIndex];
@@ -227,15 +235,12 @@ export function HUD() {
         </div>
       )}
 
-      {/* End turn panel */}
+      {/* End turn — auto-advances after 900 ms; show a brief status flash */}
       {phase === 'END_TURN' && (
-        <div style={panel(ACCENT)} className={corruption ? 'corruption-pulse' : 'hud-pulse'}>
-          <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 8 }}>
+        <div style={{ ...panel(ACCENT), opacity: 0.7 }}>
+          <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2 }}>
             TURN COMPLETE
           </div>
-          <button style={btnPrimary(ACCENT)} onClick={() => endTurn()}>
-            END TURN ›
-          </button>
         </div>
       )}
 
