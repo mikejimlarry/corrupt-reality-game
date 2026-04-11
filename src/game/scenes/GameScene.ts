@@ -323,7 +323,7 @@ export class GameScene extends Phaser.Scene {
     const isHuman = players[currentPlayerIndex]?.isHuman;
     // Dim during PHASE_ROLL and DRAW — cards are non-interactive until MAIN
     const shouldDim = isHuman && (phase === 'PHASE_ROLL' || phase === 'DRAW');
-    const targetAlpha = shouldDim ? 0.3 : 1;
+    const targetAlpha = shouldDim ? 0.55 : 1;
     this.humanCardObjects.forEach(card => {
       // Only add an alpha tween; don't kill other tweens (e.g. hover y/scale)
       this.tweens.add({
@@ -345,7 +345,7 @@ export class GameScene extends Phaser.Scene {
     const { phase, players, currentPlayerIndex } = useGameStore.getState();
     const isHuman  = players[currentPlayerIndex]?.isHuman;
     const shouldDim = isHuman && (phase === 'PHASE_ROLL' || phase === 'DRAW');
-    const targetAlpha = shouldDim ? 0.3 : 1;
+    const targetAlpha = shouldDim ? 0.55 : 1;
 
     // Fan layout constants
     const SCALE    = 1.25;
