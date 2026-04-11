@@ -15,7 +15,7 @@ let _negotiateBlockedBy: string | null = null;
 // Written by applyCardEffect when a daemon immunity blocks a targeted attack.
 let _daemonImmunityBlockedBy: string | null = null;
 // Written by applyCardEffect when a WAR card resolves — captures both rolls and outcome.
-let _warRollResult: { actorRoll: number; targetRoll: number; actorWins: boolean; targetName: string } | null = null;
+let _warRollResult: { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; actorWins: boolean; targetName: string } | null = null;
 
 // targetIndex — when provided (human targeting), use it directly.
 // When omitted (AI turn), fall back to a random live opponent.
@@ -147,16 +147,16 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         _negotiateBlockedBy = players[ti].name;
         return players.map((p, i) => i === ti ? { ...p, negotiating: false } : p);
       }
-      // Roll 2d6 for each side — ties go to the attacker
-      const actorRoll = Math.floor(random() * 6) + 1 + Math.floor(random() * 6) + 1;
-      const targetRoll = Math.floor(random() * 6) + 1 + Math.floor(random() * 6) + 1;
-      const actorWins = actorRoll >= targetRoll;
-      _warRollResult = { actorRoll, targetRoll, actorWins, targetName: players[ti].name };
+      // Roll 1d6 for each side; Firewall Surge (tacticalBonus) adds +1 to actor's roll
+      const actorBase  = Math.floor(random() * 6) + 1;
+      const targetRoll = Math.floor(random() * 6) + 1;
+      const actorBonus = players[actorIndex].tacticalBonus ? 1 : 0;
+      const actorRoll  = actorBase + actorBonus;
+      const actorWins  = actorRoll >= targetRoll; // ties go to the attacker
+      _warRollResult = { actorRoll, actorBase, actorBonus, targetRoll, actorWins, targetName: players[ti].name };
       // Determine base credit losses based on who won
-      let actorLoss = actorWins ? w.winnerLoses : w.loserLoses;
-      let targetLoss = actorWins ? w.loserLoses : w.winnerLoses;
-      // Firewall Surge — waives the actor's credit loss entirely
-      if (players[actorIndex].tacticalBonus) actorLoss = 0;
+      let actorLoss  = actorWins ? w.winnerLoses : w.loserLoses;
+      let targetLoss = actorWins ? w.loserLoses  : w.winnerLoses;
       // Hardened Node — reduces the loser's credit loss by 5 (min 0)
       if (!actorWins && players[actorIndex].daemons.includes('HARDENED_NODE'))
         actorLoss = Math.max(0, actorLoss - 5);
@@ -167,7 +167,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
           let daemons = [...p.daemons];
           if (!actorWins && w.loserLosesImprovement && daemons.length > 0)
             daemons.splice(Math.floor(random() * daemons.length), 1);
-          return { ...p, credits: Math.max(0, p.credits - actorLoss), tacticalBonus: false, daemons };
+          return { ...p, credits: Math.max(0, p.credits - actorLoss), tacticalBonus: false, daemons }; // clear tacticalBonus after use
         }
         if (i === ti) {
           let daemons = [...p.daemons];
@@ -275,9 +275,10 @@ function cardLogText(card: Card, actorName: string): string {
     }
     case 'WAR': {
       if (_warRollResult) {
-        const { actorRoll, targetRoll, actorWins, targetName } = _warRollResult;
+        const { actorBase, actorBonus, actorRoll, targetRoll, actorWins, targetName } = _warRollResult;
+        const actorRollStr = actorBonus > 0 ? `${actorBase}+${actorBonus}=${actorRoll}` : `${actorRoll}`;
         const winner = actorWins ? actorName : targetName;
-        return `${actorName} played ${card.name} — rolled ${actorRoll} vs ${targetName} ${targetRoll} — ${winner} wins the conflict`;
+        return `${actorName} played ${card.name} — rolled ${actorRollStr} vs ${targetName} ${targetRoll} — ${winner} wins`;
       }
       return `${actorName} played ${card.name}`;
     }
@@ -287,7 +288,7 @@ function cardLogText(card: Card, actorName: string): string {
       if (cnt.counterType === 'SHIELD')
         return `${actorName} activated ${card.name} — next hack blocked`;
       if (cnt.counterType === 'TACTICAL_ADVANTAGE')
-        return `${actorName} activated ${card.name} — war costs waived for next conflict`;
+        return `${actorName} activated ${card.name} — +1 to next WAR roll`;
       if (cnt.counterType === 'NEGOTIATE')
         return `${actorName} deployed ${card.name} — next war or hack will be cancelled`;
       return `${actorName} played ${card.name}`;
