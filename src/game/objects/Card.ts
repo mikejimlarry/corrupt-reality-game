@@ -373,11 +373,13 @@ export class Card extends Phaser.GameObjects.Container {
       duration: 150, ease: 'Quad.easeOut',
     });
     this.setDepth(50);
+    useGameStore.getState().setHoveredCard(this.cardData.id);
   }
 
   private onOut() {
     if (!this.isHovered || this.isSelected) return;
     this.isHovered = false;
+    useGameStore.getState().setHoveredCard(null);
     this.scene.tweens.killTweensOf(this);
     this.scene.tweens.add({
       targets: this,

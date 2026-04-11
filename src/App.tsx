@@ -6,6 +6,7 @@ import { SetupScreen } from './ui/SetupScreen';
 import { HUD } from './ui/HUD';
 import { DeadMansSwitchOverlay } from './ui/DeadMansSwitchOverlay';
 import { GameOverScreen } from './ui/GameOverScreen';
+import { CardPreview } from './ui/CardPreview';
 
 function App() {
   const phase      = useGameStore(s => s.phase);
@@ -37,6 +38,7 @@ function App() {
       {phase === 'SETUP' && <SetupScreen />}
       {phase !== 'SETUP' && phase !== 'GAME_OVER' && <HUD />}
       {phase === 'GAME_OVER' && <GameOverScreen />}
+      <CardPreview />
       <DeadMansSwitchOverlay />
     </>
   );

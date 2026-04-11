@@ -310,6 +310,7 @@ const makeLogEntry = (text: string, type: LogEntry['type']): LogEntry => ({
 
 interface GameStore extends GameState {
   selectedCardId: string | null;
+  hoveredCardId: string | null;
   turnNumber: number;
   rollResult: [number, number] | null;
   rollTriggered: boolean;
@@ -317,6 +318,7 @@ interface GameStore extends GameState {
   validTargetIds: string[];
   startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean): void;
   resetToSetup(): void;
+  setHoveredCard(id: string | null): void;
   addLog(text: string, type: LogEntry['type']): void;
   drawCard(): void;
   selectCard(id: string | null): void;
@@ -335,7 +337,7 @@ interface GameStore extends GameState {
 
 // ── Default state ──────────────────────────────────────────────────────────────
 
-const defaultState: GameState & { selectedCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[] } = {
+const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[] } = {
   phase: 'SETUP',
   players: [],
   deck: [],
@@ -346,6 +348,7 @@ const defaultState: GameState & { selectedCardId: string | null; turnNumber: num
   log: [],
   gameSeed: 0,
   selectedCardId: null,
+  hoveredCardId: null,
   turnNumber: 1,
   rollResult: null,
   rollTriggered: false,
@@ -420,7 +423,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().addLog(`${players[0].name}'s turn — Begin the sequence.`, 'turn');
   },
 
-  resetToSetup: () => set({ ...defaultState, selectedCardId: null, turnNumber: 1 }),
+  resetToSetup: () => set({ ...defaultState, selectedCardId: null, hoveredCardId: null, turnNumber: 1 }),
+
+  setHoveredCard: (id) => set({ hoveredCardId: id }),
 
   addLog: (text, type) => set(state => ({
     log: [...state.log, makeLogEntry(text, type)],
