@@ -170,7 +170,7 @@ const counterCards: Card[] = [
   // Firewall Surge ×4 — P&P Tactical Advantage (+1 to your war die roll)
   ...Array(4).fill(null).map(() => ({
     id: uid(), name: 'Firewall Surge', category: 'COUNTER' as const,
-    description: 'INSTANT — Your next WAR card costs you 0 credits instead of the usual loss.',
+    description: 'INSTANT — Your next WAR roll gets +1. Play before initiating a conflict.',
     rarity: 'COMMON' as const, counterType: 'TACTICAL_ADVANTAGE' as const,
     flavourText: 'Control the variance. Control the outcome.',
   })),

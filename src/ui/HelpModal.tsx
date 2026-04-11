@@ -55,7 +55,7 @@ const CARDS: CardEntry[] = [
   { name: 'Proxy War',           category: 'WAR',            count: 4, effect: 'Attack a target. You lose 5 credits · Target loses 10 credits.' },
   { name: 'Grid War',            category: 'WAR',            count: 3, effect: 'Attack a target. You lose 10 credits · Target loses 20 credits and one daemon.' },
   // Counters
-  { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Your next WAR card costs you 0 credits instead of the usual loss.' },
+  { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Your next WAR roll gets +1. Play before initiating a conflict.' },
   { name: 'Cease & Desist',      category: 'COUNTER',        count: 3, effect: 'Block the next WAR or hack protocol targeting you. One use.' },
   { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Block the next hack protocol targeting you. One use. (Does not block WAR — use Cease & Desist for that.)' },
   // Daemons
