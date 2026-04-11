@@ -103,8 +103,8 @@ export class Card extends Phaser.GameObjects.Container {
     badgeCon.add(badgeGfx);
 
     const rarityLbl = this.scene.add.text(0, 0, d.rarity, {
-      fontFamily: 'monospace', fontSize: '8px', color: rarityHex,
-      letterSpacing: 1, resolution: window.devicePixelRatio,
+      fontFamily: 'monospace', fontSize: '7px', color: rarityHex,
+      resolution: window.devicePixelRatio,
     }).setOrigin(0.5);
     badgeCon.add(rarityLbl);
     badgeCon.setAngle(-90);
@@ -177,7 +177,7 @@ export class Card extends Phaser.GameObjects.Container {
 
     // ── Effect block ──────────────────────────────────────────────────────
     const effectY = artY + ART_H + 5;
-    const effectH = CARD_H - (effectY - top) - 18;
+    const effectH = (top + CARD_H - PAD) - effectY;
     const effectBg = this.scene.add.graphics();
     effectBg.fillStyle(0x12122a, 1);
     effectBg.fillRoundedRect(left + PAD, effectY, CARD_W - PAD * 2, effectH, 4);

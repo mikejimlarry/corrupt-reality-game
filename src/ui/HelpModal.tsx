@@ -69,11 +69,48 @@ const mono = (extra?: React.CSSProperties): React.CSSProperties => ({
   fontFamily: 'monospace', ...extra,
 });
 
+// ── Circuit art SVG (mirrors the Phaser drawCircuit logic) ────────────────────
+function CircuitArt({ seed, color }: { seed: number; color: string }) {
+  const W = 182, H = 32;
+  const rnd = (n: number) => { const v = Math.sin(seed + n * 127.1) * 43758.5; return v - Math.floor(v); };
+  const count = 7;
+  const nodes = Array.from({ length: count }, (_, i) => ({
+    x: 6 + rnd(i * 3)     * (W - 12),
+    y: 6 + rnd(i * 3 + 1) * (H - 12),
+  }));
+
+  const lines: React.ReactNode[] = [];
+  for (let i = 0; i < nodes.length - 1; i++) {
+    if (rnd(i * 5 + 2) < 0.7) {
+      const a = nodes[i], b = nodes[i + 1];
+      const points = rnd(i * 7 + 3) > 0.5
+        ? `M${a.x},${a.y} L${b.x},${a.y} L${b.x},${b.y}`
+        : `M${a.x},${a.y} L${a.x},${b.y} L${b.x},${b.y}`;
+      lines.push(<path key={i} d={points} stroke={color} strokeWidth={0.75} strokeOpacity={0.3} fill="none" />);
+    }
+  }
+
+  const scanY = rnd(seed) * H;
+
+  return (
+    <svg width={W} height={H} style={{ display: 'block', borderRadius: 3, background: '#061420' }}>
+      {lines}
+      {nodes.map((n, i) => {
+        const size = rnd(i * 11 + 4) > 0.7 ? 2.5 : 1.5;
+        const alpha = 0.4 + rnd(i * 9 + 5) * 0.5;
+        return <circle key={i} cx={n.x} cy={n.y} r={size} fill={color} fillOpacity={alpha} />;
+      })}
+      <line x1={0} y1={scanY} x2={W} y2={scanY} stroke="white" strokeWidth={0.5} strokeOpacity={0.04} />
+    </svg>
+  );
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function CardTile({ card }: { card: CardEntry }) {
   const color = CAT_COLOR[card.category];
   const label = CAT_LABEL[card.category];
+  const seed = card.name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
   return (
     <div style={{
       background: '#080812',
@@ -88,6 +125,9 @@ function CardTile({ card }: { card: CardEntry }) {
         <span style={mono({ color: '#334455', fontSize: '0.6rem' })}>×{card.count}</span>
       </div>
       <div style={mono({ color: '#e0f0ff', fontSize: '0.85rem', fontWeight: 'bold' })}>{card.name}</div>
+      <div style={{ marginTop: 2, marginBottom: 2 }}>
+        <CircuitArt seed={seed} color={color} />
+      </div>
       <div style={mono({ color: '#778899', fontSize: '0.65rem', lineHeight: 1.5 })}>{card.effect}</div>
       {card.note && (
         <div style={mono({ color: color, fontSize: '0.58rem', letterSpacing: 1, opacity: 0.7 })}>
@@ -232,15 +272,15 @@ function TabOptions() {
   return (
     <div>
       <Section title="STARTING CREDITS">
-        <P>Choose how many credits each player starts with. This sets the length and pace of the game.</P>
+        <P>Slide to choose how many credits each player starts with (30–100 in steps of 5, default 50). This sets the length and pace of the game.</P>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
           {[
-            { val: 30, label: 'SHORT GAME', desc: 'Fast and brutal. One bad roll or hack protocol can swing the whole game.' },
-            { val: 50, label: 'STANDARD', desc: 'The default experience. Balanced between speed and strategy.' },
-            { val: 70, label: 'LONG GAME', desc: 'Drawn out warfare. Daemons matter more, and comebacks are possible.' },
-          ].map(({ val, label, desc }) => (
-            <div key={val} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', background: '#080812', border: '1px solid #00ffcc1a', borderRadius: 4, padding: '0.6rem 0.75rem' }}>
-              <span style={mono({ color: '#00ffcc', fontSize: '1rem', fontWeight: 'bold', width: 28, flexShrink: 0 })}>{val}</span>
+            { range: '30–44', label: 'SHORT GAME', desc: 'Fast and brutal. One bad roll or hack protocol can swing the whole game.' },
+            { range: '45–55', label: 'STANDARD', desc: 'The default experience. Balanced between speed and strategy.' },
+            { range: '56–100', label: 'LONG GAME', desc: 'Drawn out warfare. Daemons matter more, and comebacks are possible.' },
+          ].map(({ range, label, desc }) => (
+            <div key={label} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', background: '#080812', border: '1px solid #00ffcc1a', borderRadius: 4, padding: '0.6rem 0.75rem' }}>
+              <span style={mono({ color: '#00ffcc', fontSize: '0.75rem', fontWeight: 'bold', width: 44, flexShrink: 0 })}>{range}</span>
               <span>
                 <div style={mono({ color: '#00ffcc', fontSize: '0.65rem', letterSpacing: 2, marginBottom: 3 })}>{label}</div>
                 <div style={mono({ color: '#556677', fontSize: '0.68rem', lineHeight: 1.5 })}>{desc}</div>
