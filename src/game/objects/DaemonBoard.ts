@@ -85,9 +85,9 @@ export class DaemonBoard extends Phaser.GameObjects.Container {
     bg.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 5);
     con.add(bg);
 
-    // Category icon (★)
-    con.add(this.scene.add.text(0, -CARD_H / 2 + 16, '✦', {
-      fontFamily: 'monospace', fontSize: '10px', color: IMP_HEX, resolution: dpr,
+    // Category icon
+    con.add(this.scene.add.text(0, -CARD_H / 2 + 16, '[D]', {
+      fontFamily: 'monospace', fontSize: '8px', color: IMP_HEX, resolution: dpr,
     }).setOrigin(0.5));
 
     // Name

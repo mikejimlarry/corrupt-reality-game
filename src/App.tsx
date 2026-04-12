@@ -6,7 +6,6 @@ import { SetupScreen } from './ui/SetupScreen';
 import { HUD } from './ui/HUD';
 import { DeadMansSwitchOverlay } from './ui/DeadMansSwitchOverlay';
 import { GameOverScreen } from './ui/GameOverScreen';
-import { CardPreview } from './ui/CardPreview';
 
 const AMBIENT_STYLE = `
 @keyframes game-scan {
@@ -84,7 +83,6 @@ function App() {
       {phase === 'SETUP' && <SetupScreen />}
       {phase !== 'SETUP' && phase !== 'GAME_OVER' && <HUD />}
       {phase === 'GAME_OVER' && <GameOverScreen />}
-      <CardPreview />
       <DeadMansSwitchOverlay />
     </>
   );
