@@ -16,6 +16,8 @@ let _negotiateBlockedBy: string | null = null;
 let _daemonImmunityBlockedBy: string | null = null;
 // Written by applyCardEffect when a WAR card resolves — captures both rolls and outcome.
 let _warRollResult: { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; actorWins: boolean; targetName: string } | null = null;
+// Written by applyCardEffect when a targeted card resolves — captures the target's name.
+let _lastTargetName: string | null = null;
 
 // targetIndex — when provided (human targeting), use it directly.
 // When omitted (AI turn), fall back to a random live opponent.
@@ -76,6 +78,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       if (!neg.targetsOther || liveOpponents.length === 0) return players;
       const ti = resolveTarget();
       if (ti === -1) return players;
+      _lastTargetName = players[ti].name;
 
       // Quarantine — the target's shield absorbs the attack and is consumed
       if (players[ti].quarantined) {
@@ -142,6 +145,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       if (liveOpponents.length === 0) return players;
       const ti = resolveTarget();
       if (ti === -1) return players;
+      _lastTargetName = players[ti].name;
       // Cease & Desist — target's diplomatic block cancels the war entirely
       if (players[ti].negotiating) {
         _negotiateBlockedBy = players[ti].name;
@@ -263,15 +267,18 @@ function cardLogText(card: Card, actorName: string): string {
     }
     case 'EVENT_NEGATIVE': {
       const neg = card as NegativeEventCard;
+      const tgt = _lastTargetName ?? 'target';
       if (neg.effect === 'STEAL')
-        return `${actorName} deployed ${card.name} (stole ${neg.amount} credits from target)`;
+        return `${actorName} deployed ${card.name} — stole ${neg.amount}¢ from ${tgt}`;
       if (neg.effect === 'MUTUAL_DAMAGE')
-        return `${actorName} triggered M.A.D. — mutual destruction`;
+        return `${actorName} triggered M.A.D. — mutual ${neg.amount}¢ loss with ${tgt}`;
       if (neg.effect === 'STEAL_DAEMON')
-        return `${actorName} deployed ${card.name} (stealing a daemon from target)`;
+        return `${actorName} deployed ${card.name} — stole a daemon from ${tgt}`;
       if (neg.effect === 'DAMAGE_ALL_DAEMON')
-        return `${actorName} deployed ${card.name} (hit all opponents for ${neg.amount} credits)`;
-      return `${actorName} deployed ${card.name}`;
+        return `${actorName} deployed ${card.name} — hit all opponents for ${neg.amount}¢`;
+      if (neg.effect === 'CORRUPTION')
+        return `${actorName} unleashed The Corruption — ${tgt} loses ${neg.amount}¢`;
+      return `${actorName} deployed ${card.name} — ${tgt} loses ${neg.amount}¢`;
     }
     case 'WAR': {
       if (_warRollResult) {
@@ -524,6 +531,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     _negotiateBlockedBy = null;
     _daemonImmunityBlockedBy = null;
     _warRollResult = null;
+    _lastTargetName = null;
     players = applyCardEffect(card, players, actorIndex, targetIndex);
     const blockedBy = _quarantineBlockedBy;
     const negotiateBlockedBy = _negotiateBlockedBy;
@@ -568,6 +576,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     get().addLog(cardLogText(card, actor.name), 'card');
     _warRollResult = null;
+    _lastTargetName = null;
     if (blockedBy) get().addLog(`${blockedBy}'s Quarantine absorbed the attack!`, 'effect');
     if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Cease & Desist cancelled the attack!`, 'effect');
     if (daemonBlockedBy) get().addLog(`${daemonBlockedBy} blocked the attack!`, 'effect');
@@ -758,25 +767,31 @@ export const useGameStore = create<GameStore>((set, get) => ({
          total <= 8  ? 'Stable sequence'              :
          total <= 11 ? 'Stability bonus'              : 'Peak stability');
 
-    const isOverclocked = players[actorIndex]?.overclocked ?? false;
-    // Overclock doubles the base amount before daemon bonuses are applied
-    const overclockAmount = isOverclocked ? baseAmount * 2 : baseAmount;
-
-    // Each daemon adds +1 to stability gains and -1 to corruption losses
+    // Each daemon shifts the effective roll total (+1 stability / -1 corruption)
     const daemonCount = players[actorIndex]?.daemons.length ?? 0;
-    const finalAmount = inCorruption
-      ? Math.max(0, overclockAmount - daemonCount)
-      : overclockAmount + (baseAmount > 0 ? daemonCount : 0);
+    const effectiveTotal = inCorruption
+      ? Math.max(2, total - daemonCount)
+      : Math.min(12, total + daemonCount);
+
+    const effectiveBase =
+      effectiveTotal <= 3  ? 0  :
+      effectiveTotal <= 5  ? 5  :
+      effectiveTotal <= 8  ? 10 :
+      effectiveTotal <= 11 ? 15 : 20;
+
+    const isOverclocked = players[actorIndex]?.overclocked ?? false;
+    // Overclock doubles the effective base amount
+    const finalAmount = isOverclocked ? effectiveBase * 2 : effectiveBase;
 
     // Clear the overclocked flag whether or not the roll produced an effect
     if (isOverclocked) {
       players = players.map((p, i) => i === actorIndex ? { ...p, overclocked: false } : p);
     }
 
-    const overclock  = isOverclocked  ? ` [OVERCLOCKED ×2]` : '';
-    const daemonNote = daemonCount > 0 && baseAmount > 0 ? ` [+${daemonCount} DAEMON BONUS]` : '';
+    const overclock  = isOverclocked  ? ` [OVERCLOCK x2]` : '';
+    const daemonNote = daemonCount > 0 ? ` [${daemonCount} DAEMON ${inCorruption ? 'SHIELD' : 'BOOST'}: ${total}->${effectiveTotal}]` : '';
 
-    if (finalAmount > 0 || (inCorruption && overclockAmount > 0)) {
+    if (finalAmount > 0 || (inCorruption && effectiveBase > 0)) {
       if (inCorruption) {
         players = players.map((p, i) =>
           i === actorIndex ? { ...p, credits: Math.max(0, p.credits - finalAmount) } : p

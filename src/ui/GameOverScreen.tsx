@@ -131,7 +131,7 @@ export function GameOverScreen() {
         }}>
           <span>TURNS: {turnNumber}</span>
           <span>AGENTS: {players.length}</span>
-          {corruption && <span style={{ color: '#ff4466' }}>⚠ CORRUPTED</span>}
+          {corruption && <span style={{ color: '#ff4466' }}>[!] CORRUPTED</span>}
         </div>
 
         {/* Player standings */}
@@ -153,7 +153,7 @@ export function GameOverScreen() {
               }}>
                 {/* Rank */}
                 <span style={{ fontSize: '0.65rem', color: rowAccent, width: 18, textAlign: 'right', flexShrink: 0 }}>
-                  {isWinner ? '★' : `#${i + 1}`}
+                  {isWinner ? '*' : `#${i + 1}`}
                 </span>
 
                 {/* Name */}
@@ -168,7 +168,7 @@ export function GameOverScreen() {
 
                 {/* Daemons */}
                 <span style={{ fontSize: '0.65rem', color: rowAccent, letterSpacing: 1, width: 44, textAlign: 'center' }}>
-                  {p.daemons.length > 0 ? `⬡ ×${p.daemons.length}` : '—'}
+                  {p.daemons.length > 0 ? `[D] x${p.daemons.length}` : '--'}
                 </span>
 
                 {/* Credits */}

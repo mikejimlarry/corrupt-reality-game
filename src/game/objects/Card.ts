@@ -359,7 +359,7 @@ export class Card extends Phaser.GameObjects.Container {
     const { phase, players, currentPlayerIndex, selectedCardId } = useGameStore.getState();
     // Cards are inactive until the dice roll and draw are both done
     const isHuman = players[currentPlayerIndex]?.isHuman;
-    if (isHuman && (phase === 'PHASE_ROLL' || phase === 'DRAW')) return;
+    if (!isHuman || phase === 'PHASE_ROLL' || phase === 'DRAW') return;
     // Don't lift other cards while one is selected
     if (selectedCardId !== null && selectedCardId !== this.cardData.id) return;
     this.isHovered = true;

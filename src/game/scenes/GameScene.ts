@@ -20,6 +20,8 @@ export class GameScene extends Phaser.Scene {
   private humanDaemonBoard?: DaemonBoard;
   private aiDaemonBoards = new Map<string, DaemonBoard>();
   private aiCardBackObjects = new Map<string, CardBack[]>();
+  // seat index: 0=top, 1=left, 2=right — set during buildTable
+  private aiPlayerSeat = new Map<string, number>();
 
   constructor() {
     super({ key: 'GameScene' });
@@ -32,6 +34,7 @@ export class GameScene extends Phaser.Scene {
     this.humanDaemonBoard = undefined;
     this.aiDaemonBoards.clear();
     this.aiCardBackObjects.clear();
+    this.aiPlayerSeat.clear();
     this.children.removeAll(true);  // destroys everything including old ledDisplay
     this.buildTable(width, height);
     // Recreate LED display on top of the fresh scene
@@ -57,12 +60,17 @@ export class GameScene extends Phaser.Scene {
     let prevPhase = useGameStore.getState().phase;
     let prevHandStr = '';
     let prevPopImpStr = '';
+    let prevAiHandStr = '';
     let prevDeckLen = useGameStore.getState().deck.length;
     let prevDiscardLen = useGameStore.getState().discard.length;
     let prevTurnNumber = useGameStore.getState().turnNumber ?? 1;
     let prevRollTriggered = false;
     let prevCurrentPlayerIndex = useGameStore.getState().currentPlayerIndex;
     let prevCorruption = useGameStore.getState().globalCorruptionMode;
+    // Track per-player credits for delta animation
+    const prevCreditsMap = new Map<string, number>(
+      useGameStore.getState().players.map(p => [p.id, p.credits])
+    );
 
     this.unsubscribeStore = useGameStore.subscribe(state => {
       const { players, selectedCardId } = state;
@@ -107,11 +115,26 @@ export class GameScene extends Phaser.Scene {
             prevPopImpStr = newPopImpStr;
             players.forEach(player => {
               const zone = this.playerZoneMap.get(player.id);
+              // Credit delta — trigger flash before refresh (which also flashes, but
+              // we want the world-space floating number from the zone method)
+              const prev = prevCreditsMap.get(player.id);
+              if (prev !== undefined) prevCreditsMap.set(player.id, player.credits);
+              else prevCreditsMap.set(player.id, player.credits);
               if (zone) zone.refresh(player);
-              // Refresh AI daemon boards (human board is refreshed via playOut callback)
+              // Refresh AI daemon boards
               if (!player.isHuman) {
                 this.aiDaemonBoards.get(player.id)?.refresh(player.daemons);
               }
+            });
+          }
+
+          // ── Sync AI hand card-back counts when AI draws/plays ─────────────
+          const newAiHandStr = players.filter(p => !p.isHuman)
+            .map(p => `${p.id}:${p.hand.length}`).join(';');
+          if (newAiHandStr !== prevAiHandStr) {
+            prevAiHandStr = newAiHandStr;
+            players.filter(p => !p.isHuman).forEach(aiPlayer => {
+              this.syncAiCardBacks(aiPlayer, w, h);
             });
           }
         }
@@ -321,8 +344,8 @@ export class GameScene extends Phaser.Scene {
   private applyHandDim() {
     const { phase, players, currentPlayerIndex } = useGameStore.getState();
     const isHuman = players[currentPlayerIndex]?.isHuman;
-    // Dim during PHASE_ROLL and DRAW — cards are non-interactive until MAIN
-    const shouldDim = isHuman && (phase === 'PHASE_ROLL' || phase === 'DRAW');
+    // Dim during AI turns and during PHASE_ROLL/DRAW on human turns
+    const shouldDim = !isHuman || phase === 'PHASE_ROLL' || phase === 'DRAW';
     const targetAlpha = shouldDim ? 0.55 : 1;
     this.humanCardObjects.forEach(card => {
       // Only add an alpha tween; don't kill other tweens (e.g. hover y/scale)
@@ -341,10 +364,10 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Determine target alpha based on current phase
+    // Determine target alpha — dim during AI turns and PHASE_ROLL/DRAW
     const { phase, players, currentPlayerIndex } = useGameStore.getState();
     const isHuman  = players[currentPlayerIndex]?.isHuman;
-    const shouldDim = isHuman && (phase === 'PHASE_ROLL' || phase === 'DRAW');
+    const shouldDim = !isHuman || phase === 'PHASE_ROLL' || phase === 'DRAW';
     const targetAlpha = shouldDim ? 0.55 : 1;
 
     // Fan layout constants
@@ -474,6 +497,7 @@ export class GameScene extends Phaser.Scene {
       const zone = new PlayerZone(this, width / 2, height * 0.18, p1, hidePop);
       zone.setDepth(25);
       this.playerZoneMap.set(p1.id, zone);
+      this.aiPlayerSeat.set(p1.id, 0);
     }
 
     // Left: zone nudged away from edge so it's fully visible
@@ -482,6 +506,7 @@ export class GameScene extends Phaser.Scene {
       zone.setAngle(-90);
       zone.setDepth(25);
       this.playerZoneMap.set(p2.id, zone);
+      this.aiPlayerSeat.set(p2.id, 1);
     }
 
     // Right: mirror of left
@@ -490,6 +515,7 @@ export class GameScene extends Phaser.Scene {
       zone.setAngle(90);
       zone.setDepth(25);
       this.playerZoneMap.set(p3.id, zone);
+      this.aiPlayerSeat.set(p3.id, 2);
     }
   }
 
@@ -575,6 +601,60 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // ── Sync AI card backs to match hand count (handles draw-phase refills) ──
+  private syncAiCardBacks(aiPlayer: PlayerState, width: number, height: number) {
+    const backs = this.aiCardBackObjects.get(aiPlayer.id) ?? [];
+    const target = aiPlayer.hand.length;
+    if (backs.length >= target) return; // no new backs needed
+
+    const seat   = this.aiPlayerSeat.get(aiPlayer.id) ?? 0;
+    const midY   = height * 0.46;
+    const OVERLAP = CARD_W * 0.55;
+    const toAdd  = target - backs.length;
+
+    for (let n = 0; n < toAdd; n++) {
+      const newIdx   = backs.length; // index of the new back
+      const newTotal = backs.length + 1;
+      let bx: number, by: number, angle: number;
+
+      if (seat === 0) {
+        // Top — horizontal fan
+        const FAN_DEG = 18;
+        const totalW  = (newTotal - 1) * OVERLAP;
+        const startX  = width / 2 - totalW / 2;
+        const c = newTotal > 1 ? (newIdx / (newTotal - 1)) - 0.5 : 0;
+        bx    = startX + OVERLAP * newIdx;
+        by    = -(CARD_H / 2 - 44);
+        angle = c * FAN_DEG + 180;
+      } else if (seat === 1) {
+        // Left — vertical fan
+        const FAN_DEG = 20, ARC_DROP = 16;
+        const totalH  = (newTotal - 1) * OVERLAP;
+        const startY  = midY - totalH / 2;
+        const c = newTotal > 1 ? (newIdx / (newTotal - 1)) - 0.5 : 0;
+        bx    = -(CARD_H / 2 - 40) + c * c * ARC_DROP * 4;
+        by    = startY + OVERLAP * newIdx;
+        angle = -(c * FAN_DEG) - 90;
+      } else {
+        // Right — vertical fan
+        const FAN_DEG = 20, ARC_DROP = 16;
+        const totalH  = (newTotal - 1) * OVERLAP;
+        const startY  = midY - totalH / 2;
+        const c = newTotal > 1 ? (newIdx / (newTotal - 1)) - 0.5 : 0;
+        bx    = width + CARD_H / 2 - 40 - c * c * ARC_DROP * 4;
+        by    = startY + OVERLAP * newIdx;
+        angle = (c * FAN_DEG) + 90;
+      }
+
+      const back = new CardBack(this, bx, by);
+      back.setAngle(angle);
+      back.setDepth(5 + newIdx);
+      back.dealIn(width / 2, midY, n * 60, 0.25);
+      backs.push(back);
+    }
+    this.aiCardBackObjects.set(aiPlayer.id, backs);
+  }
+
   // ── AI card play animation ────────────────────────────────────────────────
   private animateAiCardPlay(playerId: string, topCard: CardData, width: number, height: number) {
     const backs = this.aiCardBackObjects.get(playerId);
@@ -656,7 +736,7 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5);
     con.add(nameLbl);
 
-    const agentLbl = this.add.text(-BW / 2 + 8, BH / 2 - 6, '⚡ AI PLAYS', {
+    const agentLbl = this.add.text(-BW / 2 + 8, BH / 2 - 6, '>> AI PLAYS', {
       fontFamily: 'monospace', fontSize: '7px', color: `${catHex}88`, letterSpacing: 2,
       resolution: window.devicePixelRatio,
     }).setOrigin(0, 1);

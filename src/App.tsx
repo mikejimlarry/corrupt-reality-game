@@ -6,14 +6,11 @@ import { SetupScreen } from './ui/SetupScreen';
 import { HUD } from './ui/HUD';
 import { DeadMansSwitchOverlay } from './ui/DeadMansSwitchOverlay';
 import { GameOverScreen } from './ui/GameOverScreen';
-import { CardPreview } from './ui/CardPreview';
+import { useGameAudio } from './hooks/useGameAudio';
+import { resumeAudio } from './lib/audio';
 
 const AMBIENT_STYLE = `
 @keyframes game-scan {
-  0%   { transform: translateY(-100vh); }
-  100% { transform: translateY(100vh); }
-}
-@keyframes game-scan-slow {
   0%   { transform: translateY(-100vh); }
   100% { transform: translateY(100vh); }
 }
@@ -23,6 +20,9 @@ function App() {
   const phase      = useGameStore(s => s.phase);
   const corruption = useGameStore(s => s.globalCorruptionMode);
   const active     = phase !== 'SETUP' && phase !== 'GAME_OVER';
+
+  useGameAudio();
+
 
   useEffect(() => {
     const el = document.createElement('style');
@@ -35,6 +35,14 @@ function App() {
     createGame();
     return () => destroyGame();
   }, []);
+
+  // Resume AudioContext on first user gesture (browser autoplay policy)
+  useEffect(() => {
+    const handler = () => resumeAudio();
+    window.addEventListener('pointerdown', handler, { once: true });
+    return () => window.removeEventListener('pointerdown', handler);
+  }, []);
+
 
   const scanColor = corruption ? 'rgba(255,30,60,0.07)' : 'rgba(0,255,204,0.045)';
 
@@ -62,14 +70,12 @@ function App() {
           pointerEvents: 'none', zIndex: 2,
           overflow: 'hidden',
         }}>
-          {/* Primary sweep — full-width thin line */}
           <div style={{
             position: 'absolute', left: 0, right: 0,
             height: 2,
             background: `linear-gradient(to right, transparent, ${scanColor}, ${scanColor}, transparent)`,
             animation: 'game-scan 6s linear infinite',
           }} />
-          {/* Secondary sweep — offset phase, slightly different speed */}
           <div style={{
             position: 'absolute', left: 0, right: 0,
             height: 1,
@@ -84,7 +90,6 @@ function App() {
       {phase === 'SETUP' && <SetupScreen />}
       {phase !== 'SETUP' && phase !== 'GAME_OVER' && <HUD />}
       {phase === 'GAME_OVER' && <GameOverScreen />}
-      <CardPreview />
       <DeadMansSwitchOverlay />
     </>
   );
