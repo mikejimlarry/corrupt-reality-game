@@ -54,6 +54,12 @@ export function sfxCardSelect() {
   note(330, 0.06, 'square', 0.09);
 }
 
+/** Subtle menu option tick — pitch scales with normalised position (0–1). */
+export function sfxMenuTick(position: number) {
+  const freq = 200 + position * 400; // 200 Hz (min) → 600 Hz (max)
+  note(freq, 0.04, 'square', 0.07);
+}
+
 /** Credit gain — ascending 3-note arpeggio in C major. */
 export function sfxGain() {
   note(262, 0.07, 'square', 0.12, 0.00);
