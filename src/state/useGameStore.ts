@@ -769,9 +769,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // Each daemon shifts the effective roll total (+1 stability / -1 corruption)
     const daemonCount = players[actorIndex]?.daemons.length ?? 0;
-    const effectiveTotal = inCorruption
+    const isOverclocked = players[actorIndex]?.overclocked ?? false;
+
+    // Apply daemon shift first, then overclock shift (+5 stability / -5 corruption)
+    const afterDaemons = inCorruption
       ? Math.max(2, total - daemonCount)
       : Math.min(12, total + daemonCount);
+    const overclockShift = isOverclocked ? (inCorruption ? -5 : 5) : 0;
+    const effectiveTotal = inCorruption
+      ? Math.max(2, afterDaemons + overclockShift)
+      : Math.min(12, afterDaemons + overclockShift);
 
     const effectiveBase =
       effectiveTotal <= 3  ? 0  :
@@ -779,24 +786,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
       effectiveTotal <= 8  ? 10 :
       effectiveTotal <= 11 ? 15 : 20;
 
-    const isOverclocked = players[actorIndex]?.overclocked ?? false;
-    // Overclock doubles the effective base amount
-    const finalAmount = isOverclocked ? effectiveBase * 2 : effectiveBase;
+    const finalAmount = effectiveBase;
 
     // Clear the overclocked flag whether or not the roll produced an effect
     if (isOverclocked) {
       players = players.map((p, i) => i === actorIndex ? { ...p, overclocked: false } : p);
     }
 
-    const overclock  = isOverclocked  ? ` [OVERCLOCK x2]` : '';
-    const daemonNote = daemonCount > 0 ? ` [${daemonCount} DAEMON ${inCorruption ? 'SHIELD' : 'BOOST'}: ${total}->${effectiveTotal}]` : '';
+    const sign        = inCorruption ? '-5' : '+5';
+    const overclock   = isOverclocked  ? ` [OVERCLOCK ${sign}: ${afterDaemons}->${effectiveTotal}]` : '';
+    const daemonNote  = daemonCount > 0 ? ` [${daemonCount} DAEMON ${inCorruption ? 'SHIELD' : 'BOOST'}: ${total}->${afterDaemons}]` : '';
 
-    if (finalAmount > 0 || (inCorruption && effectiveBase > 0)) {
+    const rawBase = total <= 3 ? 0 : total <= 5 ? 5 : total <= 8 ? 10 : total <= 11 ? 15 : 20;
+    if (finalAmount > 0 || (inCorruption && rawBase > 0)) {
       if (inCorruption) {
         players = players.map((p, i) =>
           i === actorIndex ? { ...p, credits: Math.max(0, p.credits - finalAmount) } : p
         );
-        const lossNote = finalAmount === 0 ? 'daemons absorbed all losses' : `lost ${finalAmount} credits`;
+        const lossNote = finalAmount === 0 ? 'losses fully absorbed' : `lost ${finalAmount} credits`;
         get().addLog(`${rollLabel} — ${lossNote}. (${r1}+${r2}=${total})${overclock}${daemonNote}`, 'effect');
       } else {
         players = players.map((p, i) =>

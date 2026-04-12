@@ -36,7 +36,7 @@ const CARDS: CardEntry[] = [
   { name: 'Neural Uplink',       category: 'CREDITS',        count: 6, effect: 'Gain +10 credits.' },
   // Positive events
   { name: 'Mass Assimilation',   category: 'EVENT_POSITIVE', count: 2, effect: 'Each opponent loses 5 credits; you gain 5 per opponent.' },
-  { name: 'Overclock',           category: 'EVENT_POSITIVE', count: 2, effect: 'Your next Stability Roll gain is doubled.' },
+  { name: 'Overclock',           category: 'EVENT_POSITIVE', count: 2, effect: 'Adds +5 to your next Stability Roll total (or -5 in Corruption, reducing losses).' },
   // Negative events
   { name: 'Signal Theft',        category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal 15 credits from a target.' },
   { name: 'Pestilence Protocol', category: 'EVENT_NEGATIVE', count: 6, effect: 'Target loses 5 credits.' },
