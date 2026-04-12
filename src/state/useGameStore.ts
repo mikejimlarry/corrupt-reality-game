@@ -601,15 +601,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     players = players.map(p => ({ ...p, eliminated: p.eliminated || p.credits <= 0 }));
 
     const alive = players.filter(p => !p.eliminated);
-    const winnerId = alive.length === 1 ? alive[0].id : null;
+    const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
 
-    if (winnerId) get().addLog(`${alive[0].name} wins the game!`, 'turn');
+    if (alive.length === 1) get().addLog(`${alive[0].name} wins the game!`, 'turn');
 
     const isHuman = state.players[actorIndex]?.isHuman ?? false;
 
     set({
       players, discard, globalCorruptionMode, winnerId,
-      phase: winnerId ? 'GAME_OVER' : (isHuman ? 'END_TURN' : 'MAIN'),
+      phase: alive.length <= 1 ? 'GAME_OVER' : (isHuman ? 'END_TURN' : 'MAIN'),
       selectedCardId: null,
       pendingCardId: null,
       validTargetIds: [],
@@ -655,14 +655,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Now mark all remaining eliminations (including the DMS player)
     players = players.map(p => ({ ...p, eliminated: p.eliminated || p.credits <= 0 }));
     const alive = players.filter(p => !p.eliminated);
-    const winnerId = alive.length === 1 ? alive[0].id : null;
-    if (winnerId) get().addLog(`${alive[0].name} wins the game!`, 'turn');
+    const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
+    if (alive.length === 1) get().addLog(`${alive[0].name} wins the game!`, 'turn');
 
     const humanResolved = state.players[state.deadMansSwitchPending.playerIndex]?.isHuman ?? false;
 
     set({
       players, discard, winnerId,
-      phase: winnerId ? 'GAME_OVER' : (humanResolved ? 'END_TURN' : 'MAIN'),
+      phase: alive.length <= 1 ? 'GAME_OVER' : (humanResolved ? 'END_TURN' : 'MAIN'),
       deadMansSwitchPending: null,
     });
 
@@ -809,8 +809,54 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     set({ rollTriggered: false, players });
 
-    const currentPlayer = players[actorIndex];
-    if (currentPlayer.isHuman) {
+    const actor = players[actorIndex];
+
+    // ── Actor eliminated by this roll — skip draw, handle DMS / game-over ────
+    if (actor.credits <= 0) {
+      let discard = [...state.discard];
+      let humanDmsPending: { playerIndex: number; eligibleCards: NegativeEventCard[] } | null = null;
+
+      if (state.deadMansSwitch) {
+        const eligibleCards = actor.hand.filter(
+          c => c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).targetsOther
+        ) as NegativeEventCard[];
+
+        if (eligibleCards.length > 0) {
+          if (actor.isHuman) {
+            humanDmsPending = { playerIndex: actorIndex, eligibleCards };
+          } else {
+            const lastCard = eligibleCards[Math.floor(random() * eligibleCards.length)];
+            players = players.map((p, idx) =>
+              idx === actorIndex ? { ...p, hand: p.hand.filter(c => c.id !== lastCard.id) } : p
+            );
+            players = applyCardEffect(lastCard, players, actorIndex);
+            discard = [...discard, lastCard];
+            get().addLog(`💀 ${actor.name} triggers Dead Man's Switch — plays ${lastCard.name}!`, 'effect');
+          }
+        }
+      }
+
+      if (humanDmsPending) {
+        players = players.map(p => ({
+          ...p,
+          eliminated: p.eliminated || (!p.isHuman && p.credits <= 0),
+        }));
+        set({ players, discard, rollTriggered: false, phase: 'MAIN', deadMansSwitchPending: humanDmsPending });
+        return;
+      }
+
+      players = players.map(p => ({ ...p, eliminated: p.eliminated || p.credits <= 0 }));
+      const alive = players.filter(p => !p.eliminated);
+      const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
+      if (alive.length === 1) get().addLog(`${alive[0].name} wins the game!`, 'turn');
+
+      set({ players, discard, rollTriggered: false, winnerId, phase: alive.length <= 1 ? 'GAME_OVER' : 'PHASE_ROLL' });
+      if (alive.length > 1) setTimeout(() => get().advanceTurn(), 950);
+      return;
+    }
+
+    // ── Normal flow — actor still alive, proceed to draw / AI card phase ─────
+    if (actor.isHuman) {
       set({ phase: 'DRAW' });
     } else {
       setTimeout(() => get().runAiTurn(), 400);
