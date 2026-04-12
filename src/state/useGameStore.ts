@@ -749,14 +749,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const inCorruption = state.globalCorruptionMode;
 
-    // Prosperity roll table:  ≤3 → 0 | 4-5 → +5 | 6-8 → +10 | 9-11 → +15 | 12 → +20
-    // Corruption roll table:  ≤3 → 0 | 4-5 → −5 | 6-8 → −10 | 9-11 → −15 | 12 → −20
-    const baseAmount =
-      total <= 3  ? 0  :
-      total <= 5  ? 5  :
-      total <= 8  ? 10 :
-      total <= 11 ? 15 : 20;
-
     const rollLabel = inCorruption
       ? (total <= 3  ? 'Corruption held — no losses'  :
          total <= 5  ? 'Corruption surge'             :
