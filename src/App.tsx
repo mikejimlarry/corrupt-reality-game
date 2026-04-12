@@ -23,6 +23,7 @@ function App() {
 
   useGameAudio();
 
+
   useEffect(() => {
     const el = document.createElement('style');
     el.textContent = AMBIENT_STYLE;
@@ -41,6 +42,7 @@ function App() {
     window.addEventListener('pointerdown', handler, { once: true });
     return () => window.removeEventListener('pointerdown', handler);
   }, []);
+
 
   const scanColor = corruption ? 'rgba(255,30,60,0.07)' : 'rgba(0,255,204,0.045)';
 
