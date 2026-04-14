@@ -476,6 +476,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       `${state.players[actorIndex].name} drew ${drawn} card${drawn !== 1 ? 's' : ''}.`,
       'turn',
     );
+
+    // If The Corruption was just drawn, it must be played immediately — auto-enter TARGETING
+    const corruption = players[actorIndex].hand.find(
+      c => c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).effect === 'CORRUPTION'
+    );
+    if (corruption) {
+      const liveOpponents = players.filter((p, i) => i !== actorIndex && !p.eliminated);
+      if (liveOpponents.length > 0) {
+        get().addLog('The Corruption must be played immediately — select a target.', 'effect');
+        set({
+          selectedCardId: corruption.id,
+          phase: 'TARGETING',
+          validTargetIds: liveOpponents.map(p => p.id),
+        });
+      }
+    }
   },
 
   selectCard: (id: string | null) => set({ selectedCardId: id }),
@@ -677,6 +693,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const actor = state.players[actorIndex];
     const card = actor.hand.find(c => c.id === cardId);
     if (!card) return;
+
+    // The Corruption cannot be discarded — it must be played
+    if (card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).effect === 'CORRUPTION') return;
 
     const handAfter = actor.hand.filter(c => c.id !== cardId);
     const players = state.players.map((p, i) =>
