@@ -1,8 +1,9 @@
 // src/ui/SetupScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useGameStore } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
 import { GlitchTitle } from './GlitchTitle';
+import { sfxCardSelect, sfxMenuTick } from '../lib/audio';
 
 const LABEL: React.CSSProperties = {
   fontSize: '0.65rem', letterSpacing: 3, color: '#446655', marginBottom: '0.5rem',
@@ -79,6 +80,7 @@ export const SetupScreen: React.FC = () => {
   const [startingPop, setStartingPop] = useState(() => Number(localStorage.getItem('crg-credits') ?? '50'));
   const [hidePpCounts, setHidePpCounts] = useState(() => localStorage.getItem('crg-hide-credits') === 'true');
   const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
+  const prevSliderVal = useRef(startingPop);
   const [showHelp, setShowHelp] = useState(false);
 
   const handleStart = () => {
@@ -145,7 +147,7 @@ export const SetupScreen: React.FC = () => {
           <div style={LABEL}>NUMBER OF AGENTS</div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {[1, 2, 3].map(n => (
-              <SegmentButton key={n} active={count === n} onClick={() => setCount(n)}>
+              <SegmentButton key={n} active={count === n} onClick={() => { sfxCardSelect(); setCount(n); }}>
                 {n}
               </SegmentButton>
             ))}
@@ -167,7 +169,14 @@ export const SetupScreen: React.FC = () => {
             max={100}
             step={5}
             value={startingPop}
-            onChange={e => setStartingPop(Number(e.target.value))}
+            onChange={e => {
+              const v = Number(e.target.value);
+              if (v !== prevSliderVal.current) {
+                sfxMenuTick((v - 30) / 70);
+                prevSliderVal.current = v;
+              }
+              setStartingPop(v);
+            }}
             style={{
               '--fill': `${((startingPop - 30) / 70) * 100}%`,
             } as React.CSSProperties}
@@ -187,13 +196,13 @@ export const SetupScreen: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <Toggle
             checked={hidePpCounts}
-            onChange={setHidePpCounts}
+            onChange={v => { sfxCardSelect(); setHidePpCounts(v); }}
             label="HIDE CREDITS"
             description="Exact credit totals are hidden — judge your rivals by the bar alone."
           />
           <Toggle
             checked={deadMansSwitch}
-            onChange={setDeadMansSwitch}
+            onChange={v => { sfxCardSelect(); setDeadMansSwitch(v); }}
             label="DEAD MAN'S SWITCH"
             description="An eliminated player may play one last negative card before they fall."
           />
