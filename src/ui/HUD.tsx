@@ -275,6 +275,7 @@ export function HUD() {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'stretch',
+          gap: 8,
         }}
       >
         {/* Corruption banner */}
@@ -286,7 +287,6 @@ export function HUD() {
               border: '1px solid #ff1e3c88',
               borderRadius: 6,
               padding: '8px 14px',
-              marginBottom: 8,
               fontFamily: 'monospace',
               textAlign: 'center',
             }}

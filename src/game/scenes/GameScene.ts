@@ -79,6 +79,10 @@ export class GameScene extends Phaser.Scene {
 
     this.unsubscribeStore = useGameStore.subscribe(state => {
       const { players, selectedCardId } = state;
+      // Snapshot human credits BEFORE the player block updates prevCreditsMap,
+      // so we can detect whether this tick reduced the human's total.
+      const humanSnap = players.find(p => p.isHuman);
+      const humanCreditsBefore = prevCreditsMap.get(humanSnap?.id ?? '') ?? (humanSnap?.credits ?? 0);
 
       // ── Corruption mode — shift background from near-black to dark red ──
       if (state.globalCorruptionMode !== prevCorruption) {
@@ -285,6 +289,14 @@ export class GameScene extends Phaser.Scene {
         if (!actor?.isHuman && state.discard.length > 0) {
           const topCard = state.discard[state.discard.length - 1];
           this.animateAiCardPlay(actor.id, topCard, w, h);
+
+          // Show attack warning if the human's credits went down this tick
+          const humanNow = state.players.find(p => p.isHuman);
+          if (humanNow && humanNow.credits < humanCreditsBefore) {
+            this.time.delayedCall(380, () => {
+              this.flashIncomingAttack(actor.name, w, h);
+            });
+          }
         }
       }
       const turnNumber = state.turnNumber ?? 1;
@@ -349,15 +361,15 @@ export class GameScene extends Phaser.Scene {
 
     // AI boards — red/pink to match AI zone accent
     if (aiPlayers[0]) {
-      const b = new DaemonBoard(this, width / 2, height * 0.30, 0xff3366, '#ff3366');
+      const b = new DaemonBoard(this, width / 2, height * 0.30, 0x00ffcc, '#00ffcc');
       this.aiDaemonBoards.set(aiPlayers[0].id, b);
     }
     if (aiPlayers[1]) {
-      const b = new DaemonBoard(this, 250, midY, 0xff3366, '#ff3366');
+      const b = new DaemonBoard(this, 250, midY, 0x00ffcc, '#00ffcc');
       this.aiDaemonBoards.set(aiPlayers[1].id, b);
     }
     if (aiPlayers[2]) {
-      const b = new DaemonBoard(this, width - 250, midY, 0xff3366, '#ff3366');
+      const b = new DaemonBoard(this, width - 250, midY, 0x00ffcc, '#00ffcc');
       this.aiDaemonBoards.set(aiPlayers[2].id, b);
     }
 
@@ -1001,6 +1013,81 @@ export class GameScene extends Phaser.Scene {
           });
         });
       },
+    });
+  }
+
+  // ── Incoming-attack warning — fired when an AI card costs the human credits ──
+  private flashIncomingAttack(attackerName: string, width: number, height: number) {
+    const dpr = window.devicePixelRatio;
+
+    // Full-screen red flash
+    const flash = this.add.rectangle(width / 2, height / 2, width, height, 0xff0022, 0.18);
+    flash.setDepth(185).setAlpha(0);
+    this.tweens.add({
+      targets: flash,
+      alpha: { from: 0.18, to: 0 },
+      duration: 1100,
+      ease: 'Quad.easeOut',
+      onComplete: () => flash.destroy(),
+    });
+
+    // Red vignette border pulse (four thin edge rectangles)
+    const edgeAlpha = 0.55;
+    const edgeW = 18;
+    const edges = [
+      this.add.rectangle(width / 2, edgeW / 2,      width,  edgeW, 0xff1133, edgeAlpha),
+      this.add.rectangle(width / 2, height - edgeW / 2, width, edgeW, 0xff1133, edgeAlpha),
+      this.add.rectangle(edgeW / 2,      height / 2, edgeW, height, 0xff1133, edgeAlpha),
+      this.add.rectangle(width - edgeW / 2, height / 2, edgeW, height, 0xff1133, edgeAlpha),
+    ];
+    edges.forEach(e => e.setDepth(186).setAlpha(0));
+    this.tweens.add({
+      targets: edges,
+      alpha: { from: edgeAlpha, to: 0 },
+      duration: 1400,
+      ease: 'Quad.easeOut',
+      onComplete: () => edges.forEach(e => e.destroy()),
+    });
+
+    // Warning banner — slides up from the bottom of the screen
+    const BW = 340, BH = 56;
+    const bx = width / 2;
+    const byTarget = height - 90;
+    const con = this.add.container(bx, byTarget + 70).setDepth(190).setAlpha(0);
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x1a0005, 0.97);
+    bg.fillRoundedRect(-BW / 2, -BH / 2, BW, BH, 6);
+    bg.lineStyle(1.5, 0xff1e3c, 0.9);
+    bg.strokeRoundedRect(-BW / 2, -BH / 2, BW, BH, 6);
+    bg.fillStyle(0xff1e3c, 0.18);
+    bg.fillRoundedRect(-BW / 2, -BH / 2, BW, 11, { tl: 6, tr: 6, bl: 0, br: 0 });
+    con.add(bg);
+
+    con.add(this.add.text(0, -11, '⚠  INCOMING ATTACK', {
+      fontFamily: 'monospace', fontSize: '9px', color: '#ff3355',
+      letterSpacing: 4, resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, 8, `${attackerName.toUpperCase()} TARGETED YOU`, {
+      fontFamily: 'monospace', fontSize: '8px', color: '#ff1e3c88',
+      letterSpacing: 2, resolution: dpr,
+    }).setOrigin(0.5));
+
+    // Slide in
+    this.tweens.add({
+      targets: con,
+      y: byTarget, alpha: 1,
+      duration: 300, ease: 'Back.easeOut',
+    });
+    // Hold then slide out
+    this.time.delayedCall(2400, () => {
+      this.tweens.add({
+        targets: con,
+        y: byTarget + 28, alpha: 0,
+        duration: 320, ease: 'Quad.easeIn',
+        onComplete: () => con.destroy(),
+      });
     });
   }
 
