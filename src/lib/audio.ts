@@ -134,12 +134,12 @@ export function sfxDraw() {
 
 /** Per-tick sound during the dice roll slot-machine animation. */
 export function sfxDiceTick() {
-  play('deck_ui_bumper_end_02.wav', 0.45);
+  play('deck_ui_bumper_end_02.wav', 0.85);
 }
 
 /** Sound when the dice roll LED display appears (standby mode). */
 export function sfxShowDiceRoll() {
-  play('deck_ui_show_modal.wav', 0.85);
+  play('deck_ui_show_modal.wav', 1.0);
 }
 
 /** Ascending tone when a card in hand is selected. */
@@ -194,7 +194,7 @@ export function sfxWarLoss() {
 
 /** Roll about to start. */
 export function sfxRollStart() {
-  play('deck_ui_navigation.wav', 0.85);
+  play('deck_ui_navigation.wav', 1.0);
 }
 
 /** Corruption mode activates. */
@@ -209,7 +209,7 @@ export function sfxCorruptionReveal() {
 
 /** Dice roll complete — plays when the result digits start blinking. */
 export function sfxToast() {
-  play('deck_ui_toast.wav', 0.5);
+  play('deck_ui_toast.wav', 1.0);
 }
 
 /** Victory or defeat — game end transition. */
