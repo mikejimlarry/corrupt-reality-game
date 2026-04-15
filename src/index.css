@@ -15,17 +15,20 @@ html, body, #root {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 2px;
-  background: #00ffcc22;
+  height: 14px;
+  background: transparent;
   outline: none;
   border-radius: 0;
   cursor: pointer;
+  padding: 0;
+  margin: 0;
 }
 .credits-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 14px;
   height: 14px;
+  margin-top: -6px; /* center 14px thumb over 2px track */
   background: #00ffcc;
   border: none;
   border-radius: 0;

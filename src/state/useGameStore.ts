@@ -5,6 +5,17 @@ import type { Card, CreditsCard, PositiveEventCard, NegativeEventCard, WarCard, 
 import { initRNG, random } from '../lib/rng';
 import { generateDeck } from '../data/deck';
 
+// ── Elimination helper ────────────────────────────────────────────────────────
+
+function markEliminations(players: PlayerState[], keepHumanAlive = false): PlayerState[] {
+  return players.map(p => {
+    if (p.eliminated) return p;
+    const shouldEliminate = p.credits <= 0 && (!keepHumanAlive || !p.isHuman);
+    if (shouldEliminate) return { ...p, eliminated: true, daemons: [] };
+    return p;
+  });
+}
+
 // ── Module-level helpers ──────────────────────────────────────────────────────
 
 // Written by applyCardEffect when a Quarantine shield absorbs an attack.
@@ -15,7 +26,7 @@ let _negotiateBlockedBy: string | null = null;
 // Written by applyCardEffect when a daemon immunity blocks a targeted attack.
 let _daemonImmunityBlockedBy: string | null = null;
 // Written by applyCardEffect when a WAR card resolves — captures both rolls and outcome.
-let _warRollResult: { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; actorWins: boolean; targetName: string } | null = null;
+let _warRollResult: { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; targetBase: number; targetBonus: number; actorWins: boolean; targetName: string } | null = null;
 // Written by applyCardEffect when a targeted card resolves — captures the target's name.
 let _lastTargetName: string | null = null;
 
@@ -151,13 +162,15 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         _negotiateBlockedBy = players[ti].name;
         return players.map((p, i) => i === ti ? { ...p, negotiating: false } : p);
       }
-      // Roll 1d6 for each side; Firewall Surge (tacticalBonus) adds +1 to actor's roll
-      const actorBase  = Math.floor(random() * 6) + 1;
-      const targetRoll = Math.floor(random() * 6) + 1;
-      const actorBonus = players[actorIndex].tacticalBonus ? 1 : 0;
-      const actorRoll  = actorBase + actorBonus;
-      const actorWins  = actorRoll >= targetRoll; // ties go to the attacker
-      _warRollResult = { actorRoll, actorBase, actorBonus, targetRoll, actorWins, targetName: players[ti].name };
+      // Roll 1d6 for each side; Firewall Surge (tacticalBonus) adds +N to each player's roll
+      const actorBase   = Math.floor(random() * 6) + 1;
+      const targetBase  = Math.floor(random() * 6) + 1;
+      const actorBonus  = players[actorIndex].tacticalBonus;   // number of stacked Firewall Surges
+      const targetBonus = players[ti].tacticalBonus;
+      const actorRoll   = actorBase + actorBonus;
+      const targetRoll  = targetBase + targetBonus;
+      const actorWins   = actorRoll >= targetRoll; // ties go to the attacker
+      _warRollResult = { actorRoll, actorBase, actorBonus, targetRoll, targetBase, targetBonus, actorWins, targetName: players[ti].name };
       // Determine base credit losses based on who won
       let actorLoss  = actorWins ? w.winnerLoses : w.loserLoses;
       let targetLoss = actorWins ? w.loserLoses  : w.winnerLoses;
@@ -171,13 +184,13 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
           let daemons = [...p.daemons];
           if (!actorWins && w.loserLosesImprovement && daemons.length > 0)
             daemons.splice(Math.floor(random() * daemons.length), 1);
-          return { ...p, credits: Math.max(0, p.credits - actorLoss), tacticalBonus: false, daemons }; // clear tacticalBonus after use
+          return { ...p, credits: Math.max(0, p.credits - actorLoss), tacticalBonus: 0, daemons }; // clear tacticalBonus after use
         }
         if (i === ti) {
           let daemons = [...p.daemons];
           if (actorWins && w.loserLosesImprovement && daemons.length > 0)
             daemons.splice(Math.floor(random() * daemons.length), 1);
-          return { ...p, credits: Math.max(0, p.credits - targetLoss), daemons };
+          return { ...p, credits: Math.max(0, p.credits - targetLoss), tacticalBonus: 0, daemons };
         }
         return p;
       });
@@ -198,9 +211,9 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       if (cnt.counterType === 'SHIELD') {
         return players.map((p, i) => i === actorIndex ? { ...p, quarantined: true } : p);
       }
-      // TACTICAL_ADVANTAGE (Firewall Surge) — waive own war cost on the next WAR card played
+      // TACTICAL_ADVANTAGE (Firewall Surge) — adds +1 to the next WAR roll (stackable)
       if (cnt.counterType === 'TACTICAL_ADVANTAGE') {
-        return players.map((p, i) => i === actorIndex ? { ...p, tacticalBonus: true } : p);
+        return players.map((p, i) => i === actorIndex ? { ...p, tacticalBonus: p.tacticalBonus + 1 } : p);
       }
       // NEGOTIATE (Cease & Desist) — block the next WAR or EVENT_NEGATIVE targeting this player
       if (cnt.counterType === 'NEGOTIATE') {
@@ -282,10 +295,11 @@ function cardLogText(card: Card, actorName: string): string {
     }
     case 'WAR': {
       if (_warRollResult) {
-        const { actorBase, actorBonus, actorRoll, targetRoll, actorWins, targetName } = _warRollResult;
-        const actorRollStr = actorBonus > 0 ? `${actorBase}+${actorBonus}=${actorRoll}` : `${actorRoll}`;
+        const { actorBase, actorBonus, actorRoll, targetBase, targetBonus, targetRoll, actorWins, targetName } = _warRollResult;
+        const actorRollStr  = actorBonus  > 0 ? `${actorBase}+${actorBonus}=${actorRoll}`  : `${actorRoll}`;
+        const targetRollStr = targetBonus > 0 ? `${targetBase}+${targetBonus}=${targetRoll}` : `${targetRoll}`;
         const winner = actorWins ? actorName : targetName;
-        return `${actorName} played ${card.name} — rolled ${actorRollStr} vs ${targetName} ${targetRoll} — ${winner} wins`;
+        return `${actorName} played ${card.name} — rolled ${actorRollStr} vs ${targetName} ${targetRollStr} — ${winner} wins`;
       }
       return `${actorName} played ${card.name}`;
     }
@@ -321,6 +335,7 @@ interface GameStore extends GameState {
   turnNumber: number;
   rollResult: [number, number] | null;
   rollTriggered: boolean;
+  corruptionReveal: boolean;
   pendingCardId: string | null;
   validTargetIds: string[];
   startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean): void;
@@ -335,16 +350,24 @@ interface GameStore extends GameState {
   selectTarget(targetId: string): void;
   cancelTargeting(): void;
   resolveDeadMansSwitch(card: Card | null): void;
+  resolveDaemonSteal(daemon: import('./cards').DaemonType | null): void;
+  resolveWarPick(p1Index: number, p2Index: number): void;
+  cancelWarPick(): void;
+  playWarPreCard(cardId: string): void;
+  passWarPre(): void;
+  cancelWarPre(): void;
+  finalizeWarResolution(warCard: import('../types/cards').WarCard, p1Index: number, p2Index: number): void;
   endTurn(): void;
   advanceTurn(): void;
   triggerRoll(): void;
   rollComplete(): void;
+  corruptionRevealComplete(): void;
   runAiTurn(): void;
 }
 
 // ── Default state ──────────────────────────────────────────────────────────────
 
-const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[] } = {
+const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[]; corruptionReveal: boolean } = {
   phase: 'SETUP',
   players: [],
   deck: [],
@@ -359,12 +382,17 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   turnNumber: 1,
   rollResult: null,
   rollTriggered: false,
+  corruptionReveal: false,
   pendingCardId: null,
   validTargetIds: [],
   startingPop: 50,
   hidePpCounts: false,
   deadMansSwitch: false,
   deadMansSwitchPending: null,
+  daemonStealPending: null,
+  warPickPending: null,
+  warPrePending: null,
+  pendingOverclockCard: null,
 };
 
 // ── Cyberpunk AI names & personalities ────────────────────────────────────────
@@ -393,7 +421,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       eliminated: false,
       quarantined: false,
       overclocked: false,
-      tacticalBonus: false,
+      tacticalBonus: 0,
       negotiating: false,
     }));
 
@@ -458,6 +486,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let players = state.players.map(p => ({ ...p, hand: [...p.hand] }));
     let drawn = 0;
 
+    let corruptionCard: Card | null = null;
+
     for (let n = 0; n < needed; n++) {
       if (deck.length === 0) {
         if (discard.length === 0) break;
@@ -467,15 +497,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       const [card, ...rest] = deck;
       deck = rest;
-      players[actorIndex].hand.push(card);
-      drawn++;
+
+      // Corruption card: auto-play immediately — never enters hand
+      if (card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).effect === 'CORRUPTION') {
+        corruptionCard = card;
+        discard = [...discard, card];
+      } else {
+        players[actorIndex].hand.push(card);
+        drawn++;
+      }
     }
 
-    set({ deck, discard, players, phase: 'MAIN' });
-    get().addLog(
-      `${state.players[actorIndex].name} drew ${drawn} card${drawn !== 1 ? 's' : ''}.`,
-      'turn',
-    );
+    if (corruptionCard) {
+      get().addLog(
+        `${state.players[actorIndex].name} drew The Corruption — virus unleashed!`,
+        'card',
+      );
+      set({ deck, discard, players, phase: 'MAIN', corruptionReveal: true, globalCorruptionMode: true });
+    } else {
+      set({ deck, discard, players, phase: 'MAIN' });
+      get().addLog(
+        `${state.players[actorIndex].name} drew ${drawn} card${drawn !== 1 ? 's' : ''}.`,
+        'turn',
+      );
+    }
   },
 
   selectCard: (id: string | null) => set({ selectedCardId: id }),
@@ -491,14 +536,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const liveOpponents = state.players.filter((p, i) => i !== actorIndex && !p.eliminated);
 
-    // Human players must select a target for targeting cards
+    // WAR cards — human picks any two live players (including themselves) to go to war
+    if (actor.isHuman && card.category === 'WAR') {
+      const livePlayers = state.players
+        .map((p, i) => ({ id: p.id, name: p.name, playerIndex: i }))
+        .filter((_, i) => !state.players[i].eliminated);
+      if (livePlayers.length >= 2) {
+        set({ warPickPending: { cardId, availablePlayers: livePlayers } });
+        return;
+      }
+    }
+
+    // Human players must select a target for single-target negative event cards
     const needsTarget =
       actor.isHuman &&
       liveOpponents.length > 0 &&
-      (
-        (card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).targetsOther) ||
-        card.category === 'WAR'
-      );
+      card.category === 'EVENT_NEGATIVE' &&
+      (card as NegativeEventCard).targetsOther;
 
     if (needsTarget) {
       set({
@@ -522,6 +576,32 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const card = actor.hand.find(c => c.id === cardId);
     if (!card) return;
 
+    // ── Backdoor: human gets to pick which daemon to steal when target has >1 ──
+    if (
+      actor.isHuman &&
+      card.category === 'EVENT_NEGATIVE' &&
+      (card as NegativeEventCard).effect === 'STEAL_DAEMON' &&
+      targetIndex !== undefined
+    ) {
+      const targetDaemons = state.players[targetIndex].daemons;
+      if (targetDaemons.length > 1) {
+        const handAfterBackdoor = actor.hand.filter(c => c.id !== cardId);
+        const playersWithoutCard = state.players.map((p, i) =>
+          i === actorIndex ? { ...p, hand: handAfterBackdoor } : p
+        );
+        set({
+          players: playersWithoutCard,
+          phase: 'MAIN',
+          selectedCardId: null,
+          pendingCardId: null,
+          validTargetIds: [],
+          daemonStealPending: { targetIndex, availableDaemons: [...targetDaemons] },
+        });
+        get().addLog(`${actor.name} played Backdoor — choose which daemon to steal.`, 'card');
+        return;
+      }
+    }
+
     const handAfter = actor.hand.filter(c => c.id !== cardId);
     let players = state.players.map((p, i) =>
       i === actorIndex ? { ...p, hand: handAfter } : p
@@ -542,7 +622,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const isCorruption = card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).effect === 'CORRUPTION';
     const globalCorruptionMode = isCorruption ? true : state.globalCorruptionMode;
-    let discard = [...state.discard, card];
+    const isHumanOverclock =
+      actor.isHuman &&
+      card.category === 'EVENT_POSITIVE' &&
+      (card as PositiveEventCard).effect === 'OVERCLOCK';
+    let discard = isHumanOverclock ? [...state.discard] : [...state.discard, card];
 
     // ── Dead Man's Switch — players who just hit 0 may fire one last negative card ──
     // AI players auto-pick; the human player gets a choice overlay.
@@ -583,10 +667,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (humanDmsPending) {
       // Mark AI eliminations now; keep the human's eliminated flag clear until they resolve
-      players = players.map((p) => ({
-        ...p,
-        eliminated: p.eliminated || (!p.isHuman && p.credits <= 0),
-      }));
+      players = markEliminations(players, true);
       set({
         players, discard, globalCorruptionMode,
         phase: 'MAIN',
@@ -598,7 +679,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return; // advanceTurn fires after overlay resolves
     }
 
-    players = players.map(p => ({ ...p, eliminated: p.eliminated || p.credits <= 0 }));
+    players = markEliminations(players);
 
     const alive = players.filter(p => !p.eliminated);
     const winnerId = alive.length === 1 ? alive[0].id : null;
@@ -614,6 +695,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingCardId: null,
       validTargetIds: [],
       deadMansSwitchPending: null,
+      pendingOverclockCard: isHumanOverclock ? card : state.pendingOverclockCard,
     });
 
     // AI players advance automatically after the card fly-out animation settles.
@@ -653,7 +735,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // Now mark all remaining eliminations (including the DMS player)
-    players = players.map(p => ({ ...p, eliminated: p.eliminated || p.credits <= 0 }));
+    players = markEliminations(players);
     const alive = players.filter(p => !p.eliminated);
     const winnerId = alive.length === 1 ? alive[0].id : null;
     if (winnerId) get().addLog(`${alive[0].name} wins the game!`, 'turn');
@@ -667,6 +749,221 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     if (!winnerId && !humanResolved) setTimeout(() => get().advanceTurn(), 950);
+  },
+
+  resolveDaemonSteal: (daemon) => {
+    const state = get();
+    if (!state.daemonStealPending) return;
+    const { targetIndex, availableDaemons } = state.daemonStealPending;
+    const actorIndex = state.currentPlayerIndex;
+
+    const stolen = daemon ?? availableDaemons[0]; // null = skip (no daemons to steal)
+    let players = state.players.map((p, i) => {
+      if (i === targetIndex)
+        return { ...p, daemons: p.daemons.filter(d => d !== stolen) };
+      if (i === actorIndex && !p.daemons.includes(stolen))
+        return { ...p, daemons: [...p.daemons, stolen] };
+      return p;
+    });
+
+    if (daemon) {
+      get().addLog(`${state.players[actorIndex].name} stole ${stolen} from ${state.players[targetIndex].name}.`, 'effect');
+    }
+
+    players = markEliminations(players);
+    const alive = players.filter(p => !p.eliminated);
+    const winnerId = alive.length === 1 ? alive[0].id : null;
+
+    set({
+      players,
+      winnerId,
+      phase: winnerId ? 'GAME_OVER' : 'END_TURN',
+      daemonStealPending: null,
+    });
+  },
+
+  resolveWarPick: (p1Index: number, p2Index: number) => {
+    const state = get();
+    if (!state.warPickPending) return;
+    const { cardId } = state.warPickPending;
+
+    const actorIndex = state.currentPlayerIndex;
+    const actor = state.players[actorIndex];
+    const card = actor.hand.find(c => c.id === cardId);
+    if (!card) return;
+
+    const warCard = card as import('../types/cards').WarCard;
+
+    // Remove WAR card from actor's hand and add to discard
+    const handAfter = actor.hand.filter(c => c.id !== cardId);
+    let players = state.players.map((p, i) =>
+      i === actorIndex ? { ...p, hand: handAfter } : p
+    );
+    let discard = [...state.discard, card];
+
+    // ── Auto-process AI combatants' pre-war cards ──────────────────────────────
+    const autoPlayPreWar = (pi: number, pls: PlayerState[], dis: Card[]): [PlayerState[], Card[]] => {
+      const p = pls[pi];
+      const surgeCards = p.hand.filter(
+        c => c.category === 'COUNTER' && (c as CounterCard).counterType === 'TACTICAL_ADVANTAGE'
+      );
+      // AGGRESSIVE / TACTICAL: play all surge cards. CAUTIOUS: none. Others: play one.
+      const toPlay = (p.personality === 'AGGRESSIVE' || p.personality === 'TACTICAL')
+        ? surgeCards
+        : p.personality === 'CAUTIOUS' ? []
+        : surgeCards.slice(0, 1);
+      if (toPlay.length === 0) return [pls, dis];
+      const playIds = new Set(toPlay.map(c => c.id));
+      const newPls = pls.map((q, i) => i === pi
+        ? { ...q, hand: q.hand.filter(c => !playIds.has(c.id)), tacticalBonus: q.tacticalBonus + toPlay.length }
+        : q
+      );
+      const newDis = [...dis, ...toPlay];
+      get().addLog(
+        `${p.name} plays ${toPlay.length} Firewall Surge${toPlay.length > 1 ? 's' : ''} — +${toPlay.length} to roll`,
+        'effect',
+      );
+      return [newPls, newDis];
+    };
+
+    const isP1Human = state.players[p1Index].isHuman;
+    const isP2Human = state.players[p2Index].isHuman;
+
+    if (!isP1Human) [players, discard] = autoPlayPreWar(p1Index, players, discard);
+    if (!isP2Human) [players, discard] = autoPlayPreWar(p2Index, players, discard);
+
+    // If both AI — resolve the war immediately (no overlay needed)
+    if (!isP1Human && !isP2Human) {
+      set({ players, discard, warPickPending: null, selectedCardId: null });
+      get().finalizeWarResolution(warCard, p1Index, p2Index);
+      return;
+    }
+
+    // At least one human combatant — open pre-war overlay for their step
+    const step: 1 | 2 = isP1Human ? 1 : 2;
+    set({
+      players, discard,
+      warPickPending: null,
+      selectedCardId: null,
+      warPrePending: { card: warCard, p1Index, p2Index, step },
+    });
+  },
+
+  cancelWarPick: () => set({ warPickPending: null, selectedCardId: null }),
+
+  playWarPreCard: (cardId: string) => {
+    const state = get();
+    if (!state.warPrePending) return;
+    const { p1Index, p2Index, step } = state.warPrePending;
+    const combatantIndex = step === 1 ? p1Index : p2Index;
+
+    const combatant = state.players[combatantIndex];
+    const card = combatant.hand.find(c => c.id === cardId);
+    if (!card || card.category !== 'COUNTER') return;
+
+    const cnt = card as CounterCard;
+
+    // Remove from combatant's hand and discard
+    let players = state.players.map((p, i) =>
+      i === combatantIndex ? { ...p, hand: p.hand.filter(c => c.id !== cardId) } : p
+    );
+    const discard = [...state.discard, card];
+
+    if (cnt.counterType === 'TACTICAL_ADVANTAGE') {
+      // Stack bonus on this combatant
+      players = players.map((p, i) =>
+        i === combatantIndex ? { ...p, tacticalBonus: p.tacticalBonus + 1 } : p
+      );
+      set({ players, discard });
+      get().addLog(
+        `${combatant.name} plays Firewall Surge — roll bonus now +${players[combatantIndex].tacticalBonus}`,
+        'effect',
+      );
+    } else if (cnt.counterType === 'NEGOTIATE') {
+      // Cease & Desist — cancel the war entirely
+      set({ players, discard, warPrePending: null, selectedCardId: null, phase: 'END_TURN' });
+      get().addLog(`${combatant.name} plays Cease & Desist — war cancelled!`, 'effect');
+    }
+  },
+
+  passWarPre: () => {
+    const state = get();
+    if (!state.warPrePending) return;
+    const { card, p1Index, p2Index } = state.warPrePending;
+    set({ warPrePending: null });
+    get().finalizeWarResolution(card, p1Index, p2Index);
+  },
+
+  cancelWarPre: () => {
+    // Abort mid-pre-war — return to MAIN (WAR card was already discarded)
+    set({ warPrePending: null, selectedCardId: null, phase: 'END_TURN' });
+  },
+
+  finalizeWarResolution: (warCard: import('../types/cards').WarCard, p1Index: number, p2Index: number) => {
+    const state = get();
+    const actorIndex = state.currentPlayerIndex;
+    let players = state.players;
+    let discard = state.discard;
+
+    _warRollResult = null;
+    _negotiateBlockedBy = null;
+    players = applyCardEffect(warCard, players, p1Index, p2Index);
+    const negotiateBlockedBy = _negotiateBlockedBy;
+    _negotiateBlockedBy = null;
+
+    get().addLog(cardLogText(warCard, state.players[actorIndex].name), 'card');
+    _warRollResult = null;
+    if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Cease & Desist cancelled the war!`, 'effect');
+
+    // Dead Man's Switch check
+    let humanDmsPending: { playerIndex: number; eligibleCards: NegativeEventCard[] } | null = null;
+    if (state.deadMansSwitch) {
+      for (let i = 0; i < players.length; i++) {
+        const wasAlive = !state.players[i].eliminated;
+        if (!wasAlive || players[i].credits > 0) continue;
+        const eligibleCards = players[i].hand.filter(
+          c => c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).targetsOther
+        ) as NegativeEventCard[];
+        if (eligibleCards.length === 0) continue;
+        if (players[i].isHuman) {
+          if (!humanDmsPending) humanDmsPending = { playerIndex: i, eligibleCards };
+        } else {
+          const lastCard = eligibleCards[Math.floor(random() * eligibleCards.length)];
+          players = players.map((p, idx) =>
+            idx === i ? { ...p, hand: p.hand.filter(c => c.id !== lastCard.id) } : p
+          );
+          players = applyCardEffect(lastCard, players, i);
+          discard = [...discard, lastCard];
+          get().addLog(`💀 ${players[i].name} triggers Dead Man's Switch — plays ${lastCard.name}!`, 'effect');
+        }
+      }
+    }
+
+    if (humanDmsPending) {
+      players = markEliminations(players, true);
+      set({
+        players, discard,
+        phase: 'MAIN',
+        selectedCardId: null,
+        pendingCardId: null,
+        validTargetIds: [],
+        deadMansSwitchPending: humanDmsPending,
+      });
+      return;
+    }
+
+    players = markEliminations(players);
+    const alive = players.filter(p => !p.eliminated);
+    const winnerId = alive.length === 1 ? alive[0].id : null;
+    if (winnerId) get().addLog(`${alive[0].name} wins the game!`, 'turn');
+
+    set({
+      players, discard, winnerId,
+      phase: winnerId ? 'GAME_OVER' : 'END_TURN',
+      selectedCardId: null,
+      pendingCardId: null,
+      validTargetIds: [],
+    });
   },
 
   discardCard: (cardId: string) => {
@@ -738,6 +1035,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ rollTriggered: true });
   },
 
+  corruptionRevealComplete: () => {
+    set({ corruptionReveal: false });
+  },
+
   rollComplete: () => {
     const state = get();
     if (state.phase !== 'PHASE_ROLL') return;
@@ -807,7 +1108,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       get().addLog(`${rollLabel}. (${r1}+${r2}=${total})`, 'roll');
     }
 
-    set({ rollTriggered: false, players });
+    const ocDiscard = (isOverclocked && state.pendingOverclockCard)
+      ? [...state.discard, state.pendingOverclockCard]
+      : state.discard;
+    set({ rollTriggered: false, players, discard: ocDiscard, pendingOverclockCard: null });
 
     const currentPlayer = players[actorIndex];
     if (currentPlayer.isHuman) {

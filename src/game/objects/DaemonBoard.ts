@@ -2,8 +2,8 @@
 import Phaser from 'phaser';
 import type { DaemonType } from '../../types/cards';
 
-const IMP_COLOR = 0xaa44ff;
-const IMP_HEX   = '#aa44ff';
+const IMP_COLOR = 0x00ffcc;
+const IMP_HEX   = '#00ffcc';
 
 const IMP_LABEL: Record<DaemonType, string> = {
   FIREWALL:      'FIREWALL',

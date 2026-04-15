@@ -4,7 +4,12 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(rm /Users/michaellawrence/Sites/corrupt-reality-game/.git/index.lock)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(unzip -l /Users/michaellawrence/Downloads/1f4b8178-d319-4b42-9e0a-fac7ca42ebe7.zip)",
+      "Bash(unzip -p /Users/michaellawrence/Downloads/1f4b8178-d319-4b42-9e0a-fac7ca42ebe7.zip \"Cyberpunk 2077 UI SFX PACK/pack.json\")",
+      "Bash(unzip -j /Users/michaellawrence/Downloads/1f4b8178-d319-4b42-9e0a-fac7ca42ebe7.zip \"Cyberpunk 2077 UI SFX PACK/*.wav\" -d /Users/michaellawrence/Sites/corrupt-reality-game/public/sfx/)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npx tsc:*)"
     ]
   }
 }

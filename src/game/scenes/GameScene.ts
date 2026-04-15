@@ -7,6 +7,7 @@ import { CentreZone, DISCARD_LOCAL_CX, DISCARD_LOCAL_CY } from '../objects/Centr
 import { LEDDisplay } from '../objects/LEDDisplay';
 import { DaemonBoard } from '../objects/DaemonBoard';
 import { useGameStore } from '../../state/useGameStore';
+import { sfxCorruptionReveal } from '../../lib/audio';
 import type { Card as CardData } from '../../types/cards';
 import type { PlayerState } from '../../types/gameState';
 
@@ -20,6 +21,7 @@ export class GameScene extends Phaser.Scene {
   private humanDaemonBoard?: DaemonBoard;
   private aiDaemonBoards = new Map<string, DaemonBoard>();
   private aiCardBackObjects = new Map<string, CardBack[]>();
+  private overclockVisual?: Phaser.GameObjects.Container;
   // seat index: 0=top, 1=left, 2=right — set during buildTable
   private aiPlayerSeat = new Map<string, number>();
 
@@ -35,6 +37,7 @@ export class GameScene extends Phaser.Scene {
     this.aiDaemonBoards.clear();
     this.aiCardBackObjects.clear();
     this.aiPlayerSeat.clear();
+    this.overclockVisual = undefined;
     this.children.removeAll(true);  // destroys everything including old ledDisplay
     this.buildTable(width, height);
     // Recreate LED display on top of the fresh scene
@@ -65,12 +68,14 @@ export class GameScene extends Phaser.Scene {
     let prevDiscardLen = useGameStore.getState().discard.length;
     let prevTurnNumber = useGameStore.getState().turnNumber ?? 1;
     let prevRollTriggered = false;
+    let prevCorruptionReveal = false;
     let prevCurrentPlayerIndex = useGameStore.getState().currentPlayerIndex;
     let prevCorruption = useGameStore.getState().globalCorruptionMode;
     // Track per-player credits for delta animation
     const prevCreditsMap = new Map<string, number>(
       useGameStore.getState().players.map(p => [p.id, p.credits])
     );
+    let prevPendingOverclockCard: import('../../types/cards').Card | null = null;
 
     this.unsubscribeStore = useGameStore.subscribe(state => {
       const { players, selectedCardId } = state;
@@ -159,6 +164,7 @@ export class GameScene extends Phaser.Scene {
 
       // ── Phase change ────────────────────────────────────────────────────
       if (state.phase !== prevPhase) {
+        const leavingTargeting = prevPhase === 'TARGETING';
         prevPhase = state.phase;
         this.centreZone?.setPhase(state.phase);
         if (!handUpdated) {
@@ -174,12 +180,34 @@ export class GameScene extends Phaser.Scene {
               : undefined
             );
           });
+          // Shrink hand cards by 10%, anchoring to bottom-centre
+          this.humanCardObjects.forEach(card => {
+            const s = card.getRestScale() * 0.9;
+            const dy = (card.getRestScale() - s) * (CARD_H / 2);
+            this.tweens.killTweensOf(card);
+            this.tweens.add({
+              targets: card, scaleX: s, scaleY: s, y: card.y + dy,
+              duration: 200, ease: 'Quad.easeOut',
+            });
+          });
         } else {
-          // Clear all target highlights when leaving TARGETING
+          // Clear all target highlights
           this.playerZoneMap.forEach(zone => {
             zone.setTargetable(false);
             this.input.setDefaultCursor('default');
           });
+          // Only restore hand scale when actually leaving TARGETING — not on every phase change
+          if (leavingTargeting && !handUpdated) {
+            this.humanCardObjects.forEach(card => {
+              const s = card.getRestScale();
+              const dy = -(s * 0.1 * (CARD_H / 2));
+              this.tweens.killTweensOf(card);
+              this.tweens.add({
+                targets: card, scaleX: s, scaleY: s, y: card.y + dy,
+                duration: 200, ease: 'Quad.easeOut',
+              });
+            });
+          }
         }
         // Show LED standby after table/AI-hand animations settle (~650ms)
         if (state.phase === 'PHASE_ROLL') {
@@ -200,13 +228,48 @@ export class GameScene extends Phaser.Scene {
         prevRollTriggered = true;
         const currentPlayer = state.players[state.currentPlayerIndex];
         if (state.rollResult !== null && currentPlayer) {
+          const [r1, r2] = state.rollResult;
+          const rawTotal  = r1 + r2;
+          const inCorruption = state.globalCorruptionMode;
+          const daemonCount  = currentPlayer.daemons.length;
+          const isOverclocked = (currentPlayer as any).overclocked ?? false;
+          const afterDaemons = inCorruption
+            ? Math.max(2, rawTotal - daemonCount)
+            : Math.min(12, rawTotal + daemonCount);
+          const overclockShift = isOverclocked ? (inCorruption ? -5 : 5) : 0;
+          const effectiveTotal = inCorruption
+            ? Math.max(2, afterDaemons + overclockShift)
+            : Math.min(12, afterDaemons + overclockShift);
+          const creditDelta =
+            effectiveTotal <= 3  ? 0  :
+            effectiveTotal <= 5  ? 5  :
+            effectiveTotal <= 8  ? 10 :
+            effectiveTotal <= 11 ? 15 : 20;
           this.ledDisplay?.roll(
-            state.rollResult[0], state.rollResult[1], currentPlayer.name,
+            r1, r2, currentPlayer.name, creditDelta, inCorruption,
             () => { useGameStore.getState().rollComplete(); },
           );
         }
       }
       if (!state.rollTriggered) prevRollTriggered = false;
+
+      // ── Corruption card reveal — fires when Corruption is drawn ───────────
+      if (state.corruptionReveal && !prevCorruptionReveal) {
+        prevCorruptionReveal = true;
+        this.showCorruptionReveal(w, h);
+      }
+      if (!state.corruptionReveal) prevCorruptionReveal = false;
+
+      // ── Overclock card visual ────────────────────────────────────────────────
+      const pendingOC = (state as any).pendingOverclockCard ?? null;
+      if (pendingOC !== prevPendingOverclockCard) {
+        prevPendingOverclockCard = pendingOC;
+        if (pendingOC) {
+          this.time.delayedCall(340, () => this.showOverclockCard(pendingOC, w, h));
+        } else {
+          this.hideOverclockCard();
+        }
+      }
 
       // Update centre zone pile counts and turn number
       if (state.deck.length !== prevDeckLen) {
@@ -312,6 +375,10 @@ export class GameScene extends Phaser.Scene {
 
     // ── 8. Table dividers ──────────────────────────────────────────────────
     this.drawDividers(aiPlayers.length, width, height);
+
+    // Restore overclock visual on rebuild (e.g. window resize)
+    const pendingOC = useGameStore.getState().pendingOverclockCard;
+    if (pendingOC) this.showOverclockCard(pendingOC, width, height);
   }
 
   // ── Player dim — fades inactive player zones and card backs ─────────────
@@ -410,7 +477,10 @@ export class GameScene extends Phaser.Scene {
         } else {
           obj.playOut(discardWorldX, discardWorldY, () => {
             obj.destroy();
-            this.centreZone?.setDiscardTop(cardData);
+            const pendingOCId = (useGameStore.getState() as any).pendingOverclockCard?.id;
+            if (pendingOCId !== cardData.id) {
+              this.centreZone?.setDiscardTop(cardData);
+            }
           });
         }
         return false;
@@ -463,6 +533,157 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.humanCardObjects = nextCardObjects;
+  }
+
+  // ── Corruption card reveal — shown centre-screen when drawn ──────────────
+  private showCorruptionReveal(width: number, height: number) {
+    sfxCorruptionReveal();
+    const cx = width / 2;
+    const cy = height * 0.46;
+    const dpr = window.devicePixelRatio;
+
+    const con = this.add.container(cx, cy);
+    con.setDepth(300);
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x0d0003, 1);
+    bg.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
+    bg.lineStyle(2, 0xff3355, 0.9);
+    bg.strokeRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
+    bg.fillStyle(0xff3355, 0.35);
+    bg.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, 20, { tl: 8, tr: 8, bl: 0, br: 0 });
+    bg.fillStyle(0xff3355, 0.04);
+    bg.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
+    con.add(bg);
+
+    con.add(this.add.text(0, -CARD_H / 2 + 11, 'HACK PROTOCOL', {
+      fontFamily: 'monospace', fontSize: '8px', color: '#ff3355', resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, -14, 'THE\nCORRUPTION', {
+      fontFamily: 'monospace', fontSize: '22px', color: '#ffffff', fontStyle: 'bold',
+      align: 'center', lineSpacing: 4, resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, CARD_H / 2 - 52, 'CORRUPTION\nMODE BEGINS', {
+      fontFamily: 'monospace', fontSize: '11px', color: '#ff3355',
+      align: 'center', lineSpacing: 3, resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, CARD_H / 2 - 16, '"Once it spreads,\nnothing is clean."', {
+      fontFamily: 'monospace', fontSize: '7px', color: '#663344',
+      fontStyle: 'italic', align: 'center', lineSpacing: 2, resolution: dpr,
+    }).setOrigin(0.5));
+
+    // Scale in from zero
+    con.setScale(0);
+    con.setAlpha(0);
+    this.tweens.add({
+      targets: con, scaleX: 1, scaleY: 1, alpha: 1,
+      duration: 350, ease: 'Back.easeOut',
+    });
+
+    // Hold, then fly to the discard pile and clear the flag
+    const discardWorldX = cx + DISCARD_LOCAL_CX;
+    const discardWorldY = cy + DISCARD_LOCAL_CY;
+    this.time.delayedCall(2000, () => {
+      this.tweens.add({
+        targets: con,
+        x: discardWorldX, y: discardWorldY,
+        scaleX: 0.3, scaleY: 0.3, alpha: 0,
+        duration: 400, ease: 'Quad.easeIn',
+        onComplete: () => {
+          con.destroy();
+          useGameStore.getState().corruptionRevealComplete();
+        },
+      });
+    });
+  }
+
+  // ── Overclock card visual — shown on table while Overclock is pending ────────
+  private showOverclockCard(cardData: import('../../types/cards').Card, width: number, height: number) {
+    if (this.overclockVisual) {
+      this.tweens.killTweensOf(this.overclockVisual);
+      this.overclockVisual.destroy();
+      this.overclockVisual = undefined;
+    }
+
+    const cx = width * 0.70;
+    const cy = height * 0.73;
+    const W = 118, H = 64;
+
+    const con = this.add.container(cx, cy);
+    con.setDepth(12);
+    con.setAlpha(0);
+
+    // Dark background
+    const bg = this.add.graphics();
+    bg.fillStyle(0x060c18, 0.96);
+    bg.fillRoundedRect(-W / 2, -H / 2, W, H, 6);
+    bg.lineStyle(1.5, 0x00ccff, 0.75);
+    bg.strokeRoundedRect(-W / 2, -H / 2, W, H, 6);
+    con.add(bg);
+
+    // Outer glow (animated)
+    const glow = this.add.graphics();
+    glow.lineStyle(3, 0x00ccff, 0.35);
+    glow.strokeRoundedRect(-W / 2 - 2, -H / 2 - 2, W + 4, H + 4, 8);
+    con.add(glow);
+    this.tweens.add({
+      targets: glow,
+      alpha: { from: 0.25, to: 1 },
+      duration: 900, repeat: -1, yoyo: true,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Title
+    const dpr = window.devicePixelRatio;
+    con.add(this.add.text(0, -H / 2 + 13, '⚡  OVERCLOCK', {
+      fontFamily: 'monospace', fontSize: '10px', color: '#00ccff',
+      fontStyle: 'bold', resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, -H / 2 + 27, cardData.name.toUpperCase(), {
+      fontFamily: 'monospace', fontSize: '8px', color: '#5588aa',
+      resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, -H / 2 + 41, 'PENDING — NEXT ROLL', {
+      fontFamily: 'monospace', fontSize: '7px', color: '#334455',
+      resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, -H / 2 + 53, 'ROLL SHIFTED +5', {
+      fontFamily: 'monospace', fontSize: '7px', color: '#00ccff55',
+      resolution: dpr,
+    }).setOrigin(0.5));
+
+    // Entrance animation
+    this.tweens.add({
+      targets: con,
+      alpha: 1,
+      scaleX: { from: 0.55, to: 1 },
+      scaleY: { from: 0.55, to: 1 },
+      duration: 320,
+      ease: 'Back.easeOut',
+    });
+
+    this.overclockVisual = con;
+  }
+
+  private hideOverclockCard() {
+    if (!this.overclockVisual) return;
+    const con = this.overclockVisual;
+    this.overclockVisual = undefined;
+    this.tweens.killTweensOf(con);
+    con.list.forEach(child => this.tweens.killTweensOf(child));
+    this.tweens.add({
+      targets: con,
+      alpha: 0,
+      scaleX: 0.65, scaleY: 0.65,
+      duration: 280, ease: 'Quad.easeIn',
+      onComplete: () => con.destroy(),
+    });
   }
 
   // ── Background + grid ─────────────────────────────────────────────────────
@@ -677,14 +898,23 @@ export class GameScene extends Phaser.Scene {
     back.liftOut(centerX, centerY, () => {
       // Step 2 — flash the card name so the player knows what was played
       this.flashAiCardBanner(topCard, centerX, centerY - 80);
-      // Step 3 — brief pause then fly to discard (extended to let banner be read)
+      // Step 3 — brief pause then fly to destination
       this.time.delayedCall(600, () => {
-        const discardWorldX = centerX + DISCARD_LOCAL_CX;
-        const discardWorldY = centerY + DISCARD_LOCAL_CY;
-        back.playOut(discardWorldX, discardWorldY, () => {
-          back.destroy();
-          this.centreZone?.setDiscardTop(topCard);
-        });
+        if (topCard.category === 'DAEMON') {
+          // Daemon cards fly to the daemon board, not the discard pile
+          const board = this.aiDaemonBoards.get(playerId);
+          const destX = board ? board.x : centerX;
+          const destY = board ? board.y : centerY;
+          back.playOut(destX, destY, () => back.destroy());
+          // The daemon board itself is refreshed by the store subscription
+        } else {
+          const discardWorldX = centerX + DISCARD_LOCAL_CX;
+          const discardWorldY = centerY + DISCARD_LOCAL_CY;
+          back.playOut(discardWorldX, discardWorldY, () => {
+            back.destroy();
+            this.centreZone?.setDiscardTop(topCard);
+          });
+        }
       });
     });
   }
@@ -747,7 +977,7 @@ export class GameScene extends Phaser.Scene {
       targets: con, alpha: 1,
       duration: 150, ease: 'Quad.easeOut',
       onComplete: () => {
-        this.time.delayedCall(450, () => {
+        this.time.delayedCall(1450, () => {
           this.tweens.add({
             targets: con, alpha: 0,
             duration: 200, ease: 'Quad.easeIn',

@@ -1,0 +1,218 @@
+// src/ui/WarPickOverlay.tsx
+import React, { useState } from 'react';
+import { useGameStore } from '../state/useGameStore';
+
+export const WarPickOverlay: React.FC = () => {
+  const pending = useGameStore(s => s.warPickPending);
+  const players = useGameStore(s => s.players);
+  const resolve = useGameStore(s => s.resolveWarPick);
+  const cancel  = useGameStore(s => s.cancelWarPick);
+
+  const [p1Index, setP1Index] = useState<number | null>(null);
+  const [p2Index, setP2Index] = useState<number | null>(null);
+
+  // Reset local picks whenever the pending state changes
+  React.useEffect(() => {
+    setP1Index(null);
+    setP2Index(null);
+  }, [pending]);
+
+  if (!pending) return null;
+
+  const cardName = players
+    .flatMap(p => p.hand)
+    .find(c => c.id === pending.cardId)?.name ?? 'WAR';
+
+  const handleSelect = (playerIndex: number) => {
+    if (p1Index === null) {
+      setP1Index(playerIndex);
+    } else if (p1Index === playerIndex) {
+      // Deselect p1
+      setP1Index(null);
+      setP2Index(null);
+    } else if (p2Index === playerIndex) {
+      // Deselect p2
+      setP2Index(null);
+    } else {
+      setP2Index(playerIndex);
+    }
+  };
+
+  const canConfirm = p1Index !== null && p2Index !== null;
+
+  const p1Name = p1Index !== null ? pending.availablePlayers.find(p => p.playerIndex === p1Index)?.name : null;
+  const p2Name = p2Index !== null ? pending.availablePlayers.find(p => p.playerIndex === p2Index)?.name : null;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(5,0,10,0.94)',
+      zIndex: 200,
+      fontFamily: 'monospace',
+    }}>
+      <div style={{
+        border: '1px solid #ff336644',
+        padding: '2rem',
+        maxWidth: 480,
+        width: '90%',
+        background: 'rgba(15,0,10,0.90)',
+      }}>
+        {/* Header */}
+        <div style={{
+          color: '#ff3366', letterSpacing: 6, fontSize: '0.6rem',
+          textAlign: 'center', marginBottom: '0.4rem',
+        }}>
+          ⚔ WAR DECLARATION
+        </div>
+        <h2 style={{
+          color: '#ff4466', letterSpacing: 4, fontSize: '1.1rem',
+          margin: '0 0 0.35rem', textAlign: 'center',
+        }}>
+          {cardName.toUpperCase()}
+        </h2>
+        <p style={{
+          color: '#663344', letterSpacing: 1, fontSize: '0.6rem',
+          textAlign: 'center', margin: '0 0 1.4rem',
+          lineHeight: 1.6,
+        }}>
+          Choose two combatants.<br />
+          Both will roll — the loser pays the price.
+        </p>
+
+        {/* Selection summary */}
+        <div style={{
+          display: 'flex', gap: 8, marginBottom: '1rem',
+          fontSize: '0.65rem', letterSpacing: 1,
+        }}>
+          <div style={{
+            flex: 1, padding: '0.5rem 0.7rem',
+            background: p1Index !== null ? 'rgba(255,51,102,0.12)' : 'rgba(255,51,102,0.03)',
+            border: p1Index !== null ? '1px solid #ff336655' : '1px solid #ff336622',
+            color: p1Index !== null ? '#ff4466' : '#553344',
+          }}>
+            <div style={{ fontSize: '0.5rem', letterSpacing: 2, marginBottom: 2, color: '#663344' }}>COMBATANT 1</div>
+            {p1Name ?? '— select below —'}
+          </div>
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            color: '#552233', fontSize: '0.8rem',
+          }}>⚔</div>
+          <div style={{
+            flex: 1, padding: '0.5rem 0.7rem',
+            background: p2Index !== null ? 'rgba(255,51,102,0.12)' : 'rgba(255,51,102,0.03)',
+            border: p2Index !== null ? '1px solid #ff336655' : '1px solid #ff336622',
+            color: p2Index !== null ? '#ff4466' : '#553344',
+          }}>
+            <div style={{ fontSize: '0.5rem', letterSpacing: 2, marginBottom: 2, color: '#663344' }}>COMBATANT 2</div>
+            {p2Name ?? '— select below —'}
+          </div>
+        </div>
+
+        {/* Player buttons */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1.25rem' }}>
+          {pending.availablePlayers.map(({ id, name, playerIndex }) => {
+            const isP1 = p1Index === playerIndex;
+            const isP2 = p2Index === playerIndex;
+            const isSelected = isP1 || isP2;
+            const label = isP1 ? '① ' : isP2 ? '② ' : '';
+
+            return (
+              <button
+                key={id}
+                onClick={() => handleSelect(playerIndex)}
+                style={{
+                  background: isSelected ? 'rgba(255,51,102,0.14)' : 'rgba(255,51,102,0.04)',
+                  border: isSelected ? '1px solid #ff336666' : '1px solid #ff336622',
+                  color: isSelected ? '#ff5577' : '#883355',
+                  fontFamily: 'monospace',
+                  fontSize: '0.75rem',
+                  letterSpacing: 2,
+                  padding: '0.65rem 0.9rem',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.12s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+                onMouseEnter={e => {
+                  if (!isSelected) {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.10)';
+                    (e.currentTarget as HTMLElement).style.borderColor = '#ff336644';
+                    (e.currentTarget as HTMLElement).style.color = '#cc4466';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isSelected) {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.04)';
+                    (e.currentTarget as HTMLElement).style.borderColor = '#ff336622';
+                    (e.currentTarget as HTMLElement).style.color = '#883355';
+                  }
+                }}
+              >
+                <span style={{ color: '#ff336688', minWidth: 14 }}>{label}</span>
+                {name}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Confirm */}
+        <button
+          disabled={!canConfirm}
+          onClick={() => canConfirm && resolve(p1Index!, p2Index!)}
+          style={{
+            width: '100%',
+            background: canConfirm ? 'rgba(255,51,102,0.18)' : 'rgba(255,51,102,0.04)',
+            border: canConfirm ? '1px solid #ff336688' : '1px solid #ff336622',
+            color: canConfirm ? '#ff4466' : '#552233',
+            fontFamily: 'monospace',
+            fontSize: '0.75rem',
+            letterSpacing: 3,
+            padding: '0.65rem',
+            cursor: canConfirm ? 'pointer' : 'not-allowed',
+            transition: 'all 0.12s',
+            marginBottom: '0.5rem',
+          }}
+          onMouseEnter={e => {
+            if (canConfirm) (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.28)';
+          }}
+          onMouseLeave={e => {
+            if (canConfirm) (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.18)';
+          }}
+        >
+          ⚔ DECLARE WAR
+        </button>
+
+        {/* Cancel */}
+        <button
+          onClick={() => cancel()}
+          style={{
+            width: '100%',
+            background: 'transparent',
+            border: '1px solid #22223322',
+            color: '#442233',
+            fontFamily: 'monospace',
+            fontSize: '0.6rem',
+            letterSpacing: 3,
+            padding: '0.4rem',
+            cursor: 'pointer',
+            transition: 'all 0.12s',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.color = '#885566';
+            (e.currentTarget as HTMLElement).style.borderColor = '#664455';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.color = '#442233';
+            (e.currentTarget as HTMLElement).style.borderColor = '#22223322';
+          }}
+        >
+          ABORT
+        </button>
+      </div>
+    </div>
+  );
+};

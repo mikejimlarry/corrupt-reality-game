@@ -1,11 +1,12 @@
 // src/game/objects/LEDDisplay.ts
 import Phaser from 'phaser';
+import { sfxDiceTick, sfxShowDiceRoll, sfxToast } from '../../lib/audio';
 
 const PANEL_W  = 340;
 const PANEL_H  = 230;
-const DIGIT_W  = 43;   // 54 × 0.8 — 20% smaller
-const DIGIT_H  = 67;   // 84 × 0.8 — 20% smaller
-const SEG_T    = 6;    // segment thickness scaled proportionally
+const DIGIT_W  = 32;   // 43 × 0.75 — 25% smaller than previous
+const DIGIT_H  = 50;   // 67 × 0.75 — 25% smaller than previous
+const SEG_T    = 4;    // segment thickness scaled proportionally
 const GAP      = 2;
 const D_CX     = 76;   // horizontal distance from panel centre to each digit centre
 
@@ -30,16 +31,17 @@ const SEG_MAP: Record<string | number, boolean[]> = {
 };
 
 export class LEDDisplay extends Phaser.GameObjects.Container {
-  private bezel!:       Phaser.GameObjects.Graphics;
-  private digit1Gfx!:  Phaser.GameObjects.Graphics;
-  private digit2Gfx!:  Phaser.GameObjects.Graphics;
-  private glow1!:       Phaser.GameObjects.Graphics;
-  private glow2!:       Phaser.GameObjects.Graphics;
-  private operatorTxt!: Phaser.GameObjects.Text;
-  private totalTxt!:    Phaser.GameObjects.Text;
-  private statusTxt!:   Phaser.GameObjects.Text;
-  private resultTxt!:   Phaser.GameObjects.Text;
-  private standbyTween?: Phaser.Tweens.Tween;
+  private bezel!:         Phaser.GameObjects.Graphics;
+  private digit1Gfx!:    Phaser.GameObjects.Graphics;
+  private digit2Gfx!:    Phaser.GameObjects.Graphics;
+  private glow1!:         Phaser.GameObjects.Graphics;
+  private glow2!:         Phaser.GameObjects.Graphics;
+  private operatorTxt!:   Phaser.GameObjects.Text;
+  private totalTxt!:      Phaser.GameObjects.Text;
+  private statusTxt!:     Phaser.GameObjects.Text;
+  private toastBg!:       Phaser.GameObjects.Graphics;
+  private toastTxt!:      Phaser.GameObjects.Text;
+  private standbyTween?:  Phaser.Tweens.Tween;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
@@ -111,20 +113,35 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
     // ── Total (one clear row below digits) ────────────────────────────────
     this.totalTxt = this.txt(0, BELOW_DIGITS + 6, '', {
-      fontFamily: 'monospace', fontSize: '18px', color: '#334455', fontStyle: 'bold',
+      fontFamily: 'monospace', fontSize: '27px', color: '#334455', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.add(this.totalTxt);
 
     // ── Status / result lines (pinned to bottom of panel) ─────────────────
-    this.statusTxt = this.txt(0, PANEL_H / 2 - 38, 'AWAITING INPUT', {
+    this.statusTxt = this.txt(0, PANEL_H / 2 - 24, 'AWAITING INPUT', {
       fontFamily: 'monospace', fontSize: '8px', color: '#334455', letterSpacing: 4,
     }).setOrigin(0.5);
     this.add(this.statusTxt);
 
-    this.resultTxt = this.txt(0, PANEL_H / 2 - 20, '', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#334455', letterSpacing: 2,
+    // ── Credit toast (hidden until roll resolves) ─────────────────────────
+    const TOAST_Y  = BELOW_DIGITS + 48;
+    const TOAST_W  = 200;
+    const TOAST_H  = 28;
+    this.toastBg = this.scene.add.graphics();
+    this.toastBg.setAlpha(0);
+    this.add(this.toastBg);
+
+    this.toastTxt = this.txt(0, TOAST_Y, '', {
+      fontFamily: 'monospace', fontSize: '13px', fontStyle: 'bold',
+      color: '#00ff55', letterSpacing: 2,
     }).setOrigin(0.5);
-    this.add(this.resultTxt);
+    this.toastTxt.setAlpha(0);
+    this.add(this.toastTxt);
+
+    // store layout refs for reuse in roll()
+    (this as any)._toastY = TOAST_Y;
+    (this as any)._toastW = TOAST_W;
+    (this as any)._toastH = TOAST_H;
 
     // ── Scanlines ─────────────────────────────────────────────────────────
     const scan = this.scene.add.graphics();
@@ -190,13 +207,15 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   showStandby(playerName: string) {
     this.standbyTween?.stop();
     this.totalTxt.setText('').setColor('#334455');
-    this.resultTxt.setText('');
+    this.toastTxt.setText('').setAlpha(0);
+    this.toastBg.clear().setAlpha(0);
     this.operatorTxt.setColor('#334455');
     this.statusTxt.setText(`SCANNING · ${playerName.toUpperCase()}`).setColor('#00ffcc55');
     this.drawDigit(this.digit1Gfx, this.glow1, '-', COLOR_DIM, -D_CX);
     this.drawDigit(this.digit2Gfx, this.glow2, '-', COLOR_DIM,  D_CX);
 
     this.setVisible(true);
+    sfxShowDiceRoll();
     this.scene.tweens.add({ targets: this, alpha: 1, duration: 220, ease: 'Quad.easeOut' });
 
     // Slow pulse on both digit graphics to indicate "waiting"
@@ -208,7 +227,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   }
 
   // ── Run slot-machine animation then call onComplete ────────────────────────
-  roll(r1: number, r2: number, playerName: string, onComplete: () => void) {
+  roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void) {
     this.standbyTween?.stop();
     this.digit1Gfx.setAlpha(1);
     this.digit2Gfx.setAlpha(1);
@@ -229,7 +248,8 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
     this.statusTxt.setText(`GENERATING · ${playerName.toUpperCase()}`).setColor('#00ffcc66');
     this.totalTxt.setText('').setColor('#334455');
-    this.resultTxt.setText('');
+    this.toastTxt.setText('').setAlpha(0);
+    this.toastBg.setAlpha(0);
     this.operatorTxt.setColor('#334455');
 
     // Make sure panel is fully visible (already shown from standby)
@@ -241,6 +261,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
     const doTick = () => {
       tick++;
+      sfxDiceTick();
       const progress = tick / TOTAL_TICKS;
       const delay    = 35 + progress * progress * 280;
 
@@ -267,16 +288,50 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
         this.scene.time.delayedCall(180, () => {
           this.totalTxt.setText(`= ${total}`).setColor(finalHex);
           this.statusTxt.setText(statusLabel).setColor(finalHex);
-          this.resultTxt
-            .setText(`${r1} + ${r2}  ·  TOTAL ${total}  ·  OF 12`)
-            .setColor(finalHex + '99');
 
-          // Flash both digits 4×
+          // ── Credit toast ───────────────────────────────────────────────
+          const toastY = (this as any)._toastY as number;
+          const toastW = (this as any)._toastW as number;
+          const toastH = (this as any)._toastH as number;
+
+          let toastLabel: string;
+          let toastHex: string;
+          let toastBgColor: number;
+
+          if (creditDelta === 0) {
+            toastLabel  = '◆  NO CREDITS';
+            toastHex    = '#446655';
+            toastBgColor = 0x111a15;
+          } else if (isCorruption) {
+            toastLabel  = `▼  ${creditDelta} CREDITS LOST`;
+            toastHex    = '#ff3355';
+            toastBgColor = 0x1a0508;
+          } else {
+            toastLabel  = `▲  ${creditDelta} CREDITS GAINED`;
+            toastHex    = '#00ff55';
+            toastBgColor = 0x0a1a10;
+          }
+
+          this.toastBg.clear();
+          this.toastBg.fillStyle(toastBgColor, 1);
+          this.toastBg.fillRoundedRect(-toastW / 2, toastY - toastH / 2, toastW, toastH, 4);
+          this.toastBg.lineStyle(1, creditDelta === 0 ? 0x223322 : (isCorruption ? 0xff3355 : 0x00ff55), 0.5);
+          this.toastBg.strokeRoundedRect(-toastW / 2, toastY - toastH / 2, toastW, toastH, 4);
+
+          this.toastTxt.setText(toastLabel).setColor(toastHex);
+
+          // Flash both digits 4× and play the toast sound
+          sfxToast();
           this.scene.tweens.add({
             targets: [this.digit1Gfx, this.digit2Gfx],
             alpha: { from: 1, to: 0.1 },
             duration: 65, yoyo: true, repeat: 3,
             onComplete: () => {
+              // Fade in the toast
+              this.scene.tweens.add({
+                targets: [this.toastBg, this.toastTxt],
+                alpha: 1, duration: 200, ease: 'Quad.easeOut',
+              });
               // Hold result, fade out
               this.scene.time.delayedCall(1600, () => {
                 this.scene.tweens.add({

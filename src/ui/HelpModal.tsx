@@ -1,5 +1,25 @@
 // src/ui/HelpModal.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+
+const UNFOLD_CSS = `
+@keyframes modal-unfold {
+  0%   { transform: scaleY(0.01) perspective(700px) rotateX(25deg); opacity: 0; }
+  55%  { transform: scaleY(1.03) perspective(700px) rotateX(-4deg); opacity: 1; }
+  75%  { transform: scaleY(0.98) perspective(700px) rotateX(1.5deg); }
+  100% { transform: scaleY(1)    perspective(0px)   rotateX(0deg);  opacity: 1; }
+}
+@keyframes modal-fold {
+  0%   { transform: scaleY(1)    perspective(0px)   rotateX(0deg);  opacity: 1; }
+  40%  { transform: scaleY(1.02) perspective(700px) rotateX(-3deg); opacity: 1; }
+  100% { transform: scaleY(0.01) perspective(700px) rotateX(25deg); opacity: 0; }
+}
+@keyframes backdrop-in  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes backdrop-out { from { opacity: 1 } to { opacity: 0 } }
+.modal-unfold  { animation: modal-unfold  0.45s cubic-bezier(0.23, 1, 0.32, 1) both; transform-origin: center center; }
+.modal-fold    { animation: modal-fold    0.28s cubic-bezier(0.55, 0, 1, 0.45) both; transform-origin: center center; }
+.backdrop-in   { animation: backdrop-in  0.25s ease both; }
+.backdrop-out  { animation: backdrop-out 0.28s ease both; }
+`;
 
 // ── Colour palette matching Phaser card categories ────────────────────────────
 const CAT_COLOR: Record<string, string> = {
@@ -317,20 +337,37 @@ interface Props {
 
 export const HelpModal: React.FC<Props> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('howtoplay');
+  const [closing, setClosing] = useState(false);
+
+  const handleClose = useCallback(() => {
+    setClosing(true);
+    setTimeout(onClose, 280);
+  }, [onClose]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleClose]);
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 100,
-        background: 'rgba(0,0,0,0.75)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '1.5rem',
-      }}
-    >
+    <>
+      <style>{UNFOLD_CSS}</style>
+      <div
+        onClick={handleClose}
+        className={closing ? 'backdrop-out' : 'backdrop-in'}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '1.5rem',
+        }}
+      >
       {/* Modal panel */}
       <div
         onClick={e => e.stopPropagation()}
+        className={closing ? 'modal-fold' : 'modal-unfold'}
         style={{
           background: '#05050f',
           border: '1px solid #00ffcc33',
@@ -350,7 +387,7 @@ export const HelpModal: React.FC<Props> = ({ onClose }) => {
             <div style={{ color: '#334455', fontSize: '0.55rem', letterSpacing: 3, marginTop: 2 }}>FIELD MANUAL v1.0</div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             style={{
               background: 'transparent', border: '1px solid #00ffcc33',
               color: '#446655', fontFamily: 'monospace', fontSize: '0.8rem',
@@ -391,6 +428,7 @@ export const HelpModal: React.FC<Props> = ({ onClose }) => {
           {activeTab === 'options'   && <TabOptions />}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };

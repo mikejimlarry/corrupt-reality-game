@@ -1,8 +1,12 @@
 // src/ui/SetupScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useGameStore } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
 import { GlitchTitle } from './GlitchTitle';
+import {
+  resumeAudio, sfxNavClick, sfxSliderUp, sfxSliderDown,
+  sfxToggleOn, sfxToggleOff, sfxShowModal, sfxJackIn,
+} from '../lib/audio';
 
 const LABEL: React.CSSProperties = {
   fontSize: '0.65rem', letterSpacing: 3, color: '#446655', marginBottom: '0.5rem',
@@ -38,7 +42,7 @@ function Toggle({
 }: { checked: boolean; onChange: (v: boolean) => void; label: string; description: string }) {
   return (
     <button
-      onClick={() => onChange(!checked)}
+      onClick={() => { resumeAudio(); (checked ? sfxToggleOff : sfxToggleOn)(); onChange(!checked); }}
       style={{
         width: '100%', textAlign: 'left',
         background: checked ? '#00ffcc0a' : 'transparent',
@@ -80,6 +84,7 @@ export const SetupScreen: React.FC = () => {
   const [hidePpCounts, setHidePpCounts] = useState(() => localStorage.getItem('crg-hide-credits') === 'true');
   const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
   const [showHelp, setShowHelp] = useState(false);
+  const prevCredits = useRef(startingPop);
 
   const handleStart = () => {
     localStorage.setItem('crg-handle', name.trim() || 'Ghost');
@@ -87,6 +92,7 @@ export const SetupScreen: React.FC = () => {
     localStorage.setItem('crg-credits', String(startingPop));
     localStorage.setItem('crg-hide-credits', String(hidePpCounts));
     localStorage.setItem('crg-dead-mans-switch', String(deadMansSwitch));
+    sfxJackIn();
     startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch);
   };
 
@@ -107,7 +113,7 @@ export const SetupScreen: React.FC = () => {
         A GAME OF SURVIVAL AND CORRUPTION
       </p>
       <button
-        onClick={() => setShowHelp(true)}
+        onClick={() => { resumeAudio(); sfxShowModal(); setShowHelp(true); }}
         style={{
           background: 'transparent', border: '1px solid #00ffcc33',
           color: '#446655', fontFamily: 'monospace', fontSize: '0.65rem',
@@ -145,7 +151,7 @@ export const SetupScreen: React.FC = () => {
           <div style={LABEL}>NUMBER OF AGENTS</div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {[1, 2, 3].map(n => (
-              <SegmentButton key={n} active={count === n} onClick={() => setCount(n)}>
+              <SegmentButton key={n} active={count === n} onClick={() => { resumeAudio(); sfxNavClick(); setCount(n); }}>
                 {n}
               </SegmentButton>
             ))}
@@ -167,7 +173,13 @@ export const SetupScreen: React.FC = () => {
             max={100}
             step={5}
             value={startingPop}
-            onChange={e => setStartingPop(Number(e.target.value))}
+            onChange={e => {
+              const v = Number(e.target.value);
+              resumeAudio();
+              if (v > prevCredits.current) sfxSliderUp(); else sfxSliderDown();
+              prevCredits.current = v;
+              setStartingPop(v);
+            }}
             style={{
               '--fill': `${((startingPop - 30) / 70) * 100}%`,
             } as React.CSSProperties}

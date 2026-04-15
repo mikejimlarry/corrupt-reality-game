@@ -5,6 +5,9 @@ import { useGameStore } from './state/useGameStore';
 import { SetupScreen } from './ui/SetupScreen';
 import { HUD } from './ui/HUD';
 import { DeadMansSwitchOverlay } from './ui/DeadMansSwitchOverlay';
+import { DaemonStealOverlay } from './ui/DaemonStealOverlay';
+import { WarPickOverlay } from './ui/WarPickOverlay';
+import { WarPreOverlay } from './ui/WarPreOverlay';
 import { GameOverScreen } from './ui/GameOverScreen';
 import { useGameAudio } from './hooks/useGameAudio';
 import { resumeAudio } from './lib/audio';
@@ -91,6 +94,9 @@ function App() {
       {phase !== 'SETUP' && phase !== 'GAME_OVER' && <HUD />}
       {phase === 'GAME_OVER' && <GameOverScreen />}
       <DeadMansSwitchOverlay />
+      <DaemonStealOverlay />
+      <WarPickOverlay />
+      <WarPreOverlay />
     </>
   );
 }

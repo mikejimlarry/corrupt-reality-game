@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
+import { sfxCardPlay } from '../lib/audio';
 
 const PULSE_STYLE = `
 @keyframes hud-pulse {
@@ -126,206 +127,223 @@ export function HUD() {
   const logTail = log.slice(-4);
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 16,
-        right: 16,
-        zIndex: 5,
-        width: 240,
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
+    <>
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
-      {/* Corruption banner */}
-      {corruption && (
-        <div
-          className="corruption-pulse corruption-flicker"
-          style={{
-            background: 'rgba(20,0,5,0.92)',
-            border: '1px solid #ff1e3c88',
-            borderRadius: 6,
-            padding: '8px 14px',
-            marginBottom: 8,
-            fontFamily: 'monospace',
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ fontSize: 9, color: '#ff1e3c', letterSpacing: 3, marginBottom: 2 }}>
-            ⚠ SYSTEM ALERT ⚠
-          </div>
-          <div style={{ fontSize: 11, color: '#ff4466', fontWeight: 'bold', letterSpacing: 2 }}>
-            CORRUPTION DETECTED
-          </div>
-          <div style={{ fontSize: 8, color: '#ff1e3c66', letterSpacing: 1, marginTop: 3 }}>
-            STABILITY ROLLS INVERTED
-          </div>
-        </div>
-      )}
-
-      {/* Status panel */}
-      <div style={panel(ACCENT)}>
-        <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 4 }}>
-          TURN {turnNumber} · {phase}
-        </div>
-        <div style={{ fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold' }}>
-          {isHuman ? '▶ YOUR TURN' : `⏳ ${currentPlayer?.name ?? '...'}`}
-        </div>
-      </div>
-
-      {/* BEGIN SEQUENCE button — human PHASE_ROLL only, appears after animations settle */}
-      {phase === 'PHASE_ROLL' && isHuman && rollReady && !rollTriggered && (
-        <div style={panel(ACCENT)} className={corruption ? 'corruption-pulse' : 'hud-pulse'}>
-          <div style={{ fontSize: 10, color: `${ACCENT}55`, letterSpacing: 3, marginBottom: 8 }}>
-            SEQUENCE READY
-          </div>
-          <button style={btnPrimary(ACCENT)} onClick={() => triggerRoll()}>
-            ▶ BEGIN SEQUENCE
-          </button>
-        </div>
-      )}
-
-      {/* Targeting banner — click an opponent on the board to select them */}
-      {phase === 'TARGETING' && (
-        <div style={{ ...panel(ACCENT), borderColor: '#ff333388' }} className="hud-pulse">
-          <div style={{ fontSize: 10, color: '#ff3333', letterSpacing: 3, marginBottom: 8 }}>
-            SELECT A TARGET
-          </div>
-          <div style={{ fontSize: 10, color: '#667788', marginBottom: 10 }}>
-            {validTargetIds.length} opponent{validTargetIds.length !== 1 ? 's' : ''} available
-          </div>
-          <button style={{ ...btnDim('#ff3333'), borderColor: '#ff333344', color: '#ff3333aa' }} onClick={() => cancelTargeting()}>
-            ✕ CANCEL
-          </button>
-        </div>
-      )}
-
-      {/* Action panel — only when game active, human turn, and not rolling */}
-      {phase !== 'GAME_OVER' && phase !== 'PHASE_ROLL' && phase !== 'TARGETING' && isHuman && (
-        <div style={panel(ACCENT)} className={phase === 'DRAW' ? (corruption ? 'corruption-pulse' : 'hud-pulse') : ''}>
-          {phase === 'DRAW' && (
-            <button style={btnPrimary(ACCENT)} onClick={() => drawCard()}>
-              DRAW CARD
-            </button>
-          )}
-
-          {phase === 'MAIN' && !selectedCard && (
-            <div style={{ fontSize: 11, color: `${ACCENT}55`, letterSpacing: 1 }}>
-              SELECT A CARD TO PLAY
-            </div>
-          )}
-
-          {phase === 'MAIN' && selectedCard && (
-            <>
-              <div style={{ fontSize: 10, color: ACCENT, marginBottom: 8, letterSpacing: 1 }}>
-                {selectedCard.name.toUpperCase()}
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button style={btnPrimary(ACCENT)} onClick={() => playCard(selectedCard.id)}>
-                  PLAY
-                </button>
-                <button style={btnDim(ACCENT)} onClick={() => discardCard(selectedCard.id)}>
-                  DISCARD
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* End turn — auto-advances after 900 ms; show a brief status flash */}
-      {phase === 'END_TURN' && (
-        <div style={{ ...panel(ACCENT), opacity: 0.7 }}>
-          <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2 }}>
-            TURN COMPLETE
-          </div>
-        </div>
-      )}
-
-      {/* Help button */}
-      <button
-        onClick={() => setShowHelp(true)}
+      {/* ── TOP-LEFT: Field Manual + Activity Log ── */}
+      <div
         style={{
-          ...BTN_BASE,
-          background: 'transparent',
-          border: `1px solid ${ACCENT}22`,
-          color: `${ACCENT}44`,
-          fontSize: 10, letterSpacing: 2,
-          marginBottom: 8,
-          transition: 'all 0.15s',
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.color = ACCENT;
-          (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`;
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.color = `${ACCENT}44`;
-          (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}22`;
+          position: 'fixed',
+          top: 16,
+          left: 16,
+          zIndex: 5,
+          width: 240,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        ? FIELD MANUAL
-      </button>
+        {/* Help button */}
+        <button
+          onClick={() => setShowHelp(true)}
+          style={{
+            ...BTN_BASE,
+            background: 'transparent',
+            border: `1px solid ${ACCENT}22`,
+            color: `${ACCENT}44`,
+            fontSize: 10, letterSpacing: 2,
+            marginBottom: 8,
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.color = ACCENT;
+            (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`;
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.color = `${ACCENT}44`;
+            (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}22`;
+          }}
+        >
+          ? FIELD MANUAL
+        </button>
 
-      {/* Game log */}
-      {log.length > 0 && (
-        <div style={{ ...panel(ACCENT), padding: 0, overflow: 'hidden' }}>
+        {/* Game log */}
+        {log.length > 0 && (
+          <div style={{ ...panel(ACCENT), padding: 0, overflow: 'hidden' }}>
 
-          {/* Header row — always visible, click to expand/collapse */}
-          <button
-            onClick={() => setLogExpanded(e => !e)}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              width: '100%', padding: '8px 12px',
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: 'monospace', fontSize: 9,
-              color: `${ACCENT}55`, letterSpacing: 2,
-            }}
-          >
-            <span>ACTIVITY LOG</span>
-            <span style={{ color: `${ACCENT}44` }}>{logExpanded ? '▲ COLLAPSE' : `▼ ${log.length} ENTRIES`}</span>
-          </button>
-
-          {/* Collapsed — show last 4 entries */}
-          {!logExpanded && (
-            <div style={{ padding: '0 12px 8px' }}>
-              {logTail.map(entry => (
-                <div key={entry.id}
-                  style={{ fontSize: 10, color: '#667788', lineHeight: 1.6, letterSpacing: 0.5 }}>
-                  {entry.text}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Expanded — full scrollable history, newest at bottom */}
-          {logExpanded && (
-            <div
-              className="log-scroll"
+            {/* Header row — always visible, click to expand/collapse */}
+            <button
+              onClick={() => setLogExpanded(e => !e)}
               style={{
-                maxHeight: 320, overflowY: 'auto',
-                padding: '0 12px 10px',
-                display: 'flex', flexDirection: 'column', gap: 2,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                width: '100%', padding: '8px 12px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'monospace', fontSize: 9,
+                color: `${ACCENT}55`, letterSpacing: 2,
               }}
             >
-              {log.map((entry, i) => (
-                <div key={entry.id} style={{
-                  fontSize: 10, lineHeight: 1.6, letterSpacing: 0.5,
-                  color: i === log.length - 1 ? '#aabbcc' : '#667788',
-                  borderLeft: entry.type === 'turn'   ? `2px solid ${ACCENT}33` :
-                              entry.type === 'card'   ? '2px solid #aa44ff55' :
-                              entry.type === 'effect' ? '2px solid #ff996655' :
-                              entry.type === 'combat' ? '2px solid #ff336655' : 'none',
-                  paddingLeft: entry.type !== 'roll' ? 6 : 0,
-                }}>
-                  {entry.text}
-                </div>
-              ))}
+              <span>ACTIVITY LOG</span>
+              <span style={{ color: `${ACCENT}44` }}>{logExpanded ? '▲ COLLAPSE' : `▼ ${log.length} ENTRIES`}</span>
+            </button>
+
+            {/* Collapsed — show last 4 entries */}
+            {!logExpanded && (
+              <div style={{ padding: '0 12px 8px' }}>
+                {logTail.map(entry => (
+                  <div key={entry.id}
+                    style={{ fontSize: 10, color: '#667788', lineHeight: 1.6, letterSpacing: 0.5 }}>
+                    {entry.text}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Expanded — full scrollable history, newest at bottom */}
+            {logExpanded && (
+              <div
+                className="log-scroll"
+                style={{
+                  maxHeight: 320, overflowY: 'auto',
+                  padding: '0 12px 10px',
+                  display: 'flex', flexDirection: 'column', gap: 2,
+                }}
+              >
+                {log.map((entry, i) => (
+                  <div key={entry.id} style={{
+                    fontSize: 10, lineHeight: 1.6, letterSpacing: 0.5,
+                    color: i === log.length - 1 ? '#aabbcc' : '#667788',
+                    borderLeft: entry.type === 'turn'   ? `2px solid ${ACCENT}33` :
+                                entry.type === 'card'   ? '2px solid #aa44ff55' :
+                                entry.type === 'effect' ? '2px solid #ff996655' :
+                                entry.type === 'combat' ? '2px solid #ff336655' : 'none',
+                    paddingLeft: entry.type !== 'roll' ? 6 : 0,
+                  }}>
+                    {entry.text}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── TOP-RIGHT: Turn tracker + action buttons ── */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 16,
+          right: 16,
+          zIndex: 5,
+          width: 240,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
+        }}
+      >
+        {/* Corruption banner */}
+        {corruption && (
+          <div
+            className="corruption-pulse corruption-flicker"
+            style={{
+              background: 'rgba(20,0,5,0.92)',
+              border: '1px solid #ff1e3c88',
+              borderRadius: 6,
+              padding: '8px 14px',
+              marginBottom: 8,
+              fontFamily: 'monospace',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 9, color: '#ff1e3c', letterSpacing: 3, marginBottom: 2 }}>
+              ⚠ SYSTEM ALERT ⚠
             </div>
-          )}
+            <div style={{ fontSize: 11, color: '#ff4466', fontWeight: 'bold', letterSpacing: 2 }}>
+              CORRUPTION DETECTED
+            </div>
+            <div style={{ fontSize: 8, color: '#ff1e3c66', letterSpacing: 1, marginTop: 3 }}>
+              STABILITY ROLLS INVERTED
+            </div>
+          </div>
+        )}
+
+        {/* Status panel */}
+        <div style={panel(ACCENT)}>
+          <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 4 }}>
+            TURN {turnNumber} · {phase}
+          </div>
+          <div style={{ fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold' }}>
+            {isHuman ? '▶ YOUR TURN' : `⏳ ${currentPlayer?.name ?? '...'}`}
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* BEGIN SEQUENCE button — human PHASE_ROLL only, appears after animations settle */}
+        {phase === 'PHASE_ROLL' && isHuman && rollReady && !rollTriggered && (
+          <div style={panel(ACCENT)} className={corruption ? 'corruption-pulse' : 'hud-pulse'}>
+            <div style={{ fontSize: 10, color: `${ACCENT}55`, letterSpacing: 3, marginBottom: 8 }}>
+              SEQUENCE READY
+            </div>
+            <button style={btnPrimary(ACCENT)} onClick={() => triggerRoll()}>
+              ▶ BEGIN SEQUENCE
+            </button>
+          </div>
+        )}
+
+        {/* Targeting banner — click an opponent on the board to select them */}
+        {phase === 'TARGETING' && (
+          <div style={{ ...panel(ACCENT), borderColor: '#ff333388' }} className="hud-pulse">
+            <div style={{ fontSize: 10, color: '#ff3333', letterSpacing: 3, marginBottom: 8 }}>
+              SELECT A TARGET
+            </div>
+            <div style={{ fontSize: 10, color: '#667788', marginBottom: 10 }}>
+              {validTargetIds.length} opponent{validTargetIds.length !== 1 ? 's' : ''} available
+            </div>
+            <button style={{ ...btnDim('#ff3333'), borderColor: '#ff333344', color: '#ff3333aa' }} onClick={() => cancelTargeting()}>
+              ✕ CANCEL
+            </button>
+          </div>
+        )}
+
+        {/* Action panel — only when game active, human turn, and not rolling */}
+        {phase !== 'GAME_OVER' && phase !== 'PHASE_ROLL' && phase !== 'TARGETING' && isHuman && (
+          <div style={panel(ACCENT)} className={phase === 'DRAW' ? (corruption ? 'corruption-pulse' : 'hud-pulse') : ''}>
+            {phase === 'DRAW' && (
+              <button style={btnPrimary(ACCENT)} onClick={() => drawCard()}>
+                DRAW CARD
+              </button>
+            )}
+
+            {phase === 'MAIN' && !selectedCard && (
+              <div style={{ fontSize: 11, color: `${ACCENT}55`, letterSpacing: 1 }}>
+                SELECT A CARD TO PLAY
+              </div>
+            )}
+
+            {phase === 'MAIN' && selectedCard && (
+              <>
+                <div style={{ fontSize: 10, color: ACCENT, marginBottom: 8, letterSpacing: 1 }}>
+                  {selectedCard.name.toUpperCase()}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button style={btnPrimary(ACCENT)} onClick={() => { sfxCardPlay(); playCard(selectedCard.id); }}>
+                    PLAY
+                  </button>
+                  <button style={btnDim(ACCENT)} onClick={() => discardCard(selectedCard.id)}>
+                    DISCARD
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* End turn — auto-advances after 900 ms; show a brief status flash */}
+        {phase === 'END_TURN' && (
+          <div style={{ ...panel(ACCENT), opacity: 0.7 }}>
+            <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2 }}>
+              TURN COMPLETE
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
