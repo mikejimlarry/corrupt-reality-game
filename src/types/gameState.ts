@@ -1,6 +1,6 @@
 // src/types/gameState.ts
 
-import type { Card, DaemonType, NegativeEventCard, WarCard } from './cards';
+import type { Card, CounterCard, DaemonType, NegativeEventCard, WarCard } from './cards';
 
 export type Phase =
   | 'SETUP'
@@ -65,4 +65,18 @@ export interface GameState {
   warPrePending: { card: WarCard; p1Index: number; p2Index: number; step: 1 | 2 } | null;
   /** Non-null while a human player's Overclock card is waiting to be consumed by the next roll. */
   pendingOverclockCard: import('./cards').Card | null;
+  /**
+   * Non-null when an AI played a targeted EVENT_NEGATIVE at the human and they
+   * have a reactive counter (Quarantine / Cease & Desist) in hand — pauses the
+   * AI turn so the human can choose whether to block.
+   */
+  counterPending: {
+    attackerIndex: number;
+    /** ID of the attacker's card (still in their hand until resolved). */
+    cardId: string;
+    /** Pre-resolved target index — always the human player. */
+    targetIndex: number;
+    /** Counter cards the human can play to block. */
+    eligibleCounters: CounterCard[];
+  } | null;
 }

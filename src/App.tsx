@@ -8,6 +8,7 @@ import { DeadMansSwitchOverlay } from './ui/DeadMansSwitchOverlay';
 import { DaemonStealOverlay } from './ui/DaemonStealOverlay';
 import { WarPickOverlay } from './ui/WarPickOverlay';
 import { WarPreOverlay } from './ui/WarPreOverlay';
+import { CounterOpportunityOverlay } from './ui/CounterOpportunityOverlay';
 import { GameOverScreen } from './ui/GameOverScreen';
 import { useGameAudio } from './hooks/useGameAudio';
 import { resumeAudio, stopMusic } from './lib/audio';
@@ -104,6 +105,7 @@ function App() {
       <DaemonStealOverlay />
       <WarPickOverlay />
       <WarPreOverlay />
+      <CounterOpportunityOverlay />
     </>
   );
 }

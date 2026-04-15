@@ -18,6 +18,10 @@ function markEliminations(players: PlayerState[], keepHumanAlive = false): Playe
 
 // ── Module-level helpers ──────────────────────────────────────────────────────
 
+// When true, applyPlayCard skips the reactive-counter intercept (used when
+// resolveCounterOpportunity re-invokes applyPlayCard after the human allows).
+let _skipCounterCheck = false;
+
 // Written by applyCardEffect when a Quarantine shield absorbs an attack.
 // Read (and cleared) by applyPlayCard so it can emit the right log entry.
 let _quarantineBlockedBy: string | null = null;
@@ -357,6 +361,7 @@ interface GameStore extends GameState {
   passWarPre(): void;
   cancelWarPre(): void;
   finalizeWarResolution(warCard: import('../types/cards').WarCard, p1Index: number, p2Index: number): void;
+  resolveCounterOpportunity(counterCardId: string | null): void;
   endTurn(): void;
   advanceTurn(): void;
   triggerRoll(): void;
@@ -393,6 +398,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   warPickPending: null,
   warPrePending: null,
   pendingOverclockCard: null,
+  counterPending: null,
 };
 
 // ── Cyberpunk AI names & personalities ────────────────────────────────────────
@@ -599,6 +605,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
         get().addLog(`${actor.name} played Backdoor — choose which daemon to steal.`, 'card');
         return;
+      }
+    }
+
+    // ── Reactive counter opportunity — pause before applying the effect ──────
+    // If an AI is about to hit the human with a targeted EVENT_NEGATIVE and the
+    // human holds a Quarantine (SHIELD) or Cease & Desist (NEGOTIATE) card,
+    // give them a chance to play it reactively before the damage lands.
+    if (!_skipCounterCheck && !actor.isHuman && card.category === 'EVENT_NEGATIVE') {
+      const neg = card as NegativeEventCard;
+      if (neg.targetsOther) {
+        const liveOpponents = state.players
+          .map((p, i) => ({ p, i }))
+          .filter(({ p, i }) => i !== actorIndex && !p.eliminated);
+        if (liveOpponents.length > 0) {
+          const targetI = liveOpponents[Math.floor(random() * liveOpponents.length)].i;
+          const target  = state.players[targetI];
+          // Only intercept when the target is human and isn't already auto-shielded
+          if (target.isHuman && !target.quarantined && !target.negotiating) {
+            const eligibleCounters = target.hand.filter(c =>
+              c.category === 'COUNTER' &&
+              ((c as CounterCard).counterType === 'SHIELD' || (c as CounterCard).counterType === 'NEGOTIATE')
+            ) as CounterCard[];
+            if (eligibleCounters.length > 0) {
+              set({ counterPending: { attackerIndex: actorIndex, cardId, targetIndex: targetI, eligibleCounters } });
+              return; // resume via resolveCounterOpportunity
+            }
+          }
+        }
       }
     }
 
@@ -897,6 +931,54 @@ export const useGameStore = create<GameStore>((set, get) => ({
   cancelWarPre: () => {
     // Abort mid-pre-war — return to MAIN (WAR card was already discarded)
     set({ warPrePending: null, selectedCardId: null, phase: 'END_TURN' });
+  },
+
+  // ── Reactive counter resolution ────────────────────────────────────────────
+  resolveCounterOpportunity: (counterCardId: string | null) => {
+    const state = get();
+    const pending = state.counterPending;
+    if (!pending) return;
+
+    const { attackerIndex, cardId, targetIndex } = pending;
+
+    if (counterCardId === null) {
+      // Human chose to allow the attack — re-run applyPlayCard with skip flag
+      // and the pre-resolved target so the effect applies normally.
+      set({ counterPending: null });
+      _skipCounterCheck = true;
+      get().applyPlayCard(cardId, targetIndex);
+      _skipCounterCheck = false;
+    } else {
+      // Human played a counter card — block the attack entirely.
+      const attacker  = state.players[attackerIndex];
+      const attackCard = attacker?.hand.find(c => c.id === cardId);
+      const human     = state.players.find(p => p.isHuman);
+      const counterCard = human?.hand.find(c => c.id === counterCardId) as CounterCard | undefined;
+      if (!attackCard || !counterCard) { set({ counterPending: null }); return; }
+
+      // Remove both cards from their owners' hands
+      let players = state.players.map((p, i) => {
+        if (i === attackerIndex) return { ...p, hand: p.hand.filter(c => c.id !== cardId) };
+        if (p.isHuman)           return { ...p, hand: p.hand.filter(c => c.id !== counterCardId) };
+        return p;
+      });
+
+      const discard = [...state.discard, attackCard, counterCard];
+
+      set({
+        players,
+        discard,
+        counterPending: null,
+        phase: 'MAIN',
+        selectedCardId: null,
+        validTargetIds: [],
+      });
+
+      get().addLog(`${attacker.name} played ${attackCard.name} — blocked by ${human!.name}'s ${counterCard.name}!`, 'effect');
+
+      // Resume the AI's turn
+      setTimeout(() => get().advanceTurn(), 950);
+    }
   },
 
   finalizeWarResolution: (warCard: import('../types/cards').WarCard, p1Index: number, p2Index: number) => {
