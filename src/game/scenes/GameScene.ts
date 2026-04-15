@@ -741,13 +741,73 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ── AI hands ──────────────────────────────────────────────────────────────
+
+  /**
+   * Compute the world-space position and angle for every card in an N-card fan
+   * for the given seat (0 = top, 1 = left, 2 = right).
+   */
+  private computeAiHandLayout(
+    seat: number, count: number, width: number, height: number,
+  ): Array<{ x: number; y: number; angle: number }> {
+    const midY    = height * 0.46;
+    const OVERLAP = CARD_W * 0.55;
+    const result: Array<{ x: number; y: number; angle: number }> = [];
+
+    for (let i = 0; i < count; i++) {
+      const t = count > 1 ? i / (count - 1) : 0.5;
+      const c = t - 0.5;
+      let x: number, y: number, angle: number;
+
+      if (seat === 0) {
+        // Top — horizontal fan peeking from top edge
+        const FAN_DEG = 18;
+        const totalW  = (count - 1) * OVERLAP;
+        const startX  = width / 2 - totalW / 2;
+        x     = startX + OVERLAP * i;
+        y     = -(CARD_H / 2 - 44);
+        angle = c * FAN_DEG + 180;
+      } else if (seat === 1) {
+        // Left — vertical fan with quadratic arc
+        const FAN_DEG = 20, ARC_DROP = 16;
+        const totalH  = (count - 1) * OVERLAP;
+        const startY  = midY - totalH / 2;
+        x     = -(CARD_H / 2 - 40) + c * c * ARC_DROP * 4;
+        y     = startY + OVERLAP * i;
+        angle = -(c * FAN_DEG) - 90;
+      } else {
+        // Right — vertical fan (mirrored)
+        const FAN_DEG = 20, ARC_DROP = 16;
+        const totalH  = (count - 1) * OVERLAP;
+        const startY  = midY - totalH / 2;
+        x     = width + CARD_H / 2 - 40 - c * c * ARC_DROP * 4;
+        y     = startY + OVERLAP * i;
+        angle = (c * FAN_DEG) + 90;
+      }
+      result.push({ x, y, angle });
+    }
+    return result;
+  }
+
+  /** Smooth-tween all backs for a player into the correct positions for their current count. */
+  private repositionAiCardBacks(playerId: string, width: number, height: number) {
+    const backs = this.aiCardBackObjects.get(playerId);
+    if (!backs || backs.length === 0) return;
+    const seat      = this.aiPlayerSeat.get(playerId) ?? 0;
+    const positions = this.computeAiHandLayout(seat, backs.length, width, height);
+    backs.forEach((back, i) => {
+      const pos = positions[i];
+      this.tweens.killTweensOf(back);
+      this.tweens.add({
+        targets: back,
+        x: pos.x, y: pos.y, angle: pos.angle,
+        duration: 220, ease: 'Quad.easeOut',
+      });
+      back.setDepth(5 + i);
+    });
+  }
+
   private dealAIHands(players: PlayerState[], width: number, height: number) {
     const midY = height * 0.46;
-    const [p1, p2, p3] = players;
-
-    // Compute initial dim alpha for each AI player based on who is currently active.
-    // If it's the human's turn all AI backs deal in dim; otherwise only the active
-    // AI arrives at full alpha and the rest are dim.
     const { currentPlayerIndex, players: allPlayers } = useGameStore.getState();
     const DIM = 0.25;
     const aiDealAlpha = (aiPlayer: PlayerState): number => {
@@ -755,124 +815,77 @@ export class GameScene extends Phaser.Scene {
       return idx === currentPlayerIndex ? 1 : DIM;
     };
 
-    // Player 2 (top) — card backs peek from top edge, flat row with fan rotation
-    if (p1) {
-      const cardCount = p1.hand.length || 5;
-      const OVERLAP = CARD_W * 0.55, FAN_DEG = 18;
-      const totalW  = (cardCount - 1) * OVERLAP;
-      const startX  = width / 2 - totalW / 2;
-      const baseY   = -(CARD_H / 2 - 44);
-      const p1Backs: CardBack[] = [];
-      const p1Alpha = aiDealAlpha(p1);
+    const staggerBase = [0, 120, 240];
+    players.forEach((p, si) => {
+      if (!p) return;
+      const seat      = this.aiPlayerSeat.get(p.id) ?? si;
+      const cardCount = p.hand.length || 5;
+      const positions = this.computeAiHandLayout(seat, cardCount, width, height);
+      const alpha     = aiDealAlpha(p);
+      const pBacks: CardBack[] = [];
 
       for (let i = 0; i < cardCount; i++) {
-        const t = cardCount > 1 ? i / (cardCount - 1) : 0.5;
-        const c = t - 0.5;
-        const back = new CardBack(this, startX + OVERLAP * i, baseY);
-        back.setAngle(c * FAN_DEG + 180);
+        const pos  = positions[i];
+        const back = new CardBack(this, pos.x, pos.y);
+        back.setAngle(pos.angle);
         back.setDepth(5 + i);
-        back.dealIn(width / 2, height * 0.46, i * 55, p1Alpha);
-        p1Backs.push(back);
+        back.dealIn(width / 2, midY, staggerBase[si] + i * 55, alpha);
+        pBacks.push(back);
       }
-      this.aiCardBackObjects.set(p1.id, p1Backs);
-    }
-
-    // Player 3 (left) — card backs peek from left edge
-    if (p2) {
-      const cardCount = p2.hand.length || 5;
-      const OVERLAP = CARD_W * 0.55, FAN_DEG = 20, ARC_DROP = 16;
-      const totalH  = (cardCount - 1) * OVERLAP;
-      const startY  = midY - totalH / 2;
-      const baseX   = -(CARD_H / 2 - 40);
-      const p2Backs: CardBack[] = [];
-      const p2Alpha = aiDealAlpha(p2);
-
-      for (let i = 0; i < cardCount; i++) {
-        const t = cardCount > 1 ? i / (cardCount - 1) : 0.5;
-        const c = t - 0.5;
-        const back = new CardBack(this, baseX + c * c * ARC_DROP * 4, startY + OVERLAP * i);
-        back.setAngle(-(c * FAN_DEG) - 90);
-        back.setDepth(5 + i);
-        back.dealIn(width / 2, height * 0.46, 120 + i * 55, p2Alpha);
-        p2Backs.push(back);
-      }
-      this.aiCardBackObjects.set(p2.id, p2Backs);
-    }
-
-    // Player 4 (right) — card backs peek from right edge
-    if (p3) {
-      const cardCount = p3.hand.length || 5;
-      const OVERLAP = CARD_W * 0.55, FAN_DEG = 20, ARC_DROP = 16;
-      const totalH  = (cardCount - 1) * OVERLAP;
-      const startY  = midY - totalH / 2;
-      const baseX   = width + CARD_H / 2 - 40;
-      const p3Backs: CardBack[] = [];
-      const p3Alpha = aiDealAlpha(p3);
-
-      for (let i = 0; i < cardCount; i++) {
-        const t = cardCount > 1 ? i / (cardCount - 1) : 0.5;
-        const c = t - 0.5;
-        const back = new CardBack(this, baseX - c * c * ARC_DROP * 4, startY + OVERLAP * i);
-        back.setAngle((c * FAN_DEG) + 90);
-        back.setDepth(5 + i);
-        back.dealIn(width / 2, height * 0.46, 240 + i * 55, p3Alpha);
-        p3Backs.push(back);
-      }
-      this.aiCardBackObjects.set(p3.id, p3Backs);
-    }
+      this.aiCardBackObjects.set(p.id, pBacks);
+    });
   }
 
-  // ── Sync AI card backs to match hand count (handles draw-phase refills) ──
+  // ── Sync AI card backs to exactly match hand.length ───────────────────────
   private syncAiCardBacks(aiPlayer: PlayerState, width: number, height: number) {
-    const backs = this.aiCardBackObjects.get(aiPlayer.id) ?? [];
+    const backs  = this.aiCardBackObjects.get(aiPlayer.id) ?? [];
     const target = aiPlayer.hand.length;
-    if (backs.length >= target) return; // no new backs needed
-
     const seat   = this.aiPlayerSeat.get(aiPlayer.id) ?? 0;
     const midY   = height * 0.46;
-    const OVERLAP = CARD_W * 0.55;
-    const toAdd  = target - backs.length;
 
-    for (let n = 0; n < toAdd; n++) {
-      const newIdx   = backs.length; // index of the new back
-      const newTotal = backs.length + 1;
-      let bx: number, by: number, angle: number;
+    if (backs.length === target) return;
 
-      if (seat === 0) {
-        // Top — horizontal fan
-        const FAN_DEG = 18;
-        const totalW  = (newTotal - 1) * OVERLAP;
-        const startX  = width / 2 - totalW / 2;
-        const c = newTotal > 1 ? (newIdx / (newTotal - 1)) - 0.5 : 0;
-        bx    = startX + OVERLAP * newIdx;
-        by    = -(CARD_H / 2 - 44);
-        angle = c * FAN_DEG + 180;
-      } else if (seat === 1) {
-        // Left — vertical fan
-        const FAN_DEG = 20, ARC_DROP = 16;
-        const totalH  = (newTotal - 1) * OVERLAP;
-        const startY  = midY - totalH / 2;
-        const c = newTotal > 1 ? (newIdx / (newTotal - 1)) - 0.5 : 0;
-        bx    = -(CARD_H / 2 - 40) + c * c * ARC_DROP * 4;
-        by    = startY + OVERLAP * newIdx;
-        angle = -(c * FAN_DEG) - 90;
-      } else {
-        // Right — vertical fan
-        const FAN_DEG = 20, ARC_DROP = 16;
-        const totalH  = (newTotal - 1) * OVERLAP;
-        const startY  = midY - totalH / 2;
-        const c = newTotal > 1 ? (newIdx / (newTotal - 1)) - 0.5 : 0;
-        bx    = width + CARD_H / 2 - 40 - c * c * ARC_DROP * 4;
-        by    = startY + OVERLAP * newIdx;
-        angle = (c * FAN_DEG) + 90;
+    if (backs.length > target) {
+      // Remove excess backs (defensive — animateAiCardPlay handles the normal case)
+      const removed = backs.splice(target);
+      removed.forEach(b => {
+        this.tweens.killTweensOf(b);
+        this.tweens.add({
+          targets: b, alpha: 0, scaleX: 0.5, scaleY: 0.5,
+          duration: 180, onComplete: () => b.destroy(),
+        });
+      });
+      // Reposition the survivors
+      this.repositionAiCardBacks(aiPlayer.id, width, height);
+    } else {
+      // Add new backs — first slide existing ones to their new positions in the
+      // larger layout, then deal in the fresh cards on top
+      const existingCount = backs.length;
+      const targetPositions = this.computeAiHandLayout(seat, target, width, height);
+
+      // Reposition existing backs to their slots in the new layout
+      backs.forEach((back, i) => {
+        const pos = targetPositions[i];
+        this.tweens.killTweensOf(back);
+        this.tweens.add({
+          targets: back,
+          x: pos.x, y: pos.y, angle: pos.angle,
+          duration: 220, ease: 'Quad.easeOut',
+        });
+        back.setDepth(5 + i);
+      });
+
+      // Deal in the new backs
+      for (let n = existingCount; n < target; n++) {
+        const pos  = targetPositions[n];
+        const back = new CardBack(this, pos.x, pos.y);
+        back.setAngle(pos.angle);
+        back.setDepth(5 + n);
+        back.dealIn(width / 2, midY, (n - existingCount) * 60, 0.25);
+        backs.push(back);
       }
-
-      const back = new CardBack(this, bx, by);
-      back.setAngle(angle);
-      back.setDepth(5 + newIdx);
-      back.dealIn(width / 2, midY, n * 60, 0.25);
-      backs.push(back);
     }
+
     this.aiCardBackObjects.set(aiPlayer.id, backs);
   }
 
@@ -889,6 +902,9 @@ export class GameScene extends Phaser.Scene {
     const midIdx = Math.floor(backs.length / 2);
     const [back] = backs.splice(midIdx, 1);
     this.aiCardBackObjects.set(playerId, backs);
+
+    // Reposition remaining backs into the tighter N-1 fan once the card has lifted
+    this.time.delayedCall(320, () => this.repositionAiCardBacks(playerId, width, height));
 
     const centerX = width / 2;
     const centerY = height * 0.46;
