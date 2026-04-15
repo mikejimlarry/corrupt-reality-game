@@ -76,8 +76,8 @@ const CARDS: CardEntry[] = [
   { name: 'Grid War',            category: 'WAR',            count: 3, effect: 'Attack a target. You lose 10 credits · Target loses 20 credits and one daemon.' },
   // Counters
   { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Your next WAR roll gets +1. Play before initiating a conflict.' },
-  { name: 'Cease & Desist',      category: 'COUNTER',        count: 3, effect: 'Block the next WAR or hack protocol targeting you. One use.' },
-  { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Block the next hack protocol targeting you. One use. (Does not block WAR — use Cease & Desist for that.)' },
+  { name: 'Cease & Desist',      category: 'COUNTER',        count: 3, effect: 'Block the next Grid War, Proxy War, or Digital Crusade targeting you. Cannot block standard hack protocols or M.A.D.' },
+  { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Block the next hack protocol targeting you — except Digital Crusade and M.A.D. Cannot block WAR cards. One use.' },
   // Daemons
   { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Data Drought & Inferno Protocol.' },
   { name: 'Encryption',          category: 'DAEMON',    count: 3, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Data Flood.' },
@@ -244,6 +244,13 @@ function TabHowToPlay() {
         <P>
           When <Highlight>The Corruption</Highlight> card is played, the targeted player loses 10 credits and Corruption Mode begins — the entire board shifts red. Stability Rolls now deal damage instead of granting credits, using the same thresholds in reverse. Each daemon you own <Highlight>absorbs 1 credit of corruption loss</Highlight> per roll — enough daemons can negate a roll entirely.
         </P>
+      </Section>
+
+      <Section title="COUNTERMEASURES">
+        <P>Some cards can be played <Highlight>reactively</Highlight> — out of turn — to cancel an incoming attack before it lands.</P>
+        <Bullet><Highlight>Quarantine</Highlight> blocks any hack protocol (EVENT_NEGATIVE) aimed at you, <em>except</em> Digital Crusade and M.A.D.</Bullet>
+        <Bullet><Highlight>Cease &amp; Desist</Highlight> blocks any Grid War, Proxy War, or Digital Crusade targeting you. It cannot block standard hack protocols or M.A.D.</Bullet>
+        <P>When an AI targets you with a blockable attack and you hold the right counter, you will be prompted to play it or allow the attack through. <Highlight>Using a counter ends the attacker's turn immediately</Highlight> — they do not get to choose another card or action.</P>
       </Section>
 
       <Section title="ELIMINATION">

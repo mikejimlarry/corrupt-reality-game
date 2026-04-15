@@ -11,8 +11,8 @@ const COUNTER_LABEL: Record<string, string> = {
 };
 
 const COUNTER_DESC: Record<string, string> = {
-  SHIELD:    'Absorbs this attack — blocks the next targeted EVENT_NEGATIVE.',
-  NEGOTIATE: 'Cancels this attack — blocks the next WAR or EVENT_NEGATIVE.',
+  SHIELD:    'Absorbs this attack — blocks hack protocols (not Digital Crusade or M.A.D.).',
+  NEGOTIATE: 'Cancels this attack — blocks WAR cards and Digital Crusade.',
 };
 
 export const CounterOpportunityOverlay: React.FC = () => {

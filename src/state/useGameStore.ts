@@ -95,15 +95,15 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       if (ti === -1) return players;
       _lastTargetName = players[ti].name;
 
-      // Quarantine — the target's shield absorbs the attack and is consumed
-      if (players[ti].quarantined) {
+      // Quarantine — the target's shield absorbs the attack and is consumed.
+      // Does NOT block Digital Crusade or M.A.D. (those require Cease & Desist or nothing).
+      if (
+        players[ti].quarantined &&
+        neg.name !== 'Digital Crusade' &&
+        neg.effect !== 'MUTUAL_DAMAGE'
+      ) {
         _quarantineBlockedBy = players[ti].name;
         return players.map((p, i) => i === ti ? { ...p, quarantined: false } : p);
-      }
-      // Cease & Desist — broader diplomatic block also covers EVENT_NEGATIVE
-      if (players[ti].negotiating) {
-        _negotiateBlockedBy = players[ti].name;
-        return players.map((p, i) => i === ti ? { ...p, negotiating: false } : p);
       }
       // Daemon immunity — target's daemon type blocks this specific card entirely
       if (neg.immuneDaemon && players[ti].daemons.includes(neg.immuneDaemon)) {
@@ -614,7 +614,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // give them a chance to play it reactively before the damage lands.
     if (!_skipCounterCheck && !actor.isHuman && card.category === 'EVENT_NEGATIVE') {
       const neg = card as NegativeEventCard;
-      if (neg.targetsOther) {
+      // Quarantine only works against regular hack protocols — not Digital Crusade or M.A.D.
+      const quarantineEligible = neg.name !== 'Digital Crusade' && neg.effect !== 'MUTUAL_DAMAGE';
+      if (neg.targetsOther && quarantineEligible) {
         const liveOpponents = state.players
           .map((p, i) => ({ p, i }))
           .filter(({ p, i }) => i !== actorIndex && !p.eliminated);
@@ -623,9 +625,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
           const target  = state.players[targetI];
           // Only intercept when the target is human and isn't already auto-shielded
           if (target.isHuman && !target.quarantined && !target.negotiating) {
+            // Only SHIELD (Quarantine) can block EVENT_NEGATIVE — Cease & Desist is WAR/Crusade only
             const eligibleCounters = target.hand.filter(c =>
               c.category === 'COUNTER' &&
-              ((c as CounterCard).counterType === 'SHIELD' || (c as CounterCard).counterType === 'NEGOTIATE')
+              (c as CounterCard).counterType === 'SHIELD'
             ) as CounterCard[];
             if (eligibleCounters.length > 0) {
               set({ counterPending: { attackerIndex: actorIndex, cardId, targetIndex: targetI, eligibleCounters } });
