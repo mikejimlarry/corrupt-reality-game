@@ -55,7 +55,6 @@ function Toggle({
         transition: 'all 0.15s',
       }}
     >
-      {/* Custom checkbox */}
       <span style={{
         flexShrink: 0, marginTop: 2,
         width: 12, height: 12,
@@ -78,17 +77,126 @@ function Toggle({
   );
 }
 
+// ── Options modal ─────────────────────────────────────────────────────────────
+
+interface OptionsModalProps {
+  onClose: () => void;
+  hidePpCounts: boolean;
+  setHidePpCounts: (v: boolean) => void;
+  deadMansSwitch: boolean;
+  setDeadMansSwitch: (v: boolean) => void;
+  musicOn: boolean;
+  setMusicOn: (v: boolean) => void;
+}
+
+function OptionsModal({
+  onClose,
+  hidePpCounts, setHidePpCounts,
+  deadMansSwitch, setDeadMansSwitch,
+  musicOn, setMusicOn,
+}: OptionsModalProps) {
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(2,4,12,0.96)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 500,
+        fontFamily: 'monospace',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          border: '1px solid #00ffcc33',
+          background: 'rgba(5,10,20,0.98)',
+          padding: '2rem 2.5rem',
+          maxWidth: 400,
+          width: '90%',
+          color: '#00ffcc',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ fontSize: '0.5rem', letterSpacing: 6, color: '#00ffcc44', marginBottom: '0.25rem' }}>
+          SYSTEM CONFIG
+        </div>
+        <h2 style={{ margin: '0 0 0.5rem', fontSize: '1rem', letterSpacing: 4, color: '#00ffcc' }}>
+          OPTIONS
+        </h2>
+
+        <Toggle
+          checked={deadMansSwitch}
+          onChange={v => setDeadMansSwitch(v)}
+          label="DEAD MAN'S SWITCH"
+          description="An eliminated player may play one last negative card before they fall."
+        />
+        <Toggle
+          checked={hidePpCounts}
+          onChange={v => setHidePpCounts(v)}
+          label="HIDE CREDITS"
+          description="Exact credit totals are hidden — judge your rivals by the bar alone."
+        />
+
+        <div style={{ borderBottom: '1px solid #00ffcc11', margin: '0.25rem 0' }} />
+
+        <Toggle
+          checked={musicOn}
+          onChange={v => {
+            setMusicOn(v);
+            setMusicEnabled(v);
+          }}
+          label="BACKGROUND MUSIC"
+          description={`Cyberpunk ambient score — "The Mountain" by Pixabay.`}
+        />
+
+        <button
+          onClick={onClose}
+          style={{
+            marginTop: '0.5rem',
+            width: '100%',
+            background: 'transparent',
+            border: '1px solid #00ffcc33',
+            color: '#446655',
+            fontFamily: 'monospace',
+            fontSize: '0.65rem', letterSpacing: 3,
+            padding: '0.5rem',
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.color = '#00ffcc';
+            (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc66';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.color = '#446655';
+            (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc33';
+          }}
+        >
+          CLOSE
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Setup screen ──────────────────────────────────────────────────────────────
+
 export const SetupScreen: React.FC = () => {
   const startGame = useGameStore(s => s.startGame);
-  const [name, setName]             = useState(() => localStorage.getItem('crg-handle') ?? '');
-  const [count, setCount]           = useState(() => Number(localStorage.getItem('crg-count') ?? '1'));
+  const [name, setName]               = useState(() => localStorage.getItem('crg-handle') ?? '');
+  const [count, setCount]             = useState(() => Number(localStorage.getItem('crg-count') ?? '1'));
   const [startingPop, setStartingPop] = useState(() => Number(localStorage.getItem('crg-credits') ?? '50'));
-  const [hidePpCounts, setHidePpCounts] = useState(() => localStorage.getItem('crg-hide-credits') === 'true');
+  const [hidePpCounts, setHidePpCounts]     = useState(() => localStorage.getItem('crg-hide-credits') === 'true');
   const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
-  const [musicOn, setMusicOn]       = useState(() => getMusicEnabled());
+  const [musicOn, setMusicOn]         = useState(() => getMusicEnabled());
   const prevCredits = useRef(startingPop);
-  const [showHelp, setShowHelp]     = useState(false);
-  const [showAbout, setShowAbout]   = useState(false);
+
+  const [showHelp, setShowHelp]       = useState(false);
+  const [showAbout, setShowAbout]     = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
 
   const handleStart = () => {
     localStorage.setItem('crg-handle', name.trim() || 'Ghost');
@@ -99,6 +207,23 @@ export const SetupScreen: React.FC = () => {
     sfxJackIn();
     startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch);
   };
+
+  // Small helper so all three meta-buttons share the same look
+  const metaBtn = (onClick: () => void, label: string) => (
+    <button
+      onClick={onClick}
+      style={{
+        background: 'transparent', border: '1px solid #00ffcc33',
+        color: '#446655', fontFamily: 'monospace', fontSize: '0.65rem',
+        letterSpacing: 2, cursor: 'pointer', padding: '0.25rem 0.8rem',
+        transition: 'all 0.15s',
+      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#00ffcc'; (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc66'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#446655'; (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc33'; }}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div style={{
@@ -117,38 +242,23 @@ export const SetupScreen: React.FC = () => {
         A GAME OF SURVIVAL AND CORRUPTION
       </p>
 
-      {/* Help + About buttons */}
+      {/* Meta buttons */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem' }}>
-        <button
-          onClick={() => { resumeAudio(); sfxShowModal(); setShowHelp(true); }}
-          style={{
-            background: 'transparent', border: '1px solid #00ffcc33',
-            color: '#446655', fontFamily: 'monospace', fontSize: '0.65rem',
-            letterSpacing: 2, cursor: 'pointer', padding: '0.25rem 0.8rem',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { (e.target as HTMLElement).style.color = '#00ffcc'; (e.target as HTMLElement).style.borderColor = '#00ffcc66'; }}
-          onMouseLeave={e => { (e.target as HTMLElement).style.color = '#446655'; (e.target as HTMLElement).style.borderColor = '#00ffcc33'; }}
-        >
-          ? HELP
-        </button>
-        <button
-          onClick={() => { resumeAudio(); sfxShowModal(); setShowAbout(true); }}
-          style={{
-            background: 'transparent', border: '1px solid #00ffcc33',
-            color: '#446655', fontFamily: 'monospace', fontSize: '0.65rem',
-            letterSpacing: 2, cursor: 'pointer', padding: '0.25rem 0.8rem',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { (e.target as HTMLElement).style.color = '#00ffcc'; (e.target as HTMLElement).style.borderColor = '#00ffcc66'; }}
-          onMouseLeave={e => { (e.target as HTMLElement).style.color = '#446655'; (e.target as HTMLElement).style.borderColor = '#00ffcc33'; }}
-        >
-          i ABOUT
-        </button>
+        {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowHelp(true); },    '? HELP')}
+        {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowOptions(true); }, '⚙ OPTIONS')}
+        {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowAbout(true); },   'i ABOUT')}
       </div>
 
-      {showHelp  && <HelpModal  onClose={() => setShowHelp(false)} />}
-      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+      {showHelp    && <HelpModal    onClose={() => setShowHelp(false)} />}
+      {showAbout   && <AboutModal   onClose={() => setShowAbout(false)} />}
+      {showOptions && (
+        <OptionsModal
+          onClose={() => setShowOptions(false)}
+          hidePpCounts={hidePpCounts}   setHidePpCounts={setHidePpCounts}
+          deadMansSwitch={deadMansSwitch} setDeadMansSwitch={setDeadMansSwitch}
+          musicOn={musicOn}             setMusicOn={setMusicOn}
+        />
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: 300 }}>
 
@@ -213,33 +323,6 @@ export const SetupScreen: React.FC = () => {
             </span>
             <span>100</span>
           </div>
-        </div>
-
-        <div style={SEP} />
-
-        {/* Options */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <Toggle
-            checked={hidePpCounts}
-            onChange={v => setHidePpCounts(v)}
-            label="HIDE CREDITS"
-            description="Exact credit totals are hidden — judge your rivals by the bar alone."
-          />
-          <Toggle
-            checked={deadMansSwitch}
-            onChange={v => setDeadMansSwitch(v)}
-            label="DEAD MAN'S SWITCH"
-            description="An eliminated player may play one last negative card before they fall."
-          />
-          <Toggle
-            checked={musicOn}
-            onChange={v => {
-              setMusicOn(v);
-              setMusicEnabled(v);
-            }}
-            label="BACKGROUND MUSIC"
-            description="Cyberpunk ambient score — &quot;The Mountain&quot; by Pixabay."
-          />
         </div>
 
         <div style={SEP} />
