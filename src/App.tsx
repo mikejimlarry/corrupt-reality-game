@@ -10,7 +10,7 @@ import { WarPickOverlay } from './ui/WarPickOverlay';
 import { WarPreOverlay } from './ui/WarPreOverlay';
 import { GameOverScreen } from './ui/GameOverScreen';
 import { useGameAudio } from './hooks/useGameAudio';
-import { resumeAudio } from './lib/audio';
+import { resumeAudio, stopMusic } from './lib/audio';
 
 const AMBIENT_STYLE = `
 @keyframes game-scan {
@@ -39,12 +39,19 @@ function App() {
     return () => destroyGame();
   }, []);
 
-  // Resume AudioContext on first user gesture (browser autoplay policy)
+  // Resume AudioContext + start music on first user gesture (browser autoplay policy)
   useEffect(() => {
-    const handler = () => resumeAudio();
+    const handler = () => resumeAudio(); // also calls startMusic() internally
     window.addEventListener('pointerdown', handler, { once: true });
     return () => window.removeEventListener('pointerdown', handler);
   }, []);
+
+  // Stop music when the game ends or returns to setup
+  useEffect(() => {
+    if (phase === 'GAME_OVER' || phase === 'SETUP') {
+      stopMusic();
+    }
+  }, [phase]);
 
 
   const scanColor = corruption ? 'rgba(255,30,60,0.07)' : 'rgba(0,255,204,0.045)';

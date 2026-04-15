@@ -2,10 +2,12 @@
 import React, { useState, useRef } from 'react';
 import { useGameStore } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
+import { AboutModal } from './AboutModal';
 import { GlitchTitle } from './GlitchTitle';
 import {
   resumeAudio, sfxNavClick, sfxSliderUp, sfxSliderDown,
   sfxToggleOn, sfxToggleOff, sfxShowModal, sfxJackIn,
+  getMusicEnabled, setMusicEnabled,
 } from '../lib/audio';
 
 const LABEL: React.CSSProperties = {
@@ -83,8 +85,10 @@ export const SetupScreen: React.FC = () => {
   const [startingPop, setStartingPop] = useState(() => Number(localStorage.getItem('crg-credits') ?? '50'));
   const [hidePpCounts, setHidePpCounts] = useState(() => localStorage.getItem('crg-hide-credits') === 'true');
   const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
-  const [showHelp, setShowHelp] = useState(false);
+  const [musicOn, setMusicOn]       = useState(() => getMusicEnabled());
   const prevCredits = useRef(startingPop);
+  const [showHelp, setShowHelp]     = useState(false);
+  const [showAbout, setShowAbout]   = useState(false);
 
   const handleStart = () => {
     localStorage.setItem('crg-handle', name.trim() || 'Ghost');
@@ -112,21 +116,39 @@ export const SetupScreen: React.FC = () => {
       <p style={{ color: '#446655', letterSpacing: 4, fontSize: '0.75rem', margin: '0 0 0.75rem' }}>
         A GAME OF SURVIVAL AND CORRUPTION
       </p>
-      <button
-        onClick={() => { resumeAudio(); sfxShowModal(); setShowHelp(true); }}
-        style={{
-          background: 'transparent', border: '1px solid #00ffcc33',
-          color: '#446655', fontFamily: 'monospace', fontSize: '0.65rem',
-          letterSpacing: 2, cursor: 'pointer', padding: '0.25rem 0.8rem',
-          transition: 'all 0.15s', marginBottom: '2rem',
-        }}
-        onMouseEnter={e => { (e.target as HTMLElement).style.color = '#00ffcc'; (e.target as HTMLElement).style.borderColor = '#00ffcc66'; }}
-        onMouseLeave={e => { (e.target as HTMLElement).style.color = '#446655'; (e.target as HTMLElement).style.borderColor = '#00ffcc33'; }}
-      >
-        ? HELP
-      </button>
 
-      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {/* Help + About buttons */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem' }}>
+        <button
+          onClick={() => { resumeAudio(); sfxShowModal(); setShowHelp(true); }}
+          style={{
+            background: 'transparent', border: '1px solid #00ffcc33',
+            color: '#446655', fontFamily: 'monospace', fontSize: '0.65rem',
+            letterSpacing: 2, cursor: 'pointer', padding: '0.25rem 0.8rem',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { (e.target as HTMLElement).style.color = '#00ffcc'; (e.target as HTMLElement).style.borderColor = '#00ffcc66'; }}
+          onMouseLeave={e => { (e.target as HTMLElement).style.color = '#446655'; (e.target as HTMLElement).style.borderColor = '#00ffcc33'; }}
+        >
+          ? HELP
+        </button>
+        <button
+          onClick={() => { resumeAudio(); sfxShowModal(); setShowAbout(true); }}
+          style={{
+            background: 'transparent', border: '1px solid #00ffcc33',
+            color: '#446655', fontFamily: 'monospace', fontSize: '0.65rem',
+            letterSpacing: 2, cursor: 'pointer', padding: '0.25rem 0.8rem',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { (e.target as HTMLElement).style.color = '#00ffcc'; (e.target as HTMLElement).style.borderColor = '#00ffcc66'; }}
+          onMouseLeave={e => { (e.target as HTMLElement).style.color = '#446655'; (e.target as HTMLElement).style.borderColor = '#00ffcc33'; }}
+        >
+          i ABOUT
+        </button>
+      </div>
+
+      {showHelp  && <HelpModal  onClose={() => setShowHelp(false)} />}
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: 300 }}>
 
@@ -199,15 +221,24 @@ export const SetupScreen: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <Toggle
             checked={hidePpCounts}
-            onChange={setHidePpCounts}
+            onChange={v => setHidePpCounts(v)}
             label="HIDE CREDITS"
             description="Exact credit totals are hidden — judge your rivals by the bar alone."
           />
           <Toggle
             checked={deadMansSwitch}
-            onChange={setDeadMansSwitch}
+            onChange={v => setDeadMansSwitch(v)}
             label="DEAD MAN'S SWITCH"
             description="An eliminated player may play one last negative card before they fall."
+          />
+          <Toggle
+            checked={musicOn}
+            onChange={v => {
+              setMusicOn(v);
+              setMusicEnabled(v);
+            }}
+            label="BACKGROUND MUSIC"
+            description="Cyberpunk ambient score — &quot;The Mountain&quot; by Pixabay."
           />
         </div>
 

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
-import { sfxCardPlay } from '../lib/audio';
+import { sfxCardPlay, getMusicEnabled, setMusicEnabled, sfxToggleOn, sfxToggleOff } from '../lib/audio';
 
 const PULSE_STYLE = `
 @keyframes hud-pulse {
@@ -49,6 +49,7 @@ const BTN_BASE: React.CSSProperties = {
   cursor: 'pointer',
   letterSpacing: 1,
   fontWeight: 'bold',
+  width: '100%',
 };
 
 function panel(accent: string): React.CSSProperties {
@@ -56,10 +57,9 @@ function panel(accent: string): React.CSSProperties {
     background: 'rgba(5,5,15,0.88)',
     border: `1px solid ${accent}33`,
     borderRadius: 6,
-    padding: '10px 14px',
+    padding: '8px 12px',
     fontFamily: 'monospace',
     color: '#c0d0e0',
-    marginBottom: 8,
   };
 }
 
@@ -97,9 +97,9 @@ export function HUD() {
   const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
 
   const [logExpanded, setLogExpanded] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
+  const [showHelp, setShowHelp]       = useState(false);
+  const [musicOn, setMusicOn]         = useState(() => getMusicEnabled());
 
-  // Delay the BEGIN SEQUENCE button so it appears after the table + card animations settle
   const [rollReady, setRollReady] = useState(false);
   useEffect(() => {
     if (phase === 'PHASE_ROLL') {
@@ -109,7 +109,6 @@ export function HUD() {
     }
   }, [phase]);
 
-  // Auto-advance when the human's turn ends — no button needed since there's nothing left to do
   useEffect(() => {
     if (phase === 'END_TURN') {
       const t = setTimeout(() => endTurn(), 900);
@@ -124,13 +123,23 @@ export function HUD() {
   const selectedCard = selectedCardId
     ? players.find(p => p.isHuman)?.hand.find(c => c.id === selectedCardId)
     : null;
-  const logTail = log.slice(-4);
+  const logTail = log.slice(-3);
+
+  // Whether the selected card is a forced play (The Corruption) — no discard allowed
+  const isForced = (selectedCard as any)?.effect === 'CORRUPTION';
+
+  const handleMusicToggle = () => {
+    const next = !musicOn;
+    setMusicOn(next);
+    (next ? sfxToggleOn : sfxToggleOff)();
+    setMusicEnabled(next);
+  };
 
   return (
     <>
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
-      {/* ── TOP-LEFT: Field Manual + Activity Log ── */}
+      {/* ── TOP-LEFT: Field Manual + Music toggle + Activity Log ── */}
       <div
         style={{
           position: 'fixed',
@@ -142,29 +151,58 @@ export function HUD() {
           flexDirection: 'column',
         }}
       >
-        {/* Help button */}
-        <button
-          onClick={() => setShowHelp(true)}
-          style={{
-            ...BTN_BASE,
-            background: 'transparent',
-            border: `1px solid ${ACCENT}22`,
-            color: `${ACCENT}44`,
-            fontSize: 10, letterSpacing: 2,
-            marginBottom: 8,
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.color = ACCENT;
-            (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`;
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.color = `${ACCENT}44`;
-            (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}22`;
-          }}
-        >
-          ? FIELD MANUAL
-        </button>
+        {/* Top row: Help button + Music toggle */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          <button
+            onClick={() => setShowHelp(true)}
+            style={{
+              ...BTN_BASE,
+              flex: 1,
+              background: 'transparent',
+              border: `1px solid ${ACCENT}22`,
+              color: `${ACCENT}44`,
+              fontSize: 10, letterSpacing: 2,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = ACCENT;
+              (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = `${ACCENT}44`;
+              (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}22`;
+            }}
+          >
+            ? FIELD MANUAL
+          </button>
+
+          {/* Music toggle */}
+          <button
+            onClick={handleMusicToggle}
+            title={musicOn ? 'Music ON — click to mute' : 'Music OFF — click to unmute'}
+            style={{
+              ...BTN_BASE,
+              width: 'auto',
+              padding: '6px 10px',
+              background: musicOn ? `${ACCENT}18` : 'transparent',
+              border: `1px solid ${musicOn ? ACCENT + '44' : ACCENT + '18'}`,
+              color: musicOn ? ACCENT : `${ACCENT}33`,
+              fontSize: 13,
+              letterSpacing: 0,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = ACCENT;
+              (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}66`;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = musicOn ? ACCENT : `${ACCENT}33`;
+              (e.currentTarget as HTMLElement).style.borderColor = musicOn ? `${ACCENT}44` : `${ACCENT}18`;
+            }}
+          >
+            {musicOn ? '♫' : '♪'}
+          </button>
+        </div>
 
         {/* Game log */}
         {log.length > 0 && (
@@ -185,7 +223,7 @@ export function HUD() {
               <span style={{ color: `${ACCENT}44` }}>{logExpanded ? '▲ COLLAPSE' : `▼ ${log.length} ENTRIES`}</span>
             </button>
 
-            {/* Collapsed — show last 4 entries */}
+            {/* Collapsed — show last 3 entries */}
             {!logExpanded && (
               <div style={{ padding: '0 12px 8px' }}>
                 {logTail.map(entry => (
@@ -296,9 +334,11 @@ export function HUD() {
             <div style={{ fontSize: 10, color: '#667788', marginBottom: 10 }}>
               {validTargetIds.length} opponent{validTargetIds.length !== 1 ? 's' : ''} available
             </div>
-            <button style={{ ...btnDim('#ff3333'), borderColor: '#ff333344', color: '#ff3333aa' }} onClick={() => cancelTargeting()}>
-              ✕ CANCEL
-            </button>
+            {!isForced && (
+              <button style={{ ...btnDim('#ff3333'), borderColor: '#ff333344', color: '#ff3333aa' }} onClick={() => cancelTargeting()}>
+                ✕ CANCEL
+              </button>
+            )}
           </div>
         )}
 
@@ -326,9 +366,11 @@ export function HUD() {
                   <button style={btnPrimary(ACCENT)} onClick={() => { sfxCardPlay(); playCard(selectedCard.id); }}>
                     PLAY
                   </button>
-                  <button style={btnDim(ACCENT)} onClick={() => discardCard(selectedCard.id)}>
-                    DISCARD
-                  </button>
+                  {!isForced && (
+                    <button style={btnDim(ACCENT)} onClick={() => discardCard(selectedCard.id)}>
+                      DISCARD
+                    </button>
+                  )}
                 </div>
               </>
             )}

@@ -55,6 +55,48 @@ function play(file: string, volume = 1.0) {
   });
 }
 
+// ── Background music ───────────────────────────────────────────────────────────
+// Uses an HTML Audio element (loop support + no buffer-size limits).
+
+let _musicEl: HTMLAudioElement | null = null;
+const MUSIC_KEY = 'crg-music-enabled';
+
+export function getMusicEnabled(): boolean {
+  return localStorage.getItem(MUSIC_KEY) !== 'false';
+}
+
+export function setMusicEnabled(enabled: boolean): void {
+  localStorage.setItem(MUSIC_KEY, String(enabled));
+  if (enabled) {
+    _playMusicEl();
+  } else {
+    stopMusic();
+  }
+}
+
+function _playMusicEl(): void {
+  if (!_musicEl) {
+    _musicEl = new Audio('/sfx/music_bg.mp3');
+    _musicEl.loop   = true;
+    _musicEl.volume = 0.35;
+  }
+  _musicEl.play().catch(() => { /* autoplay blocked — will retry on next gesture */ });
+}
+
+/** Start background music if the toggle is enabled. Call after first user gesture. */
+export function startMusic(): void {
+  if (!getMusicEnabled()) return;
+  _playMusicEl();
+}
+
+/** Stop and reset background music. */
+export function stopMusic(): void {
+  if (_musicEl) {
+    _musicEl.pause();
+    _musicEl.currentTime = 0;
+  }
+}
+
 // ── Preload everything on first user gesture ──────────────────────────────────
 
 const ALL_FILES = [
@@ -76,10 +118,11 @@ const ALL_FILES = [
   'deck_ui_launch_game.wav',
 ];
 
-/** Call on first pointer event to unblock AudioContext and kick off preloading. */
+/** Call on first pointer event to unblock AudioContext, kick off SFX preloading, and start music. */
 export function resumeAudio() {
   ctx(); // unblocks suspended context
   ALL_FILES.forEach(f => load(f));
+  startMusic(); // attempt music now that the user has gestured
 }
 
 // ── In-game sound effects ──────────────────────────────────────────────────────

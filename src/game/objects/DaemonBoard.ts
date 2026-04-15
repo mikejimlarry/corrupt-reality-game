@@ -2,9 +2,6 @@
 import Phaser from 'phaser';
 import type { DaemonType } from '../../types/cards';
 
-const IMP_COLOR = 0x00ffcc;
-const IMP_HEX   = '#00ffcc';
-
 const IMP_LABEL: Record<DaemonType, string> = {
   FIREWALL:      'FIREWALL',
   ENCRYPTION:    'ENCRYPTION',
@@ -23,9 +20,13 @@ const GAP    = 6;
 
 export class DaemonBoard extends Phaser.GameObjects.Container {
   private cards: Phaser.GameObjects.Container[] = [];
+  private color: number;
+  private colorHex: string;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, color = 0xaa44ff, colorHex = '#aa44ff') {
     super(scene, x, y);
+    this.color    = color;
+    this.colorHex = colorHex;
     this.setDepth(22);
     scene.add.existing(this);
   }
@@ -69,25 +70,27 @@ export class DaemonBoard extends Phaser.GameObjects.Container {
   private buildCard(imp: DaemonType, cx: number): Phaser.GameObjects.Container {
     const con = this.scene.add.container(cx, 0);
     const dpr = window.devicePixelRatio;
+    const c   = this.color;
+    const ch  = this.colorHex;
 
     // Background + border
     const bg = this.scene.add.graphics();
     bg.fillStyle(0x0d0d1f, 1);
     bg.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 5);
-    bg.lineStyle(1.5, IMP_COLOR, 0.85);
+    bg.lineStyle(1.5, c, 0.85);
     bg.strokeRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 5);
     // Top colour strip
-    bg.fillStyle(IMP_COLOR, 0.35);
+    bg.fillStyle(c, 0.35);
     bg.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, 9,
       { tl: 5, tr: 5, bl: 0, br: 0 });
     // Inner glow
-    bg.fillStyle(IMP_COLOR, 0.04);
+    bg.fillStyle(c, 0.04);
     bg.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 5);
     con.add(bg);
 
     // Category icon
     con.add(this.scene.add.text(0, -CARD_H / 2 + 16, '[D]', {
-      fontFamily: 'monospace', fontSize: '8px', color: IMP_HEX, resolution: dpr,
+      fontFamily: 'monospace', fontSize: '8px', color: ch, resolution: dpr,
     }).setOrigin(0.5));
 
     // Name
@@ -98,13 +101,13 @@ export class DaemonBoard extends Phaser.GameObjects.Container {
 
     // Description
     con.add(this.scene.add.text(0, CARD_H / 2 - 8, IMP_DESC[imp], {
-      fontFamily: 'monospace', fontSize: '5px', color: IMP_HEX,
+      fontFamily: 'monospace', fontSize: '5px', color: ch,
       wordWrap: { width: CARD_W - 8 }, align: 'center', lineSpacing: 1, resolution: dpr,
     }).setOrigin(0.5, 1));
 
     // Active dot
     const dot = this.scene.add.graphics();
-    dot.fillStyle(IMP_COLOR, 0.7);
+    dot.fillStyle(c, 0.7);
     dot.fillCircle(-CARD_W / 2 + 7, -CARD_H / 2 + 5, 2.5);
     con.add(dot);
 

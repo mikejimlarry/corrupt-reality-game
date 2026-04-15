@@ -344,20 +344,20 @@ export class GameScene extends Phaser.Scene {
 
     // ── 6. Improvement boards — one per player ─────────────────────────────
     const midY = height * 0.46;
-    // Human: just above the player zone, below the hand
-    this.humanDaemonBoard = new DaemonBoard(this, width / 2, height - 58 - 118);
+    // Human: just above the player zone, below the hand (cyan to match human zone)
+    this.humanDaemonBoard = new DaemonBoard(this, width / 2, height - 58 - 118, 0x00ffcc, '#00ffcc');
 
-    // AI boards keyed by player id
+    // AI boards — red/pink to match AI zone accent
     if (aiPlayers[0]) {
-      const b = new DaemonBoard(this, width / 2, height * 0.30);
+      const b = new DaemonBoard(this, width / 2, height * 0.30, 0xff3366, '#ff3366');
       this.aiDaemonBoards.set(aiPlayers[0].id, b);
     }
     if (aiPlayers[1]) {
-      const b = new DaemonBoard(this, 250, midY);
+      const b = new DaemonBoard(this, 250, midY, 0xff3366, '#ff3366');
       this.aiDaemonBoards.set(aiPlayers[1].id, b);
     }
     if (aiPlayers[2]) {
-      const b = new DaemonBoard(this, width - 250, midY);
+      const b = new DaemonBoard(this, width - 250, midY, 0xff3366, '#ff3366');
       this.aiDaemonBoards.set(aiPlayers[2].id, b);
     }
 
