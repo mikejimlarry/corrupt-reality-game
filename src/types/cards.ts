@@ -44,7 +44,7 @@ export interface WarCard extends BaseCard {
   category: 'WAR';
   winnerLoses: number;
   loserLoses: number;
-  /** When true the loser also loses one random daemon (Grid War / Major War). */
+  /** When true the loser also loses one random daemon (Grid Conflict). */
   loserLosesImprovement?: boolean;
 }
 

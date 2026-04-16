@@ -74,11 +74,11 @@ const CARDS: CardEntry[] = [
   { name: 'The Corruption',      category: 'EVENT_NEGATIVE', count: 1, effect: 'Target loses 10 credits. Corruption mode begins.' },
   { name: 'Power Cycle',         category: 'EVENT_NEGATIVE', count: 2, effect: 'Target\'s credits reset to the starting amount, all their daemons are purged, and their hand is replaced with 5 new cards.' },
   // Wars
-  { name: 'Proxy War',           category: 'WAR',            count: 4, effect: 'Attack a target. You lose 5 credits · Target loses 10 credits.' },
-  { name: 'Grid War',            category: 'WAR',            count: 3, effect: 'Attack a target. You lose 10 credits · Target loses 20 credits and one daemon.' },
+  { name: 'Proxy Conflict',           category: 'WAR',            count: 4, effect: 'Attack a target. You lose 5 credits · Target loses 10 credits.' },
+  { name: 'Grid Conflict',            category: 'WAR',            count: 3, effect: 'Attack a target. You lose 10 credits · Target loses 20 credits and one daemon.' },
   // Counters
   { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Your next WAR roll gets +1. Play before initiating a conflict.' },
-  { name: 'System Interrupt',    category: 'COUNTER',        count: 3, effect: 'Block the next Grid War, Proxy War, or Digital Crusade targeting you. Cannot block standard hack protocols or M.A.D.' },
+  { name: 'System Interrupt',    category: 'COUNTER',        count: 3, effect: 'Block the next Grid Conflict, Proxy Conflict, or Digital Crusade targeting you. Cannot block standard hack protocols or M.A.D.' },
   { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Block the next hack protocol targeting you — except Digital Crusade and M.A.D. Cannot block Conflict cards. One use.' },
   // Daemons
   { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Data Drought & Inferno Protocol.' },
@@ -251,7 +251,7 @@ function TabHowToPlay() {
       <Section title="COUNTERMEASURES">
         <P>Some cards can be played <Highlight>reactively</Highlight> — out of turn — to cancel an incoming attack before it lands.</P>
         <Bullet><Highlight>Quarantine</Highlight> blocks any hack protocol aimed at you, <em>except</em> Digital Crusade and M.A.D.</Bullet>
-        <Bullet><Highlight>System Interrupt</Highlight> blocks any Grid Conflict (Proxy War or Grid War) or Digital Crusade targeting you. It cannot block standard hack protocols or M.A.D.</Bullet>
+        <Bullet><Highlight>System Interrupt</Highlight> blocks any Grid Conflict (Proxy Conflict or Grid Conflict) or Digital Crusade targeting you. It cannot block standard hack protocols or M.A.D.</Bullet>
         <P>When an AI targets you with a blockable attack and you hold the right counter, you will be prompted to play it or allow the attack through. <Highlight>Using a counter ends the attacker's turn immediately</Highlight> — they do not get to choose another card or action.</P>
       </Section>
 

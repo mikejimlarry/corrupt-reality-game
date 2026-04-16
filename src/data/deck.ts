@@ -161,16 +161,16 @@ const negativeEvents: Card[] = [
 // P&P: Major War ×3 (winner -10, loser -20), Minor War ×4 (winner -5, loser -10)
 
 const warCards: Card[] = [
-  // Grid War ×3 — P&P Major War
+  // Grid Conflict ×3 — P&P Major War
   ...Array(3).fill(null).map(() => ({
-    id: uid(), name: 'Grid War', category: 'WAR' as const,
+    id: uid(), name: 'Grid Conflict', category: 'WAR' as const,
     description: 'Total network assault. Winner loses 10 credits. Loser loses 20 credits and one daemon.',
     rarity: 'RARE' as const, winnerLoses: 10, loserLoses: 20, loserLosesImprovement: true,
     flavourText: 'Scorched silicon.',
   })),
-  // Proxy War ×4 — P&P Minor War
+  // Proxy Conflict ×4 — P&P Minor War
   ...Array(4).fill(null).map(() => ({
-    id: uid(), name: 'Proxy War', category: 'WAR' as const,
+    id: uid(), name: 'Proxy Conflict', category: 'WAR' as const,
     description: 'Instigate a localised conflict. Winner loses 5 credits. Loser loses 10 credits.',
     rarity: 'COMMON' as const, winnerLoses: 5, loserLoses: 10,
     flavourText: 'All wars are fought by someone else.',
