@@ -3,22 +3,25 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 const UNFOLD_CSS = `
 @keyframes modal-unfold {
-  0%   { transform: scaleY(0.01) perspective(700px) rotateX(25deg); opacity: 0; }
-  55%  { transform: scaleY(1.03) perspective(700px) rotateX(-4deg); opacity: 1; }
-  75%  { transform: scaleY(0.98) perspective(700px) rotateX(1.5deg); }
-  100% { transform: scaleY(1)    perspective(0px)   rotateX(0deg);  opacity: 1; }
+  0%   { transform: scaleY(0) scaleX(0.04); opacity: 0; }
+  40%  { transform: scaleY(1) scaleX(0.04); opacity: 1; }
+  100% { transform: scaleY(1) scaleX(1);    opacity: 1; }
 }
 @keyframes modal-fold {
-  0%   { transform: scaleY(1)    perspective(0px)   rotateX(0deg);  opacity: 1; }
-  40%  { transform: scaleY(1.02) perspective(700px) rotateX(-3deg); opacity: 1; }
-  100% { transform: scaleY(0.01) perspective(700px) rotateX(25deg); opacity: 0; }
+  0%   { transform: scaleY(1) scaleX(1);    opacity: 1; }
+  55%  { transform: scaleY(1) scaleX(0.04); opacity: 1; }
+  100% { transform: scaleY(0) scaleX(0.04); opacity: 0; }
 }
+@keyframes modal-contents-in  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes modal-contents-out { from { opacity: 1 } to { opacity: 0 } }
 @keyframes backdrop-in  { from { opacity: 0 } to { opacity: 1 } }
 @keyframes backdrop-out { from { opacity: 1 } to { opacity: 0 } }
-.modal-unfold  { animation: modal-unfold  0.45s cubic-bezier(0.23, 1, 0.32, 1) both; transform-origin: center center; }
-.modal-fold    { animation: modal-fold    0.28s cubic-bezier(0.55, 0, 1, 0.45) both; transform-origin: center center; }
-.backdrop-in   { animation: backdrop-in  0.25s ease both; }
-.backdrop-out  { animation: backdrop-out 0.28s ease both; }
+.modal-unfold        { animation: modal-unfold  0.38s cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: center center; }
+.modal-fold          { animation: modal-fold    0.28s cubic-bezier(0.55, 0, 1, 0.45) both; transform-origin: center center; }
+.modal-contents-in   { animation: modal-contents-in  0.14s 0.32s ease both; }
+.modal-contents-out  { animation: modal-contents-out 0.08s ease both; }
+.backdrop-in         { animation: backdrop-in  0.22s ease both; }
+.backdrop-out        { animation: backdrop-out 0.28s ease both; }
 `;
 
 // ── Colour palette matching Phaser card categories ────────────────────────────
@@ -350,7 +353,7 @@ export const HelpModal: React.FC<Props> = ({ onClose }) => {
 
   const handleClose = useCallback(() => {
     setClosing(true);
-    setTimeout(onClose, 280);
+    setTimeout(onClose, 300);
   }, [onClose]);
 
   // Close on Escape
@@ -389,6 +392,7 @@ export const HelpModal: React.FC<Props> = ({ onClose }) => {
           boxShadow: '0 0 60px #00ffcc0d',
         }}
       >
+        <div className={closing ? 'modal-contents-out' : 'modal-contents-in'} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem 0' }}>
           <div>
@@ -436,6 +440,7 @@ export const HelpModal: React.FC<Props> = ({ onClose }) => {
           {activeTab === 'cards'     && <TabCards />}
           {activeTab === 'options'   && <TabOptions />}
         </div>
+        </div>{/* end modal-contents */}
       </div>
       </div>
     </>
