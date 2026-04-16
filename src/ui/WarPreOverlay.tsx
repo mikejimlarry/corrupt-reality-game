@@ -3,6 +3,12 @@ import React from 'react';
 import { useGameStore } from '../state/useGameStore';
 import type { CounterCard } from '../types/cards';
 
+const DAEMON_LABEL: Record<string, string> = {
+  FIREWALL:     'Firewall',
+  ENCRYPTION:   'Encryption',
+  HARDENED_NODE:'Hardened Node',
+};
+
 export const WarPreOverlay: React.FC = () => {
   const pending       = useGameStore(s => s.warPrePending);
   const players       = useGameStore(s => s.players);
@@ -15,9 +21,8 @@ export const WarPreOverlay: React.FC = () => {
   const { card: warCard, p1Index, p2Index, step } = pending;
   const combatantIndex = step === 1 ? p1Index : p2Index;
   const combatant = players[combatantIndex];
-  const opponent  = players[step === 1 ? p2Index : p1Index];
 
-  // Cards this combatant can play: Firewall Surge (multiple OK) or Cease & Desist (cancel)
+  // Cards this combatant can play: Firewall Surge (multiple OK) or System Interrupt (cancel)
   const eligibleCards = combatant.hand.filter(c => {
     if (c.category !== 'COUNTER') return false;
     const cnt = c as CounterCard;
@@ -25,8 +30,43 @@ export const WarPreOverlay: React.FC = () => {
   }) as CounterCard[];
 
   const surgeCards = eligibleCards.filter(c => c.counterType === 'TACTICAL_ADVANTAGE');
-  const cdCards    = eligibleCards.filter(c => c.counterType === 'NEGOTIATE');
+  const siCards    = eligibleCards.filter(c => c.counterType === 'NEGOTIATE');
   const currentBonus = combatant.tacticalBonus;
+
+  const renderPlayer = (player: typeof players[0], isActive: boolean) => (
+    <div style={{
+      padding: '0.4rem 0.75rem',
+      background: isActive ? 'rgba(255,51,102,0.14)' : 'rgba(255,51,102,0.05)',
+      border: isActive ? '1px solid #ff336666' : '1px solid #ff336622',
+      fontSize: '0.7rem', letterSpacing: 2,
+      minWidth: 120,
+    }}>
+      <div style={{ color: isActive ? '#ff5577' : '#664455', fontWeight: 'bold', marginBottom: 3 }}>
+        {player.name}
+      </div>
+      <div style={{ fontSize: '0.55rem', color: isActive ? '#ff336688' : '#443344', marginBottom: 3 }}>
+        {player.credits}¢
+        {player.tacticalBonus > 0 && (
+          <span style={{ color: '#ff9955', marginLeft: 6 }}>+{player.tacticalBonus} roll</span>
+        )}
+      </div>
+      {player.daemons.length > 0 ? (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {player.daemons.map((d, i) => (
+            <span key={i} style={{
+              fontSize: '0.45rem', padding: '1px 4px',
+              background: 'rgba(0,255,204,0.07)', border: '1px solid #00ffcc22',
+              color: '#00ffcc55', borderRadius: 2, letterSpacing: 1,
+            }}>
+              {DAEMON_LABEL[d] ?? d}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: '0.45rem', color: '#442233' }}>no daemons</div>
+      )}
+    </div>
+  );
 
   return (
     <div style={{
@@ -50,7 +90,7 @@ export const WarPreOverlay: React.FC = () => {
           color: '#ff5566', letterSpacing: 6, fontSize: '0.55rem',
           textAlign: 'center', marginBottom: '0.3rem',
         }}>
-          ⚔ PRE-WAR PREPARATION
+          ⚔ PRE-CONFLICT PREPARATION
         </div>
         <h2 style={{
           color: '#ff4466', letterSpacing: 3, fontSize: '1rem',
@@ -59,30 +99,14 @@ export const WarPreOverlay: React.FC = () => {
           {warCard.name.toUpperCase()}
         </h2>
 
-        {/* Matchup */}
+        {/* Matchup with credits and daemons */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: 12, marginBottom: '1.2rem', marginTop: '0.5rem',
         }}>
-          <div style={{
-            padding: '0.35rem 0.75rem',
-            background: step === 1 ? 'rgba(255,51,102,0.14)' : 'rgba(255,51,102,0.05)',
-            border: step === 1 ? '1px solid #ff336666' : '1px solid #ff336622',
-            color: step === 1 ? '#ff5577' : '#664455',
-            fontSize: '0.7rem', letterSpacing: 2,
-          }}>
-            {players[p1Index].name}
-          </div>
-          <div style={{ color: '#552233', fontSize: '0.8rem' }}>VS</div>
-          <div style={{
-            padding: '0.35rem 0.75rem',
-            background: step === 2 ? 'rgba(255,51,102,0.14)' : 'rgba(255,51,102,0.05)',
-            border: step === 2 ? '1px solid #ff336666' : '1px solid #ff336622',
-            color: step === 2 ? '#ff5577' : '#664455',
-            fontSize: '0.7rem', letterSpacing: 2,
-          }}>
-            {players[p2Index].name}
-          </div>
+          {renderPlayer(players[p1Index], step === 1)}
+          <div style={{ color: '#552233', fontSize: '0.8rem', flexShrink: 0 }}>VS</div>
+          {renderPlayer(players[p2Index], step === 2)}
         </div>
 
         {/* Whose turn it is */}
@@ -115,7 +139,7 @@ export const WarPreOverlay: React.FC = () => {
             {surgeCards.length > 0 && (
               <>
                 <div style={{ fontSize: '0.5rem', color: '#ff336644', letterSpacing: 3, marginBottom: 2 }}>
-                  FIREWALL SURGE — adds +1 to your roll (stackable)
+                  FIREWALL SURGE — adds +1 to your CONFLICT roll (stackable)
                 </div>
                 {surgeCards.map(c => (
                   <button
@@ -143,19 +167,19 @@ export const WarPreOverlay: React.FC = () => {
                       (e.currentTarget as HTMLElement).style.color = '#cc7733';
                     }}
                   >
-                    ▲ {c.name} — +1 to roll
+                    ▲ {c.name} — +1 to CONFLICT roll
                   </button>
                 ))}
               </>
             )}
 
-            {/* Cease & Desist — cancels the war */}
-            {cdCards.length > 0 && (
+            {/* System Interrupt — cancels the conflict */}
+            {siCards.length > 0 && (
               <>
                 <div style={{ fontSize: '0.5rem', color: '#ff336644', letterSpacing: 3, marginTop: 8, marginBottom: 2 }}>
-                  CEASE &amp; DESIST — cancels this war entirely
+                  SYSTEM INTERRUPT — cancels this conflict entirely
                 </div>
-                {cdCards.map(c => (
+                {siCards.map(c => (
                   <button
                     key={c.id}
                     onClick={() => playPreCard(c.id)}
@@ -181,25 +205,13 @@ export const WarPreOverlay: React.FC = () => {
                       (e.currentTarget as HTMLElement).style.color = '#6677cc';
                     }}
                   >
-                    ✕ {c.name} — cancel war
+                    ✕ {c.name} — cancel conflict
                   </button>
                 ))}
               </>
             )}
           </div>
         )}
-
-        {/* Opponent status */}
-        <div style={{
-          fontSize: '0.55rem', color: '#552233', letterSpacing: 1,
-          textAlign: 'center', marginBottom: '0.75rem',
-        }}>
-          {opponent.name} is ready
-          {opponent.tacticalBonus > 0
-            ? ` (+${opponent.tacticalBonus} to roll)`
-            : ' (no bonuses)'}
-          .
-        </div>
 
         {/* Go to battle */}
         <button

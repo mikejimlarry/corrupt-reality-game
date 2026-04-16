@@ -20,12 +20,12 @@ export const DISCARD_LOCAL_CX = DISCARD_X + PILE_W / 2;          // 144
 export const DISCARD_LOCAL_CY = DISCARD_Y + PILE_CARD_H / 2;     // -23
 
 const CAT_COLOR: Record<CardCategory, number> = {
-  CREDITS:          0x00ff88,
+  CREDITS:        0x00ff88,
   EVENT_POSITIVE: 0x00ccff,
-  EVENT_NEGATIVE: 0xff4466,
-  WAR:            0xff2200,
-  DAEMON:         0xaa44ff,
-  COUNTER:        0xffaa00,
+  EVENT_NEGATIVE: 0xff3355,
+  WAR:            0xff8800,
+  DAEMON:         0x00ffcc,
+  COUNTER:        0xbb44ff,
 };
 
 export class CentreZone extends Phaser.GameObjects.Container {

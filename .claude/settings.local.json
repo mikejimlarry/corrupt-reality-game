@@ -9,7 +9,9 @@
       "Bash(unzip -p /Users/michaellawrence/Downloads/1f4b8178-d319-4b42-9e0a-fac7ca42ebe7.zip \"Cyberpunk 2077 UI SFX PACK/pack.json\")",
       "Bash(unzip -j /Users/michaellawrence/Downloads/1f4b8178-d319-4b42-9e0a-fac7ca42ebe7.zip \"Cyberpunk 2077 UI SFX PACK/*.wav\" -d /Users/michaellawrence/Sites/corrupt-reality-game/public/sfx/)",
       "mcp__Claude_Preview__preview_start",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(git push:*)",
+      "Bash(ls -la /Users/michaellawrence/Sites/corrupt-reality-game/src/game*)"
     ]
   }
 }

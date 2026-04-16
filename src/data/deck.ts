@@ -27,8 +27,8 @@ const creditCards: Card[] = [
   })),
 ];
 
-// ── EVENT_POSITIVE (4) ───────────────────────────────────────────────────────
-// P&P base: Migration ×2 | New: Overclock ×2
+// ── EVENT_POSITIVE (6) ───────────────────────────────────────────────────────
+// P&P base: Migration ×2 | New: Overclock ×2, Multitasking ×2
 
 const positiveEvents: Card[] = [
   // Mass Assimilation ×2 — P&P Migration
@@ -44,6 +44,13 @@ const positiveEvents: Card[] = [
     description: 'Push your systems to the limit. Your next Stability Roll gain is doubled.',
     rarity: 'RARE' as const, effect: 'OVERCLOCK', amount: 0,
     flavourText: 'Red-line everything. Deal with the consequences later.',
+  })),
+  // Multitasking ×2 — play two cards in one turn (no WAR or COUNTER as second card)
+  ...Array(2).fill(null).map(() => ({
+    id: uid(), name: 'Multitasking', category: 'EVENT_POSITIVE' as const,
+    description: 'Run parallel processes. Play one additional card this turn (cannot be a Conflict or Countermeasure card).',
+    rarity: 'RARE' as const, effect: 'EXTRA_PLAY', amount: 0,
+    flavourText: 'Two threads. One clock cycle.',
   })),
 ];
 
@@ -127,6 +134,13 @@ const negativeEvents: Card[] = [
     rarity: 'LEGENDARY' as const, effect: 'CORRUPTION', amount: 10, targetsOther: true,
     flavourText: 'Once it spreads, nothing is clean.',
   },
+  // Power Cycle ×2 — hard reset: target returns to starting credits, loses daemons, new hand
+  ...Array(2).fill(null).map(() => ({
+    id: uid(), name: 'Power Cycle', category: 'EVENT_NEGATIVE' as const,
+    description: 'Force a full system reboot. Target\'s credits reset to starting amount, all daemons are purged, and their hand is replaced with 5 new cards.',
+    rarity: 'LEGENDARY' as const, effect: 'POWER_CYCLE', amount: 0, targetsOther: true,
+    flavourText: 'Have you tried turning it off and on again?',
+  })),
   // M.A.D. ×2 — new card (both actor and target lose 15 credits)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'M.A.D.', category: 'EVENT_NEGATIVE' as const,
@@ -174,10 +188,10 @@ const counterCards: Card[] = [
     rarity: 'COMMON' as const, counterType: 'TACTICAL_ADVANTAGE' as const,
     flavourText: 'Control the variance. Control the outcome.',
   })),
-  // Cease & Desist ×3 — P&P Buy Indulgence (cancel a War or hack card)
+  // System Interrupt ×3 — P&P Buy Indulgence (cancel a War or Digital Crusade)
   ...Array(3).fill(null).map(() => ({
-    id: uid(), name: 'Cease & Desist', category: 'COUNTER' as const,
-    description: 'INSTANT — Cancel a War or Hack card before it resolves.',
+    id: uid(), name: 'System Interrupt', category: 'COUNTER' as const,
+    description: 'INSTANT — Cancel a Grid Conflict or Digital Crusade before it resolves.',
     rarity: 'UNCOMMON' as const, counterType: 'NEGOTIATE' as const,
     flavourText: 'The most powerful line of code: null.',
   })),
@@ -224,12 +238,12 @@ const daemonCards: Card[] = [
 
 export const generateDeck = (): Card[] => {
   const all = [
-    ...creditCards,   // 12
-    ...positiveEvents,    //  2
-    ...negativeEvents,    // 30
-    ...warCards,          //  7
-    ...counterCards,      //  7
-    ...daemonCards,  // 12  → total: 70
+    ...creditCards,    // 12
+    ...positiveEvents, //  6
+    ...negativeEvents, // 32
+    ...warCards,       //  7
+    ...counterCards,   //  9
+    ...daemonCards,    // 12  → total: 78
   ];
   return shuffle(all);
 };

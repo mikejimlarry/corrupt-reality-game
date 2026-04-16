@@ -93,6 +93,9 @@ export function HUD() {
   const validTargetIds      = useGameStore(s => s.validTargetIds);
   const cancelTargeting     = useGameStore(s => s.cancelTargeting);
   const endTurn             = useGameStore(s => s.endTurn);
+  const togglePause         = useGameStore(s => s.togglePause);
+  const paused              = useGameStore(s => s.paused);
+  const extraPlayPending    = useGameStore(s => s.extraPlayPending);
 
   const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
 
@@ -201,6 +204,33 @@ export function HUD() {
             }}
           >
             {musicOn ? '♫' : '♪'}
+          </button>
+
+          {/* Pause toggle */}
+          <button
+            onClick={togglePause}
+            title={paused ? 'SYSTEM HALTED — click to resume' : 'Pause game'}
+            style={{
+              ...BTN_BASE,
+              width: 'auto',
+              padding: '6px 10px',
+              background: paused ? 'rgba(255,153,0,0.18)' : 'transparent',
+              border: `1px solid ${paused ? '#ff990066' : ACCENT + '18'}`,
+              color: paused ? '#ff9900' : `${ACCENT}33`,
+              fontSize: 12,
+              letterSpacing: 0,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = paused ? '#ffbb44' : ACCENT;
+              (e.currentTarget as HTMLElement).style.borderColor = paused ? '#ff990088' : `${ACCENT}66`;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = paused ? '#ff9900' : `${ACCENT}33`;
+              (e.currentTarget as HTMLElement).style.borderColor = paused ? '#ff990066' : `${ACCENT}18`;
+            }}
+          >
+            {paused ? '▶' : '⏸'}
           </button>
         </div>
 
@@ -342,13 +372,19 @@ export function HUD() {
           </div>
         )}
 
-        {/* Action panel — only when game active, human turn, and not rolling */}
-        {phase !== 'GAME_OVER' && phase !== 'PHASE_ROLL' && phase !== 'TARGETING' && isHuman && (
+        {/* Action panel — only when game active, human turn, not rolling, not ending turn */}
+        {phase !== 'GAME_OVER' && phase !== 'PHASE_ROLL' && phase !== 'TARGETING' && phase !== 'END_TURN' && isHuman && (
           <div style={panel(ACCENT)} className={phase === 'DRAW' ? (corruption ? 'corruption-pulse' : 'hud-pulse') : ''}>
             {phase === 'DRAW' && (
               <button style={btnPrimary(ACCENT)} onClick={() => drawCard()}>
                 DRAW CARD
               </button>
+            )}
+
+            {phase === 'MAIN' && extraPlayPending && (
+              <div style={{ fontSize: 9, color: '#00ffcc66', letterSpacing: 2, marginBottom: 6, borderBottom: '1px solid #00ffcc22', paddingBottom: 6 }}>
+                ⟳ MULTITASKING — PLAY ONE MORE CARD
+              </div>
             )}
 
             {phase === 'MAIN' && !selectedCard && (
@@ -366,7 +402,7 @@ export function HUD() {
                   <button style={btnPrimary(ACCENT)} onClick={() => { sfxCardPlay(); playCard(selectedCard.id); }}>
                     PLAY
                   </button>
-                  {!isForced && (
+                  {!isForced && !extraPlayPending && (
                     <button style={btnDim(ACCENT)} onClick={() => discardCard(selectedCard.id)}>
                       DISCARD
                     </button>

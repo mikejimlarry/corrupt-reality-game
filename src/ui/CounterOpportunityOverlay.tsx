@@ -1,13 +1,13 @@
 // src/ui/CounterOpportunityOverlay.tsx
 // Shown when an AI plays a targeted EVENT_NEGATIVE at the human and they
-// hold a reactive counter card (Quarantine / Cease & Desist).
+// hold a reactive counter card (Quarantine / System Interrupt).
 import React from 'react';
 import { useGameStore } from '../state/useGameStore';
 import type { CounterCard } from '../types/cards';
 
 const COUNTER_LABEL: Record<string, string> = {
   SHIELD:    'QUARANTINE',
-  NEGOTIATE: 'CEASE & DESIST',
+  NEGOTIATE: 'SYSTEM INTERRUPT',
 };
 
 const COUNTER_DESC: Record<string, string> = {

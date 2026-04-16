@@ -57,6 +57,7 @@ const CARDS: CardEntry[] = [
   // Positive events
   { name: 'Mass Assimilation',   category: 'EVENT_POSITIVE', count: 2, effect: 'Each opponent loses 5 credits; you gain 5 per opponent.' },
   { name: 'Overclock',           category: 'EVENT_POSITIVE', count: 2, effect: 'Adds +5 to your next Stability Roll total (or -5 in Corruption, reducing losses).' },
+  { name: 'Multitasking',        category: 'EVENT_POSITIVE', count: 2, effect: 'Play one additional card this turn. The bonus card cannot be a Conflict or Countermeasure card.' },
   // Negative events
   { name: 'Signal Theft',        category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal 15 credits from a target.' },
   { name: 'Pestilence Protocol', category: 'EVENT_NEGATIVE', count: 6, effect: 'Target loses 5 credits.' },
@@ -71,13 +72,14 @@ const CARDS: CardEntry[] = [
   { name: 'Backdoor',            category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal one daemon from a target.' },
   { name: 'Network Storm',       category: 'EVENT_NEGATIVE', count: 2, effect: 'Every opponent loses 10 credits and one daemon.' },
   { name: 'The Corruption',      category: 'EVENT_NEGATIVE', count: 1, effect: 'Target loses 10 credits. Corruption mode begins.' },
+  { name: 'Power Cycle',         category: 'EVENT_NEGATIVE', count: 2, effect: 'Target\'s credits reset to the starting amount, all their daemons are purged, and their hand is replaced with 5 new cards.' },
   // Wars
   { name: 'Proxy War',           category: 'WAR',            count: 4, effect: 'Attack a target. You lose 5 credits · Target loses 10 credits.' },
   { name: 'Grid War',            category: 'WAR',            count: 3, effect: 'Attack a target. You lose 10 credits · Target loses 20 credits and one daemon.' },
   // Counters
   { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Your next WAR roll gets +1. Play before initiating a conflict.' },
-  { name: 'Cease & Desist',      category: 'COUNTER',        count: 3, effect: 'Block the next Grid War, Proxy War, or Digital Crusade targeting you. Cannot block standard hack protocols or M.A.D.' },
-  { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Block the next hack protocol targeting you — except Digital Crusade and M.A.D. Cannot block WAR cards. One use.' },
+  { name: 'System Interrupt',    category: 'COUNTER',        count: 3, effect: 'Block the next Grid War, Proxy War, or Digital Crusade targeting you. Cannot block standard hack protocols or M.A.D.' },
+  { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Block the next hack protocol targeting you — except Digital Crusade and M.A.D. Cannot block Conflict cards. One use.' },
   // Daemons
   { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Data Drought & Inferno Protocol.' },
   { name: 'Encryption',          category: 'DAEMON',    count: 3, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Data Flood.' },
@@ -248,8 +250,8 @@ function TabHowToPlay() {
 
       <Section title="COUNTERMEASURES">
         <P>Some cards can be played <Highlight>reactively</Highlight> — out of turn — to cancel an incoming attack before it lands.</P>
-        <Bullet><Highlight>Quarantine</Highlight> blocks any hack protocol (EVENT_NEGATIVE) aimed at you, <em>except</em> Digital Crusade and M.A.D.</Bullet>
-        <Bullet><Highlight>Cease &amp; Desist</Highlight> blocks any Grid War, Proxy War, or Digital Crusade targeting you. It cannot block standard hack protocols or M.A.D.</Bullet>
+        <Bullet><Highlight>Quarantine</Highlight> blocks any hack protocol aimed at you, <em>except</em> Digital Crusade and M.A.D.</Bullet>
+        <Bullet><Highlight>System Interrupt</Highlight> blocks any Grid Conflict (Proxy War or Grid War) or Digital Crusade targeting you. It cannot block standard hack protocols or M.A.D.</Bullet>
         <P>When an AI targets you with a blockable attack and you hold the right counter, you will be prompted to play it or allow the attack through. <Highlight>Using a counter ends the attacker's turn immediately</Highlight> — they do not get to choose another card or action.</P>
       </Section>
 
@@ -270,7 +272,7 @@ function TabCards() {
     CREDITS:        'CREDIT CARDS',
     EVENT_POSITIVE: 'POSITIVE EVENTS',
     EVENT_NEGATIVE: 'NEGATIVE EVENTS / HACK PROTOCOLS',
-    WAR:            'GRID CONFLICTS (WAR)',
+    WAR:            'GRID CONFLICTS',
     COUNTER:        'COUNTERMEASURES',
     DAEMON:    'DAEMONS',
   };

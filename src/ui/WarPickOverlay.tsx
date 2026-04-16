@@ -2,6 +2,53 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../state/useGameStore';
 
+const DAEMON_LABEL: Record<string, string> = {
+  FIREWALL:     'FW',
+  ENCRYPTION:   'ENC',
+  HARDENED_NODE:'HN',
+};
+
+function CombatantCard({ playerIndex, label, active }: { playerIndex: number; label: string; active: boolean }) {
+  const players = useGameStore(s => s.players);
+  const player  = players[playerIndex];
+  if (!player) return null;
+
+  return (
+    <div style={{
+      flex: 1, padding: '0.5rem 0.7rem',
+      background: active ? 'rgba(255,51,102,0.12)' : 'rgba(255,51,102,0.03)',
+      border: active ? '1px solid #ff336655' : '1px solid #ff336622',
+      color: active ? '#ff4466' : '#553344',
+      fontSize: '0.65rem', letterSpacing: 1,
+    }}>
+      <div style={{ fontSize: '0.5rem', letterSpacing: 2, marginBottom: 3, color: '#663344' }}>{label}</div>
+      <div style={{ fontWeight: 'bold', marginBottom: active ? 4 : 0 }}>{active ? player.name : '— select below —'}</div>
+      {active && (
+        <>
+          <div style={{ fontSize: '0.55rem', color: '#ff336677', marginBottom: 2 }}>
+            {player.credits}¢
+          </div>
+          {player.daemons.length > 0 ? (
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {player.daemons.map((d, i) => (
+                <span key={i} style={{
+                  fontSize: '0.48rem', letterSpacing: 1, padding: '1px 4px',
+                  background: 'rgba(0,255,204,0.08)', border: '1px solid #00ffcc22',
+                  color: '#00ffcc66', borderRadius: 2,
+                }}>
+                  {DAEMON_LABEL[d] ?? d}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.48rem', color: '#442233' }}>no daemons</div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export const WarPickOverlay: React.FC = () => {
   const pending = useGameStore(s => s.warPickPending);
   const players = useGameStore(s => s.players);
@@ -21,17 +68,15 @@ export const WarPickOverlay: React.FC = () => {
 
   const cardName = players
     .flatMap(p => p.hand)
-    .find(c => c.id === pending.cardId)?.name ?? 'WAR';
+    .find(c => c.id === pending.cardId)?.name ?? 'CONFLICT';
 
   const handleSelect = (playerIndex: number) => {
     if (p1Index === null) {
       setP1Index(playerIndex);
     } else if (p1Index === playerIndex) {
-      // Deselect p1
       setP1Index(null);
       setP2Index(null);
     } else if (p2Index === playerIndex) {
-      // Deselect p2
       setP2Index(null);
     } else {
       setP2Index(playerIndex);
@@ -39,9 +84,6 @@ export const WarPickOverlay: React.FC = () => {
   };
 
   const canConfirm = p1Index !== null && p2Index !== null;
-
-  const p1Name = p1Index !== null ? pending.availablePlayers.find(p => p.playerIndex === p1Index)?.name : null;
-  const p2Name = p2Index !== null ? pending.availablePlayers.find(p => p.playerIndex === p2Index)?.name : null;
 
   return (
     <div style={{
@@ -64,7 +106,7 @@ export const WarPickOverlay: React.FC = () => {
           color: '#ff3366', letterSpacing: 6, fontSize: '0.6rem',
           textAlign: 'center', marginBottom: '0.4rem',
         }}>
-          ⚔ WAR DECLARATION
+          ⚔ CONFLICT DECLARATION
         </div>
         <h2 style={{
           color: '#ff4466', letterSpacing: 4, fontSize: '1.1rem',
@@ -84,30 +126,21 @@ export const WarPickOverlay: React.FC = () => {
         {/* Selection summary */}
         <div style={{
           display: 'flex', gap: 8, marginBottom: '1rem',
-          fontSize: '0.65rem', letterSpacing: 1,
         }}>
-          <div style={{
-            flex: 1, padding: '0.5rem 0.7rem',
-            background: p1Index !== null ? 'rgba(255,51,102,0.12)' : 'rgba(255,51,102,0.03)',
-            border: p1Index !== null ? '1px solid #ff336655' : '1px solid #ff336622',
-            color: p1Index !== null ? '#ff4466' : '#553344',
-          }}>
-            <div style={{ fontSize: '0.5rem', letterSpacing: 2, marginBottom: 2, color: '#663344' }}>COMBATANT 1</div>
-            {p1Name ?? '— select below —'}
-          </div>
+          <CombatantCard
+            playerIndex={p1Index ?? -1}
+            label="COMBATANT 1"
+            active={p1Index !== null}
+          />
           <div style={{
             display: 'flex', alignItems: 'center',
             color: '#552233', fontSize: '0.8rem',
           }}>⚔</div>
-          <div style={{
-            flex: 1, padding: '0.5rem 0.7rem',
-            background: p2Index !== null ? 'rgba(255,51,102,0.12)' : 'rgba(255,51,102,0.03)',
-            border: p2Index !== null ? '1px solid #ff336655' : '1px solid #ff336622',
-            color: p2Index !== null ? '#ff4466' : '#553344',
-          }}>
-            <div style={{ fontSize: '0.5rem', letterSpacing: 2, marginBottom: 2, color: '#663344' }}>COMBATANT 2</div>
-            {p2Name ?? '— select below —'}
-          </div>
+          <CombatantCard
+            playerIndex={p2Index ?? -1}
+            label="COMBATANT 2"
+            active={p2Index !== null}
+          />
         </div>
 
         {/* Player buttons */}
@@ -117,6 +150,7 @@ export const WarPickOverlay: React.FC = () => {
             const isP2 = p2Index === playerIndex;
             const isSelected = isP1 || isP2;
             const label = isP1 ? '① ' : isP2 ? '② ' : '';
+            const player = players[playerIndex];
 
             return (
               <button
@@ -129,13 +163,13 @@ export const WarPickOverlay: React.FC = () => {
                   fontFamily: 'monospace',
                   fontSize: '0.75rem',
                   letterSpacing: 2,
-                  padding: '0.65rem 0.9rem',
+                  padding: '0.55rem 0.9rem',
                   textAlign: 'left',
                   cursor: 'pointer',
                   transition: 'all 0.12s',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 6,
+                  gap: 8,
                 }}
                 onMouseEnter={e => {
                   if (!isSelected) {
@@ -153,7 +187,23 @@ export const WarPickOverlay: React.FC = () => {
                 }}
               >
                 <span style={{ color: '#ff336688', minWidth: 14 }}>{label}</span>
-                {name}
+                <span style={{ flex: 1 }}>{name}</span>
+                <span style={{ fontSize: '0.6rem', color: '#ff336666', marginLeft: 8 }}>
+                  {player?.credits ?? 0}¢
+                </span>
+                {player?.daemons && player.daemons.length > 0 && (
+                  <span style={{ display: 'flex', gap: 3 }}>
+                    {player.daemons.map((d, i) => (
+                      <span key={i} style={{
+                        fontSize: '0.45rem', padding: '1px 3px',
+                        background: 'rgba(0,255,204,0.07)', border: '1px solid #00ffcc22',
+                        color: '#00ffcc55', borderRadius: 2,
+                      }}>
+                        {DAEMON_LABEL[d] ?? d}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -183,7 +233,7 @@ export const WarPickOverlay: React.FC = () => {
             if (canConfirm) (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.18)';
           }}
         >
-          ⚔ DECLARE WAR
+          ⚔ DECLARE CONFLICT
         </button>
 
         {/* Cancel */}

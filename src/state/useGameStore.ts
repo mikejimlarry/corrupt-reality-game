@@ -25,7 +25,7 @@ let _skipCounterCheck = false;
 // Written by applyCardEffect when a Quarantine shield absorbs an attack.
 // Read (and cleared) by applyPlayCard so it can emit the right log entry.
 let _quarantineBlockedBy: string | null = null;
-// Written by applyCardEffect when a Cease & Desist cancels a WAR or EVENT_NEGATIVE.
+// Written by applyCardEffect when a System Interrupt cancels a WAR or Digital Crusade.
 let _negotiateBlockedBy: string | null = null;
 // Written by applyCardEffect when a daemon immunity blocks a targeted attack.
 let _daemonImmunityBlockedBy: string | null = null;
@@ -220,6 +220,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         return players.map((p, i) => i === actorIndex ? { ...p, tacticalBonus: p.tacticalBonus + 1 } : p);
       }
       // NEGOTIATE (Cease & Desist) — block the next WAR or EVENT_NEGATIVE targeting this player
+      // NEGOTIATE (System Interrupt) — block the next WAR or Digital Crusade targeting this player
       if (cnt.counterType === 'NEGOTIATE') {
         return players.map((p, i) => i === actorIndex ? { ...p, negotiating: true } : p);
       }
@@ -247,7 +248,7 @@ function pickAiCard(ai: PlayerState): Card | null {
         ?? ai.hand[0];
     }
     case 'CAUTIOUS':
-      // Play Cease & Desist when low on credits as a defensive shield
+      // Play System Interrupt when low on credits as a defensive shield
       return ai.hand.find(c => c.category === 'DAEMON')
         ?? ai.hand.find(c => c.category === 'CREDITS')
         ?? (ai.credits < 20
@@ -280,6 +281,8 @@ function cardLogText(card: Card, actorName: string): string {
         return `${actorName} deployed ${card.name} (drained ${pos.amount} credits from every opponent)`;
       if (pos.effect === 'OVERCLOCK')
         return `${actorName} activated ${card.name} — next roll is doubled`;
+      if (pos.effect === 'EXTRA_PLAY')
+        return `${actorName} activated ${card.name} — plays an additional card this turn`;
       return `${actorName} triggered ${card.name} (+${pos.amount} credits)`;
     }
     case 'EVENT_NEGATIVE': {
@@ -313,9 +316,9 @@ function cardLogText(card: Card, actorName: string): string {
       if (cnt.counterType === 'SHIELD')
         return `${actorName} activated ${card.name} — next hack blocked`;
       if (cnt.counterType === 'TACTICAL_ADVANTAGE')
-        return `${actorName} activated ${card.name} — +1 to next WAR roll`;
+        return `${actorName} activated ${card.name} — +1 to next CONFLICT roll`;
       if (cnt.counterType === 'NEGOTIATE')
-        return `${actorName} deployed ${card.name} — next war or hack will be cancelled`;
+        return `${actorName} deployed ${card.name} — next CONFLICT or Digital Crusade will be cancelled`;
       return `${actorName} played ${card.name}`;
     }
   }
@@ -342,6 +345,7 @@ interface GameStore extends GameState {
   corruptionReveal: boolean;
   pendingCardId: string | null;
   validTargetIds: string[];
+  togglePause(): void;
   startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean): void;
   resetToSetup(): void;
   setHoveredCard(id: string | null): void;
@@ -399,6 +403,8 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   warPrePending: null,
   pendingOverclockCard: null,
   counterPending: null,
+  paused: false,
+  extraPlayPending: false,
 };
 
 // ── Cyberpunk AI names & personalities ────────────────────────────────────────
@@ -465,6 +471,42 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   resetToSetup: () => set({ ...defaultState, selectedCardId: null, hoveredCardId: null, turnNumber: 1 }),
+
+  togglePause: () => {
+    const nowPaused = !get().paused;
+    set({ paused: nowPaused });
+    if (!nowPaused) {
+      // Resume — restart the AI action chain from wherever it stopped
+      const state = get();
+      const currentPlayer = state.players[state.currentPlayerIndex];
+      if (!currentPlayer?.isHuman && state.phase !== 'GAME_OVER') {
+        const phase = state.phase;
+        if (phase === 'PHASE_ROLL') {
+          setTimeout(() => { if (!get().paused) get().triggerRoll(); }, 900);
+        } else if (phase === 'MAIN') {
+          setTimeout(() => {
+            if (get().paused) return;
+            const s = get();
+            const actor = s.players[s.currentPlayerIndex];
+            const eligibles = s.extraPlayPending
+              ? actor.hand.filter(c => c.category !== 'WAR' && c.category !== 'COUNTER')
+              : actor.hand;
+            const card = s.extraPlayPending
+              ? (eligibles[Math.floor(random() * eligibles.length)] ?? null)
+              : pickAiCard(actor);
+            if (!card) {
+              set({ extraPlayPending: false, phase: 'END_TURN' });
+              setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+              return;
+            }
+            get().applyPlayCard(card.id, undefined);
+          }, 700);
+        } else if (phase === 'END_TURN') {
+          setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+        }
+      }
+    }
+  },
 
   setHoveredCard: (id) => set({ hoveredCardId: id }),
 
@@ -537,6 +579,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const actorIndex = state.currentPlayerIndex;
     const actor = state.players[actorIndex];
+
+    // During an extra play (Multitasking), WAR/COUNTER/Multitasking cards are not allowed
+    if (state.extraPlayPending) {
+      const card = actor.hand.find(c => c.id === cardId);
+      if (!card) return;
+      if (
+        card.category === 'WAR' ||
+        card.category === 'COUNTER' ||
+        (card.category === 'EVENT_POSITIVE' && (card as PositiveEventCard).effect === 'EXTRA_PLAY')
+      ) return; // silently block — UI should grey these out
+    }
     const card = actor.hand.find(c => c.id === cardId);
     if (!card) return;
 
@@ -644,6 +697,51 @@ export const useGameStore = create<GameStore>((set, get) => ({
       i === actorIndex ? { ...p, hand: handAfter } : p
     );
 
+    // ── Power Cycle — hard reset: target's credits, daemons, and hand ────────
+    if (card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).effect === 'POWER_CYCLE') {
+      const liveOppIndices = state.players
+        .map((p, i) => ({ p, i }))
+        .filter(({ p, i }) => i !== actorIndex && !p.eliminated)
+        .map(({ i }) => i);
+      const ti = targetIndex ?? (liveOppIndices.length > 0
+        ? liveOppIndices[Math.floor(random() * liveOppIndices.length)]
+        : -1);
+      if (ti !== -1) {
+        const target = state.players[ti];
+        let deck = [...state.deck];
+        // Discard actor's card + target's entire hand
+        let discard = [...state.discard, card, ...target.hand];
+        // Draw 5 new cards for the target
+        const newHand: Card[] = [];
+        for (let n = 0; n < 5; n++) {
+          if (deck.length === 0) {
+            if (discard.length === 0) break;
+            deck = [...discard].sort(() => random() - 0.5);
+            discard = [];
+          }
+          const [drawn, ...rest] = deck;
+          deck = rest;
+          newHand.push(drawn);
+        }
+        players = players.map((p, i) => {
+          if (i === ti) return { ...p, credits: state.startingPop, daemons: [], hand: newHand };
+          return p;
+        });
+        players = markEliminations(players);
+        const alive = players.filter(p => !p.eliminated);
+        const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
+        if (alive.length === 1) get().addLog(`${alive[0].name} wins the game!`, 'turn');
+        get().addLog(`${actor.name} deployed Power Cycle — ${target.name} reset to ${state.startingPop}¢, daemons purged, hand replaced!`, 'card');
+        set({
+          players, deck, discard, winnerId, extraPlayPending: false,
+          phase: winnerId ? 'GAME_OVER' : (actor.isHuman ? 'END_TURN' : 'MAIN'),
+          selectedCardId: null, pendingCardId: null, validTargetIds: [],
+        });
+        if (!winnerId && !actor.isHuman) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+      }
+      return;
+    }
+
     _quarantineBlockedBy = null;
     _negotiateBlockedBy = null;
     _daemonImmunityBlockedBy = null;
@@ -699,7 +797,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     _warRollResult = null;
     _lastTargetName = null;
     if (blockedBy) get().addLog(`${blockedBy}'s Quarantine absorbed the attack!`, 'effect');
-    if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Cease & Desist cancelled the attack!`, 'effect');
+    if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s System Interrupt cancelled the attack!`, 'effect');
     if (daemonBlockedBy) get().addLog(`${daemonBlockedBy} blocked the attack!`, 'effect');
 
     if (humanDmsPending) {
@@ -725,8 +823,47 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const isHuman = state.players[actorIndex]?.isHuman ?? false;
 
+    const isExtraPlayCard =
+      card.category === 'EVENT_POSITIVE' &&
+      (card as PositiveEventCard).effect === 'EXTRA_PLAY';
+
+    if (isExtraPlayCard && !winnerId) {
+      // Multitasking — stay in MAIN for one more card play
+      set({
+        players, discard, globalCorruptionMode,
+        extraPlayPending: true,
+        phase: 'MAIN',
+        selectedCardId: null, pendingCardId: null, validTargetIds: [],
+        deadMansSwitchPending: null,
+        pendingOverclockCard: state.pendingOverclockCard,
+      });
+      // AI immediately picks a valid second card (no redraw)
+      if (!isHuman) {
+        setTimeout(() => {
+          if (get().paused) return;
+          const s = get();
+          const aiActor = s.players[s.currentPlayerIndex];
+          const eligibles = aiActor.hand.filter(
+            c => c.category !== 'WAR' && c.category !== 'COUNTER' &&
+              !(c.category === 'EVENT_POSITIVE' && (c as PositiveEventCard).effect === 'EXTRA_PLAY')
+          );
+          const card2 = eligibles.length > 0
+            ? eligibles[Math.floor(random() * eligibles.length)]
+            : null;
+          if (!card2) {
+            set({ extraPlayPending: false, phase: 'END_TURN' });
+            setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+            return;
+          }
+          get().applyPlayCard(card2.id, undefined);
+        }, 700);
+      }
+      return;
+    }
+
     set({
       players, discard, globalCorruptionMode, winnerId,
+      extraPlayPending: false,
       phase: alive.length <= 1 ? 'GAME_OVER' : (isHuman ? 'END_TURN' : 'MAIN'),
       selectedCardId: null,
       pendingCardId: null,
@@ -736,7 +873,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     // AI players advance automatically after the card fly-out animation settles.
-    if (!winnerId && !isHuman) setTimeout(() => get().advanceTurn(), 950);
+    if (!winnerId && !isHuman) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
   },
 
   selectTarget: (targetId: string) => {
@@ -1069,7 +1206,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     );
     const discard = [...state.discard, card];
 
-    set({ players, discard, selectedCardId: null, phase: 'END_TURN' });
+    set({ players, discard, selectedCardId: null, extraPlayPending: false, phase: 'END_TURN' });
     get().addLog(`${actor.name} discarded ${card.name}.`, 'card');
   },
 
@@ -1114,7 +1251,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // AI auto-triggers the roll after the standby display has had time to appear
     if (!nextPlayer.isHuman) {
-      setTimeout(() => get().triggerRoll(), 900);
+      setTimeout(() => { if (!get().paused) get().triggerRoll(); }, 900);
     }
   },
 
@@ -1251,7 +1388,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (actor.isHuman) {
       set({ phase: 'DRAW' });
     } else {
-      setTimeout(() => get().runAiTurn(), 400);
+      setTimeout(() => { if (!get().paused) get().runAiTurn(); }, 400);
     }
   },
 

@@ -26,9 +26,9 @@ export interface PlayerState {
   quarantined: boolean;
   /** Set by Overclock — doubles the gain on the player's next Stability Roll, then clears. */
   overclocked: boolean;
-  /** Set by Firewall Surge — adds +1 per stack to this player's next WAR roll. */
+  /** Set by Firewall Surge — adds +1 per stack to this player's next CONFLICT roll. */
   tacticalBonus: number;
-  /** Set by Cease & Desist — blocks the next incoming WAR or EVENT_NEGATIVE targeting this player. */
+  /** Set by System Interrupt — blocks the next incoming WAR or Digital Crusade targeting this player. */
   negotiating: boolean;
 }
 
@@ -65,9 +65,13 @@ export interface GameState {
   warPrePending: { card: WarCard; p1Index: number; p2Index: number; step: 1 | 2 } | null;
   /** Non-null while a human player's Overclock card is waiting to be consumed by the next roll. */
   pendingOverclockCard: import('./cards').Card | null;
+  /** When true, all AI timers are suspended and no AI actions fire. */
+  paused: boolean;
+  /** When true, the human player has an extra card play remaining (from Multitasking). */
+  extraPlayPending: boolean;
   /**
    * Non-null when an AI played a targeted EVENT_NEGATIVE at the human and they
-   * have a reactive counter (Quarantine / Cease & Desist) in hand — pauses the
+   * have a reactive counter (Quarantine / System Interrupt) in hand — pauses the
    * AI turn so the human can choose whether to block.
    */
   counterPending: {
