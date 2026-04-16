@@ -33,7 +33,8 @@ let _negotiateBlockedBy: string | null = null;
 // Written by applyCardEffect when a daemon immunity blocks a targeted attack.
 let _daemonImmunityBlockedBy: string | null = null;
 // Written by applyCardEffect when a WAR card resolves — captures both rolls and outcome.
-let _warRollResult: { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; targetBase: number; targetBonus: number; actorWins: boolean; targetName: string } | null = null;
+type WarRollSnapshot = { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; targetBase: number; targetBonus: number; actorWins: boolean; targetName: string };
+let _warRollResult: WarRollSnapshot | null = null;
 // Written by applyCardEffect when a targeted card resolves — captures the target's name.
 let _lastTargetName: string | null = null;
 // Tracks player ids in order of elimination; reset each game.
@@ -908,7 +909,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     _warRollResult = null;
     _lastTargetName = null;
     players = applyCardEffect(card, players, actorIndex, targetIndex);
-    const capturedWarRoll = card.category === 'WAR' ? _warRollResult : null;
+    const capturedWarRoll = (card.category === 'WAR' ? _warRollResult : null) as WarRollSnapshot | null;
     const blockedBy = _quarantineBlockedBy;
     const negotiateBlockedBy = _negotiateBlockedBy;
     const daemonBlockedBy = _daemonImmunityBlockedBy;
@@ -1404,7 +1405,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     _warRollResult = null;
     _negotiateBlockedBy = null;
     players = applyCardEffect(warCard, players, p1Index, p2Index);
-    const capturedWarRoll = _warRollResult;
+    const capturedWarRoll = _warRollResult as WarRollSnapshot | null;
     const negotiateBlockedBy = _negotiateBlockedBy;
     _negotiateBlockedBy = null;
 
