@@ -11,7 +11,10 @@ function markEliminations(players: PlayerState[], keepHumanAlive = false): Playe
   return players.map(p => {
     if (p.eliminated) return p;
     const shouldEliminate = p.credits <= 0 && (!keepHumanAlive || !p.isHuman);
-    if (shouldEliminate) return { ...p, eliminated: true, daemons: [] };
+    if (shouldEliminate) {
+      if (!_eliminationOrder.includes(p.id)) _eliminationOrder.push(p.id);
+      return { ...p, eliminated: true, daemons: [] };
+    }
     return p;
   });
 }
@@ -33,6 +36,30 @@ let _daemonImmunityBlockedBy: string | null = null;
 let _warRollResult: { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; targetBase: number; targetBonus: number; actorWins: boolean; targetName: string } | null = null;
 // Written by applyCardEffect when a targeted card resolves — captures the target's name.
 let _lastTargetName: string | null = null;
+// Tracks player ids in order of elimination; reset each game.
+let _eliminationOrder: string[] = [];
+// Guards against double-saving the game record when multiple set() paths fire.
+let _recordSaved = false;
+
+// ── localStorage win/loss record ──────────────────────────────────────────────
+
+interface _SessionRecord { date: string; humanWon: boolean; turns: number; playerCount: number; corrupted: boolean; }
+interface _GameRecords   { wins: number; losses: number; history: _SessionRecord[]; }
+
+function saveGameRecord(humanWon: boolean, turns: number, playerCount: number, corrupted: boolean): void {
+  try {
+    const key = 'crg-records';
+    const raw = localStorage.getItem(key);
+    const existing: _GameRecords = raw ? JSON.parse(raw) : { wins: 0, losses: 0, history: [] };
+    const record: _SessionRecord = { date: new Date().toISOString(), humanWon, turns, playerCount, corrupted };
+    const history = [record, ...existing.history].slice(0, 20);
+    localStorage.setItem(key, JSON.stringify({
+      wins: existing.wins + (humanWon ? 1 : 0),
+      losses: existing.losses + (humanWon ? 0 : 1),
+      history,
+    }));
+  } catch { /* localStorage unavailable */ }
+}
 
 // targetIndex — when provided (human targeting), use it directly.
 // When omitted (AI turn), fall back to a random live opponent.
@@ -232,10 +259,47 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
   }
 }
 
-function pickAiCard(ai: PlayerState): Card | null {
+function pickAiCard(
+  ai: PlayerState,
+  allPlayers: PlayerState[],
+  actorIndex: number,
+  startingPop: number,
+): Card | null {
   if (ai.hand.length === 0) return null;
+
+  const liveOpponents = allPlayers.filter((p, i) => i !== actorIndex && !p.eliminated);
+
+  // Pre-compute useful hand lookups
+  const powerCycleCard = ai.hand.find(c =>
+    c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).effect === 'POWER_CYCLE'
+  );
+  const multitaskingCard = ai.hand.find(c =>
+    c.category === 'EVENT_POSITIVE' && (c as PositiveEventCard).effect === 'EXTRA_PLAY'
+  );
+
+  // Richest live opponent — target for Power Cycle
+  const richestOpponent = liveOpponents.length > 0
+    ? liveOpponents.reduce((best, p) => p.credits > best.credits ? p : best, liveOpponents[0])
+    : null;
+
+  // Power Cycle score: how much benefit vs resetting them to startingPop
+  const powerCycleScore = richestOpponent
+    ? Math.max(0, richestOpponent.credits - startingPop) + richestOpponent.daemons.length * 10
+    : 0;
+
+  // Is there a high-impact follow-up card for after Multitasking?
+  const hasGoodFollowUp = ai.hand.some(c =>
+    c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).amount >= 10
+  );
+
   switch (ai.personality) {
     case 'AGGRESSIVE': {
+      // Use Power Cycle if target is significantly ahead AND has daemons
+      if (powerCycleCard && richestOpponent &&
+          richestOpponent.credits > startingPop * 1.3 &&
+          richestOpponent.daemons.length > 0) {
+        return powerCycleCard;
+      }
       const hasWar = ai.hand.some(c => c.category === 'WAR');
       // Play Firewall Surge just before going to war — waives own losses
       if (hasWar && !ai.tacticalBonus)
@@ -258,15 +322,26 @@ function pickAiCard(ai: PlayerState): Card | null {
     case 'TACTICAL': {
       const score = (c: Card): number => {
         if (c.category === 'WAR') return (c as WarCard).loserLoses;
-        if (c.category === 'EVENT_NEGATIVE') return (c as NegativeEventCard).amount + 5;
+        if (c.category === 'EVENT_NEGATIVE') {
+          const neg = c as NegativeEventCard;
+          if (neg.effect === 'POWER_CYCLE') return powerCycleScore;
+          return neg.amount + 5;
+        }
+        if (c.category === 'EVENT_POSITIVE') {
+          const pos = c as PositiveEventCard;
+          // Score Multitasking based on whether a strong follow-up card exists
+          if (pos.effect === 'EXTRA_PLAY') return hasGoodFollowUp ? 15 : 0;
+          return pos.amount;
+        }
         if (c.category === 'CREDITS') return (c as CreditsCard).amount;
-        if (c.category === 'EVENT_POSITIVE') return (c as PositiveEventCard).amount;
         if (c.category === 'DAEMON') return 8;
         return 0;
       };
       return [...ai.hand].sort((a, b) => score(b) - score(a))[0];
     }
     default:
+      // BALANCED — also play Multitasking if a follow-up is available
+      if (multitaskingCard && hasGoodFollowUp && random() < 0.6) return multitaskingCard;
       return ai.hand[Math.floor(random() * ai.hand.length)];
   }
 }
@@ -343,6 +418,7 @@ interface GameStore extends GameState {
   rollResult: [number, number] | null;
   rollTriggered: boolean;
   corruptionReveal: boolean;
+  corruptionPendingTarget: boolean;
   pendingCardId: string | null;
   validTargetIds: string[];
   togglePause(): void;
@@ -355,6 +431,8 @@ interface GameStore extends GameState {
   playCard(cardId: string): void;
   applyPlayCard(cardId: string, targetIndex: number | undefined): void;
   discardCard(cardId: string): void;
+  /** Cancel remaining Multitasking extra plays and end the human's turn. */
+  cancelExtraPlays(): void;
   selectTarget(targetId: string): void;
   cancelTargeting(): void;
   resolveDeadMansSwitch(card: Card | null): void;
@@ -376,7 +454,7 @@ interface GameStore extends GameState {
 
 // ── Default state ──────────────────────────────────────────────────────────────
 
-const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[]; corruptionReveal: boolean } = {
+const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[]; corruptionReveal: boolean; corruptionPendingTarget: boolean } = {
   phase: 'SETUP',
   players: [],
   deck: [],
@@ -392,6 +470,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   rollResult: null,
   rollTriggered: false,
   corruptionReveal: false,
+  corruptionPendingTarget: false,
   pendingCardId: null,
   validTargetIds: [],
   startingPop: 50,
@@ -404,7 +483,8 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   pendingOverclockCard: null,
   counterPending: null,
   paused: false,
-  extraPlayPending: false,
+  extraPlayPending: 0,
+  gameStats: { cardsPlayed: {}, eliminationOrder: [] },
 };
 
 // ── Cyberpunk AI names & personalities ────────────────────────────────────────
@@ -418,6 +498,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   ...defaultState,
 
   startGame: (playerCount: number, playerName = 'You', startingPop = 50, hidePpCounts = false, deadMansSwitch = false) => {
+    _eliminationOrder = [];
+    _recordSaved = false;
     const seed = initRNG();
 
     // Deal initial hands
@@ -464,6 +546,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       startingPop,
       hidePpCounts,
       deadMansSwitch,
+      gameStats: { cardsPlayed: {}, eliminationOrder: [] },
     });
 
     get().addLog('Game started. Welcome to Corrupt Reality.', 'turn');
@@ -488,14 +571,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
             if (get().paused) return;
             const s = get();
             const actor = s.players[s.currentPlayerIndex];
-            const eligibles = s.extraPlayPending
-              ? actor.hand.filter(c => c.category !== 'WAR' && c.category !== 'COUNTER')
+            const eligibles = s.extraPlayPending > 0
+              ? actor.hand.filter(c =>
+                  c.category !== 'WAR' && c.category !== 'COUNTER' &&
+                  !(c.category === 'EVENT_POSITIVE' && (c as PositiveEventCard).effect === 'EXTRA_PLAY')
+                )
               : actor.hand;
-            const card = s.extraPlayPending
+            const card = s.extraPlayPending > 0
               ? (eligibles[Math.floor(random() * eligibles.length)] ?? null)
-              : pickAiCard(actor);
+              : pickAiCard(actor, s.players, s.currentPlayerIndex, s.startingPop);
             if (!card) {
-              set({ extraPlayPending: false, phase: 'END_TURN' });
+              set({ extraPlayPending: 0, phase: 'END_TURN' });
               setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
               return;
             }
@@ -561,7 +647,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
         `${state.players[actorIndex].name} drew The Corruption — virus unleashed!`,
         'card',
       );
-      set({ deck, discard, players, phase: 'MAIN', corruptionReveal: true, globalCorruptionMode: true });
+      const actorIsHuman = state.players[actorIndex].isHuman;
+      const liveOps = players
+        .map((p, i) => ({ p, i }))
+        .filter(({ p, i }) => i !== actorIndex && !p.eliminated);
+
+      if (actorIsHuman && liveOps.length > 0) {
+        // Human: show reveal first, then prompt for target selection
+        set({ deck, discard, players, phase: 'MAIN', corruptionReveal: true, globalCorruptionMode: true, corruptionPendingTarget: true });
+      } else {
+        // AI: apply damage to a random live opponent immediately before the reveal
+        if (liveOps.length > 0) {
+          const { i: ti } = liveOps[Math.floor(random() * liveOps.length)];
+          players = players.map((p, i) =>
+            i === ti ? { ...p, credits: Math.max(0, p.credits - 10) } : p
+          );
+        }
+        set({ deck, discard, players, phase: 'MAIN', corruptionReveal: true, globalCorruptionMode: true });
+      }
     } else {
       set({ deck, discard, players, phase: 'MAIN' });
       get().addLog(
@@ -581,7 +684,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const actor = state.players[actorIndex];
 
     // During an extra play (Multitasking), WAR/COUNTER/Multitasking cards are not allowed
-    if (state.extraPlayPending) {
+    if (state.extraPlayPending > 0) {
       const card = actor.hand.find(c => c.id === cardId);
       if (!card) return;
       if (
@@ -635,6 +738,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const card = actor.hand.find(c => c.id === cardId);
     if (!card) return;
 
+    // Pre-compute updated card-play stats (used in every commit-path set() call below)
+    const prevStats = state.gameStats;
+    const newCardsPlayed = { ...prevStats.cardsPlayed, [actor.id]: (prevStats.cardsPlayed[actor.id] ?? 0) + 1 };
+
     // ── Backdoor: human gets to pick which daemon to steal when target has >1 ──
     if (
       actor.isHuman &&
@@ -655,6 +762,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           pendingCardId: null,
           validTargetIds: [],
           daemonStealPending: { targetIndex, availableDaemons: [...targetDaemons] },
+          gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder },
         });
         get().addLog(`${actor.name} played Backdoor — choose which daemon to steal.`, 'card');
         return;
@@ -686,6 +794,37 @@ export const useGameStore = create<GameStore>((set, get) => ({
             if (eligibleCounters.length > 0) {
               set({ counterPending: { attackerIndex: actorIndex, cardId, targetIndex: targetI, eligibleCounters } });
               return; // resume via resolveCounterOpportunity
+            }
+          } else if (!target.isHuman && !target.quarantined) {
+            // AI reactive Quarantine — personality-based decision to use a SHIELD card
+            const shieldCard = target.hand.find(c =>
+              c.category === 'COUNTER' && (c as CounterCard).counterType === 'SHIELD'
+            ) as CounterCard | undefined;
+            const shouldDefend = shieldCard && (() => {
+              switch (target.personality) {
+                case 'CAUTIOUS':   return true;
+                case 'AGGRESSIVE': return false;
+                case 'TACTICAL':   return neg.amount >= 10 || neg.effect === 'STEAL_DAEMON';
+                default:           return random() < 0.5;
+              }
+            })();
+            if (shouldDefend && shieldCard) {
+              // Consume the AI's Quarantine card, mark them as shielded, then re-apply the attack
+              // The quarantined flag means applyCardEffect will absorb and clear it automatically
+              const updatedPlayers = state.players.map((p, i) =>
+                i === targetI
+                  ? { ...p, quarantined: true, hand: p.hand.filter(c => c.id !== shieldCard.id) }
+                  : p
+              );
+              set({ players: updatedPlayers, discard: [...state.discard, shieldCard] });
+              get().addLog(
+                `${target.name} reactively activated ${shieldCard.name} — incoming attack will be absorbed!`,
+                'effect',
+              );
+              _skipCounterCheck = true;
+              get().applyPlayCard(cardId, targetI);
+              _skipCounterCheck = false;
+              return;
             }
           }
         }
@@ -732,10 +871,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
         if (alive.length === 1) get().addLog(`${alive[0].name} wins the game!`, 'turn');
         get().addLog(`${actor.name} deployed Power Cycle — ${target.name} reset to ${state.startingPop}¢, daemons purged, hand replaced!`, 'card');
+        if (winnerId && !_recordSaved) {
+          _recordSaved = true;
+          saveGameRecord(
+            players.find(p => p.isHuman)?.id === winnerId,
+            state.turnNumber,
+            state.players.length,
+            state.globalCorruptionMode,
+          );
+        }
         set({
-          players, deck, discard, winnerId, extraPlayPending: false,
+          players, deck, discard, winnerId, extraPlayPending: 0,
           phase: winnerId ? 'GAME_OVER' : (actor.isHuman ? 'END_TURN' : 'MAIN'),
           selectedCardId: null, pendingCardId: null, validTargetIds: [],
+          gameStats: {
+            cardsPlayed: newCardsPlayed,
+            eliminationOrder: winnerId ? [..._eliminationOrder] : prevStats.eliminationOrder,
+          },
         });
         if (!winnerId && !actor.isHuman) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
       }
@@ -810,6 +962,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingCardId: null,
         validTargetIds: [],
         deadMansSwitchPending: humanDmsPending,
+        gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder },
       });
       return; // advanceTurn fires after overlay resolves
     }
@@ -828,16 +981,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
       (card as PositiveEventCard).effect === 'EXTRA_PLAY';
 
     if (isExtraPlayCard && !winnerId) {
-      // Multitasking — stay in MAIN for one more card play
+      // Multitasking — randomly grant 1 or 2 extra card plays
+      const extraCount = Math.floor(random() * 2) + 1;
       set({
         players, discard, globalCorruptionMode,
-        extraPlayPending: true,
+        extraPlayPending: extraCount,
         phase: 'MAIN',
         selectedCardId: null, pendingCardId: null, validTargetIds: [],
         deadMansSwitchPending: null,
         pendingOverclockCard: state.pendingOverclockCard,
+        gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder },
       });
-      // AI immediately picks a valid second card (no redraw)
+      get().addLog(`${actor.name} activated Multitasking — ${extraCount} extra play${extraCount > 1 ? 's' : ''} granted!`, 'effect');
+      // AI immediately picks a valid extra card (no redraw)
       if (!isHuman) {
         setTimeout(() => {
           if (get().paused) return;
@@ -851,7 +1007,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             ? eligibles[Math.floor(random() * eligibles.length)]
             : null;
           if (!card2) {
-            set({ extraPlayPending: false, phase: 'END_TURN' });
+            set({ extraPlayPending: 0, phase: 'END_TURN' });
             setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
             return;
           }
@@ -861,31 +1017,105 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
+    // If this card was played as an extra play (from Multitasking), decrement the counter
+    const newExtraPlays = (state.extraPlayPending > 0 && !isExtraPlayCard)
+      ? state.extraPlayPending - 1
+      : 0;
+
+    // Whether the current actor still has more extra plays after this card
+    const moreExtraPlays = newExtraPlays > 0 && !winnerId;
+
+    if (winnerId && !_recordSaved) {
+      _recordSaved = true;
+      saveGameRecord(
+        players.find(p => p.isHuman)?.id === winnerId,
+        state.turnNumber,
+        state.players.length,
+        state.globalCorruptionMode || isCorruption,
+      );
+    }
+
     set({
       players, discard, globalCorruptionMode, winnerId,
-      extraPlayPending: false,
-      phase: alive.length <= 1 ? 'GAME_OVER' : (isHuman ? 'END_TURN' : 'MAIN'),
+      extraPlayPending: newExtraPlays,
+      phase: alive.length <= 1 ? 'GAME_OVER' : (moreExtraPlays ? 'MAIN' : (isHuman ? 'END_TURN' : 'MAIN')),
       selectedCardId: null,
       pendingCardId: null,
       validTargetIds: [],
       deadMansSwitchPending: null,
       pendingOverclockCard: isHumanOverclock ? card : state.pendingOverclockCard,
+      gameStats: {
+        cardsPlayed: newCardsPlayed,
+        eliminationOrder: winnerId ? [..._eliminationOrder] : prevStats.eliminationOrder,
+      },
     });
 
-    // AI players advance automatically after the card fly-out animation settles.
-    if (!winnerId && !isHuman) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+    // AI continues — either play another extra card or advance turn
+    if (!winnerId && !isHuman) {
+      if (moreExtraPlays) {
+        setTimeout(() => {
+          if (get().paused) return;
+          const s = get();
+          const aiActor = s.players[s.currentPlayerIndex];
+          const eligibles = aiActor.hand.filter(
+            c => c.category !== 'WAR' && c.category !== 'COUNTER' &&
+              !(c.category === 'EVENT_POSITIVE' && (c as PositiveEventCard).effect === 'EXTRA_PLAY')
+          );
+          const card2 = eligibles.length > 0
+            ? eligibles[Math.floor(random() * eligibles.length)]
+            : null;
+          if (!card2) {
+            set({ extraPlayPending: 0, phase: 'END_TURN' });
+            setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+            return;
+          }
+          get().applyPlayCard(card2.id, undefined);
+        }, 700);
+      } else {
+        setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+      }
+    }
   },
 
   selectTarget: (targetId: string) => {
     const state = get();
-    if (state.phase !== 'TARGETING' || !state.pendingCardId) return;
+    if (state.phase !== 'TARGETING') return;
     const targetIndex = state.players.findIndex(p => p.id === targetId);
     if (targetIndex === -1) return;
+
+    // Corruption targeting — card is already discarded, apply damage directly
+    if (state.corruptionPendingTarget) {
+      const actorIndex = state.currentPlayerIndex;
+      const targetName = state.players[targetIndex].name;
+      let players = state.players.map((p, i) =>
+        i === targetIndex ? { ...p, credits: Math.max(0, p.credits - 10) } : p
+      );
+      get().addLog(`${state.players[actorIndex].name} unleashed The Corruption — ${targetName} loses 10¢`, 'effect');
+      players = markEliminations(players);
+      const alive = players.filter(p => !p.eliminated);
+      const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
+      if (alive.length === 1) get().addLog(`${alive[0].name} wins the game!`, 'turn');
+      set({
+        players,
+        phase: winnerId ? 'GAME_OVER' : 'END_TURN',
+        selectedCardId: null,
+        pendingCardId: null,
+        validTargetIds: [],
+        corruptionPendingTarget: false,
+        winnerId,
+      });
+      return;
+    }
+
+    if (!state.pendingCardId) return;
     get().applyPlayCard(state.pendingCardId, targetIndex);
   },
 
   cancelTargeting: () => {
-    if (get().phase !== 'TARGETING') return;
+    const state = get();
+    if (state.phase !== 'TARGETING') return;
+    // Corruption targeting cannot be cancelled
+    if (state.corruptionPendingTarget) return;
     set({ phase: 'MAIN', pendingCardId: null, validTargetIds: [] });
   },
 
@@ -916,13 +1146,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const humanResolved = state.players[state.deadMansSwitchPending.playerIndex]?.isHuman ?? false;
 
+    if (winnerId && !_recordSaved) {
+      _recordSaved = true;
+      saveGameRecord(
+        players.find(p => p.isHuman)?.id === winnerId,
+        state.turnNumber,
+        state.players.length,
+        state.globalCorruptionMode,
+      );
+    }
+
     set({
       players, discard, winnerId,
       phase: alive.length <= 1 ? 'GAME_OVER' : (humanResolved ? 'END_TURN' : 'MAIN'),
       deadMansSwitchPending: null,
+      gameStats: winnerId
+        ? { ...state.gameStats, eliminationOrder: [..._eliminationOrder] }
+        : state.gameStats,
     });
 
-    if (!winnerId && !humanResolved) setTimeout(() => get().advanceTurn(), 950);
+    if (!winnerId && !humanResolved) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
   },
 
   resolveDaemonSteal: (daemon) => {
@@ -948,11 +1191,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const alive = players.filter(p => !p.eliminated);
     const winnerId = alive.length === 1 ? alive[0].id : null;
 
+    if (winnerId && !_recordSaved) {
+      _recordSaved = true;
+      saveGameRecord(
+        players.find(p => p.isHuman)?.id === winnerId,
+        state.turnNumber,
+        state.players.length,
+        state.globalCorruptionMode,
+      );
+    }
+
     set({
       players,
       winnerId,
       phase: winnerId ? 'GAME_OVER' : 'END_TURN',
       daemonStealPending: null,
+      gameStats: winnerId
+        ? { ...state.gameStats, eliminationOrder: [..._eliminationOrder] }
+        : state.gameStats,
     });
   },
 
@@ -1117,7 +1373,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       get().addLog(`${attacker.name} played ${attackCard.name} — blocked by ${human!.name}'s ${counterCard.name}!`, 'effect');
 
       // Resume the AI's turn
-      setTimeout(() => get().advanceTurn(), 950);
+      setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
     }
   },
 
@@ -1179,12 +1435,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const winnerId = alive.length === 1 ? alive[0].id : null;
     if (winnerId) get().addLog(`${alive[0].name} wins the game!`, 'turn');
 
+    // Track war card as played by the initiating actor
+    const actorId = state.players[actorIndex]?.id;
+    const prevStatsWar = state.gameStats;
+    const warCardsPlayed = actorId
+      ? { ...prevStatsWar.cardsPlayed, [actorId]: (prevStatsWar.cardsPlayed[actorId] ?? 0) + 1 }
+      : prevStatsWar.cardsPlayed;
+
+    if (winnerId && !_recordSaved) {
+      _recordSaved = true;
+      saveGameRecord(
+        players.find(p => p.isHuman)?.id === winnerId,
+        state.turnNumber,
+        state.players.length,
+        state.globalCorruptionMode,
+      );
+    }
+
     set({
       players, discard, winnerId,
       phase: winnerId ? 'GAME_OVER' : 'END_TURN',
       selectedCardId: null,
       pendingCardId: null,
       validTargetIds: [],
+      gameStats: {
+        cardsPlayed: warCardsPlayed,
+        eliminationOrder: winnerId ? [..._eliminationOrder] : prevStatsWar.eliminationOrder,
+      },
     });
   },
 
@@ -1206,8 +1483,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     );
     const discard = [...state.discard, card];
 
-    set({ players, discard, selectedCardId: null, extraPlayPending: false, phase: 'END_TURN' });
+    set({ players, discard, selectedCardId: null, extraPlayPending: 0, phase: 'END_TURN' });
     get().addLog(`${actor.name} discarded ${card.name}.`, 'card');
+  },
+
+  cancelExtraPlays: () => {
+    const state = get();
+    if (state.phase !== 'MAIN' || state.extraPlayPending === 0) return;
+    const actor = state.players[state.currentPlayerIndex];
+    if (!actor.isHuman) return; // AI never calls this
+    set({ extraPlayPending: 0, phase: 'END_TURN', selectedCardId: null });
+    get().addLog(`${actor.name} ended Multitasking early.`, 'effect');
   },
 
   endTurn: () => {
@@ -1261,7 +1547,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   corruptionRevealComplete: () => {
-    set({ corruptionReveal: false });
+    const state = get();
+    if (state.corruptionPendingTarget) {
+      // Human drew The Corruption — reveal done, now pick a target
+      const actorIndex = state.currentPlayerIndex;
+      const liveOpponents = state.players.filter((p, i) => i !== actorIndex && !p.eliminated);
+      set({
+        corruptionReveal: false,
+        phase: 'TARGETING',
+        validTargetIds: liveOpponents.map(p => p.id),
+      });
+    } else {
+      set({ corruptionReveal: false });
+    }
   },
 
   rollComplete: () => {
@@ -1374,13 +1672,35 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return;
       }
 
-      players = players.map(p => ({ ...p, eliminated: p.eliminated || p.credits <= 0 }));
+      players = players.map(p => {
+        if (!p.eliminated && p.credits <= 0) {
+          if (!_eliminationOrder.includes(p.id)) _eliminationOrder.push(p.id);
+          return { ...p, eliminated: true, daemons: [] };
+        }
+        return p;
+      });
       const alive = players.filter(p => !p.eliminated);
       const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
       if (alive.length === 1) get().addLog(`${alive[0].name} wins the game!`, 'turn');
 
-      set({ players, discard, rollTriggered: false, winnerId, phase: alive.length <= 1 ? 'GAME_OVER' : 'PHASE_ROLL' });
-      if (alive.length > 1) setTimeout(() => get().advanceTurn(), 950);
+      if (winnerId && !_recordSaved) {
+        _recordSaved = true;
+        saveGameRecord(
+          players.find(p => p.isHuman)?.id === winnerId,
+          state.turnNumber,
+          state.players.length,
+          state.globalCorruptionMode,
+        );
+      }
+
+      set({
+        players, discard, rollTriggered: false, winnerId,
+        phase: alive.length <= 1 ? 'GAME_OVER' : 'PHASE_ROLL',
+        gameStats: winnerId
+          ? { ...state.gameStats, eliminationOrder: [..._eliminationOrder] }
+          : state.gameStats,
+      });
+      if (alive.length > 1) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
       return;
     }
 
@@ -1393,6 +1713,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   runAiTurn: () => {
+    if (get().paused) return; // ← guard: don't start a new AI turn while paused
     const state = get();
     if (state.phase === 'GAME_OVER') return;
 
@@ -1421,18 +1742,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     if (players[actorIndex].hand.length === 0) {
-      get().advanceTurn();
+      if (!get().paused) get().advanceTurn();
       return;
     }
 
     set({ deck, discard, players, phase: 'MAIN' });
 
     setTimeout(() => {
+      if (get().paused) return; // ← guard: paused between draw and card pick
       const currentState = get();
       const currentActor = currentState.players[currentState.currentPlayerIndex];
-      const card = pickAiCard(currentActor);
+      const card = pickAiCard(currentActor, currentState.players, currentState.currentPlayerIndex, currentState.startingPop);
       if (!card) {
-        get().advanceTurn();
+        if (!get().paused) get().advanceTurn();
         return;
       }
       // AI skips the TARGETING phase — applyPlayCard picks a random target internally

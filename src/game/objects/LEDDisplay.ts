@@ -125,7 +125,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
     // ── Credit toast (hidden until roll resolves) ─────────────────────────
     const TOAST_Y  = BELOW_DIGITS + 48;
-    const TOAST_W  = 200;
+    const TOAST_W  = 230;
     const TOAST_H  = 28;
     this.toastBg = this.scene.add.graphics();
     this.toastBg.setAlpha(0);

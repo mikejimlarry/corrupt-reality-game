@@ -183,6 +183,11 @@ export class GameScene extends Phaser.Scene {
               ? () => useGameStore.getState().selectTarget(playerId)
               : undefined
             );
+            // Brighten valid targets, keep invalid ones dim
+            this.tweens.add({
+              targets: zone, alpha: isValid ? 1 : 0.25,
+              duration: 250, ease: 'Sine.easeInOut',
+            });
           });
           // Shrink hand cards by 10%, anchoring to bottom-centre
           this.humanCardObjects.forEach(card => {
@@ -200,6 +205,10 @@ export class GameScene extends Phaser.Scene {
             zone.setTargetable(false);
             this.input.setDefaultCursor('default');
           });
+          // Re-apply correct dim/bright alphas after leaving targeting
+          if (leavingTargeting) {
+            this.applyPlayerDim(state.players, state.currentPlayerIndex);
+          }
           // Only restore hand scale when actually leaving TARGETING — not on every phase change
           if (leavingTargeting && !handUpdated) {
             this.humanCardObjects.forEach(card => {

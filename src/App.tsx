@@ -11,6 +11,7 @@ import { WarPreOverlay } from './ui/WarPreOverlay';
 import { CounterOpportunityOverlay } from './ui/CounterOpportunityOverlay';
 import { PauseOverlay } from './ui/PauseOverlay';
 import { GameOverScreen } from './ui/GameOverScreen';
+import { CardPreview } from './ui/CardPreview';
 import { useGameAudio } from './hooks/useGameAudio';
 import { resumeAudio, stopMusic } from './lib/audio';
 
@@ -108,6 +109,7 @@ function App() {
       <WarPreOverlay />
       <CounterOpportunityOverlay />
       <PauseOverlay />
+      <CardPreview />
     </>
   );
 }

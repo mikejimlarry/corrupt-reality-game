@@ -201,10 +201,10 @@ export class Card extends Phaser.GameObjects.Container {
     const footerY = top + CARD_H - 10;
     if (d.flavourText) {
       const flavour = this.txt(
-        left + PAD, footerY,
+        left + PAD + 4, footerY,
         `"${d.flavourText}"`,
         { fontFamily: 'monospace', fontSize: '7px', color: '#4a5c6a',
-          fontStyle: 'italic', wordWrap: { width: CARD_W - PAD * 2 - 22 } }
+          fontStyle: 'italic', wordWrap: { width: CARD_W - PAD * 2 - 30 } }
       ).setOrigin(0, 1);
       this.add(flavour);
     }
@@ -458,6 +458,8 @@ export class Card extends Phaser.GameObjects.Container {
   }
 
   // ── Hover effects ───────────────────────────────────────────────────────
+  private tooltipTimer: ReturnType<typeof setTimeout> | null = null;
+
   private onHover() {
     if (this.isHovered || !this.isDealt) return;
     const { phase, players, currentPlayerIndex, selectedCardId } = useGameStore.getState();
@@ -477,12 +479,19 @@ export class Card extends Phaser.GameObjects.Container {
       duration: 150, ease: 'Quad.easeOut',
     });
     this.setDepth(50);
-    useGameStore.getState().setHoveredCard(this.cardData.id);
+    // Delay the tooltip so quick mouse passes don't trigger it
+    this.tooltipTimer = setTimeout(() => {
+      useGameStore.getState().setHoveredCard(this.cardData.id);
+    }, 450);
   }
 
   private onOut() {
     if (!this.isHovered || this.isSelected) return;
     this.isHovered = false;
+    if (this.tooltipTimer !== null) {
+      clearTimeout(this.tooltipTimer);
+      this.tooltipTimer = null;
+    }
     useGameStore.getState().setHoveredCard(null);
     this.scene.tweens.killTweensOf(this);
     this.scene.tweens.add({

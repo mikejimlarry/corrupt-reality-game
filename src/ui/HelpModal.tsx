@@ -57,7 +57,7 @@ const CARDS: CardEntry[] = [
   // Positive events
   { name: 'Mass Assimilation',   category: 'EVENT_POSITIVE', count: 2, effect: 'Each opponent loses 5 credits; you gain 5 per opponent.' },
   { name: 'Overclock',           category: 'EVENT_POSITIVE', count: 2, effect: 'Adds +5 to your next Stability Roll total (or -5 in Corruption, reducing losses).' },
-  { name: 'Multitasking',        category: 'EVENT_POSITIVE', count: 2, effect: 'Play one additional card this turn. The bonus card cannot be a Conflict or Countermeasure card.' },
+  { name: 'Multitasking',        category: 'EVENT_POSITIVE', count: 2, effect: 'Play 1–2 additional cards this turn (randomly determined). Bonus cards cannot be Conflict or Countermeasure cards.' },
   // Negative events
   { name: 'Signal Theft',        category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal 15 credits from a target.' },
   { name: 'Pestilence Protocol', category: 'EVENT_NEGATIVE', count: 6, effect: 'Target loses 5 credits.' },
@@ -72,7 +72,7 @@ const CARDS: CardEntry[] = [
   { name: 'Backdoor',            category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal one daemon from a target.' },
   { name: 'Network Storm',       category: 'EVENT_NEGATIVE', count: 2, effect: 'Every opponent loses 10 credits and one daemon.' },
   { name: 'The Corruption',      category: 'EVENT_NEGATIVE', count: 1, effect: 'Target loses 10 credits. Corruption mode begins.' },
-  { name: 'Power Cycle',         category: 'EVENT_NEGATIVE', count: 2, effect: 'Target\'s credits reset to the starting amount, all their daemons are purged, and their hand is replaced with 5 new cards.' },
+  { name: 'Power Cycle',         category: 'EVENT_NEGATIVE', count: 1, effect: 'Target\'s credits reset to the starting amount, all their daemons are purged, and their hand is replaced with 5 new cards.' },
   // Wars
   { name: 'Proxy Conflict',           category: 'WAR',            count: 4, effect: 'Attack a target. You lose 5 credits · Target loses 10 credits.' },
   { name: 'Grid Conflict',            category: 'WAR',            count: 3, effect: 'Attack a target. You lose 10 credits · Target loses 20 credits and one daemon.' },

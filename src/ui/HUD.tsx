@@ -93,9 +93,11 @@ export function HUD() {
   const validTargetIds      = useGameStore(s => s.validTargetIds);
   const cancelTargeting     = useGameStore(s => s.cancelTargeting);
   const endTurn             = useGameStore(s => s.endTurn);
+  const cancelExtraPlays    = useGameStore(s => s.cancelExtraPlays);
   const togglePause         = useGameStore(s => s.togglePause);
   const paused              = useGameStore(s => s.paused);
-  const extraPlayPending    = useGameStore(s => s.extraPlayPending);
+  const extraPlayPending         = useGameStore(s => s.extraPlayPending);
+  const corruptionPendingTarget  = useGameStore(s => s.corruptionPendingTarget);
 
   const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
 
@@ -129,7 +131,7 @@ export function HUD() {
   const logTail = log.slice(-3);
 
   // Whether the selected card is a forced play (The Corruption) — no discard allowed
-  const isForced = (selectedCard as any)?.effect === 'CORRUPTION';
+  const isForced = (selectedCard as any)?.effect === 'CORRUPTION' || corruptionPendingTarget;
 
   const handleMusicToggle = () => {
     const next = !musicOn;
@@ -381,9 +383,42 @@ export function HUD() {
               </button>
             )}
 
-            {phase === 'MAIN' && extraPlayPending && (
-              <div style={{ fontSize: 9, color: '#00ffcc66', letterSpacing: 2, marginBottom: 6, borderBottom: '1px solid #00ffcc22', paddingBottom: 6 }}>
-                ⟳ MULTITASKING — PLAY ONE MORE CARD
+            {phase === 'MAIN' && extraPlayPending > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: 8,
+                fontSize: 9, color: '#00ffcc66', letterSpacing: 2,
+                marginBottom: 6, borderBottom: '1px solid #00ffcc22', paddingBottom: 6,
+              }}>
+                <span>⟳ MULTITASKING — {extraPlayPending} MORE CARD{extraPlayPending > 1 ? 'S' : ''} TO PLAY</span>
+                <button
+                  onClick={() => cancelExtraPlays()}
+                  title="End your turn now without using remaining plays"
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #00ffcc33',
+                    color: '#00ffcc55',
+                    fontFamily: 'monospace',
+                    fontSize: 8,
+                    letterSpacing: 1,
+                    padding: '2px 6px',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    transition: 'all 0.12s',
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.color = '#00ffcc';
+                    (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc88';
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(0,255,204,0.08)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.color = '#00ffcc55';
+                    (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc33';
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  }}
+                >
+                  DONE
+                </button>
               </div>
             )}
 
@@ -402,7 +437,7 @@ export function HUD() {
                   <button style={btnPrimary(ACCENT)} onClick={() => { sfxCardPlay(); playCard(selectedCard.id); }}>
                     PLAY
                   </button>
-                  {!isForced && !extraPlayPending && (
+                  {!isForced && extraPlayPending === 0 && (
                     <button style={btnDim(ACCENT)} onClick={() => discardCard(selectedCard.id)}>
                       DISCARD
                     </button>

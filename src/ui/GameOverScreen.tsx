@@ -23,6 +23,7 @@ const STYLE = `
 .go-fade-in-2 { animation: go-fade-in 0.6s 0.2s ease both; }
 .go-fade-in-3 { animation: go-fade-in 0.6s 0.4s ease both; }
 .go-fade-in-4 { animation: go-fade-in 0.6s 0.6s ease both; }
+.go-fade-in-5 { animation: go-fade-in 0.6s 0.8s ease both; }
 `;
 
 function useInjectStyle(css: string) {
@@ -34,6 +35,16 @@ function useInjectStyle(css: string) {
   }, [css]);
 }
 
+interface GameRecords { wins: number; losses: number; }
+
+function readRecords(): GameRecords {
+  try {
+    const raw = localStorage.getItem('crg-records');
+    if (raw) return JSON.parse(raw) as GameRecords;
+  } catch { /* ignore */ }
+  return { wins: 0, losses: 0 };
+}
+
 export function GameOverScreen() {
   useInjectStyle(STYLE);
 
@@ -41,6 +52,7 @@ export function GameOverScreen() {
   const winnerId      = useGameStore(s => s.winnerId);
   const turnNumber    = useGameStore(s => s.turnNumber);
   const corruption    = useGameStore(s => s.globalCorruptionMode);
+  const gameStats     = useGameStore(s => s.gameStats);
   const resetToSetup  = useGameStore(s => s.resetToSetup);
 
   const winner   = players.find(p => p.id === winnerId);
@@ -59,13 +71,27 @@ export function GameOverScreen() {
     return b.credits - a.credits;
   });
 
+  // Elimination order for display (losers only, in order)
+  const elimOrder = gameStats.eliminationOrder
+    .map(id => players.find(p => p.id === id)?.name)
+    .filter(Boolean) as string[];
+
   const [visible, setVisible] = useState(false);
+  const [records, setRecords] = useState<GameRecords>({ wins: 0, losses: 0 });
+
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 100);
     return () => clearTimeout(t);
   }, []);
 
+  useEffect(() => {
+    // Read updated records after the game record has been saved
+    setRecords(readRecords());
+  }, [winnerId]);
+
   if (!visible) return null;
+
+  const totalGames = records.wins + records.losses;
 
   return (
     <div style={{
@@ -98,7 +124,7 @@ export function GameOverScreen() {
         }} />
       )}
 
-      <div style={{ position: 'relative', zIndex: 1, width: 380, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div style={{ position: 'relative', zIndex: 1, width: 420, display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
 
         {/* Header */}
         <div className="go-flicker go-fade-in" style={{ textAlign: 'center' }}>
@@ -124,55 +150,67 @@ export function GameOverScreen() {
 
         {/* Meta row */}
         <div className="go-fade-in-2" style={{
-          display: 'flex', justifyContent: 'center', gap: '2rem',
+          display: 'flex', justifyContent: 'center', gap: '1.5rem',
           fontSize: '0.6rem', letterSpacing: 3, color: `${ACCENT}55`,
           borderTop: `1px solid ${DIM}`, borderBottom: `1px solid ${DIM}`,
           padding: '0.5rem 0',
+          flexWrap: 'wrap',
         }}>
           <span>TURNS: {turnNumber}</span>
           <span>AGENTS: {players.length}</span>
           {corruption && <span style={{ color: '#ff4466' }}>[!] CORRUPTED</span>}
+          {totalGames > 0 && (
+            <span style={{ color: humanWon ? '#00ffcc88' : '#ff446688' }}>
+              W/L: {records.wins}/{records.losses}
+            </span>
+          )}
         </div>
 
         {/* Player standings */}
-        <div className="go-fade-in-3" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-          <div style={{ fontSize: '0.55rem', letterSpacing: 3, color: `${ACCENT}44`, marginBottom: '0.2rem' }}>
+        <div className="go-fade-in-3" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+          <div style={{ fontSize: '0.55rem', letterSpacing: 3, color: `${ACCENT}44`, marginBottom: '0.15rem' }}>
             FINAL STANDINGS
           </div>
           {ranked.map((p, i) => {
             const isWinner = p.id === winnerId;
             const rowAccent = isWinner ? ACCENT : p.eliminated ? '#334455' : '#556677';
+            const cardsPlayed = gameStats.cardsPlayed[p.id] ?? 0;
             return (
               <div key={p.id} style={{
-                display: 'flex', alignItems: 'center', gap: '0.75rem',
-                padding: '0.5rem 0.75rem',
+                display: 'flex', alignItems: 'center', gap: '0.6rem',
+                padding: '0.4rem 0.65rem',
                 background: isWinner ? `${ACCENT}0d` : 'transparent',
                 border: `1px solid ${isWinner ? ACCENT + '44' : '#ffffff08'}`,
                 borderRadius: 3,
-                opacity: p.eliminated ? 0.5 : 1,
+                opacity: p.eliminated ? 0.55 : 1,
               }}>
                 {/* Rank */}
-                <span style={{ fontSize: '0.65rem', color: rowAccent, width: 18, textAlign: 'right', flexShrink: 0 }}>
+                <span style={{ fontSize: '0.65rem', color: rowAccent, width: 16, textAlign: 'right', flexShrink: 0 }}>
                   {isWinner ? '*' : `#${i + 1}`}
                 </span>
 
                 {/* Name */}
                 <span style={{
-                  flex: 1, fontSize: '0.75rem', letterSpacing: 2,
+                  flex: 1, fontSize: '0.72rem', letterSpacing: 2,
                   color: isWinner ? ACCENT : p.eliminated ? '#445566' : '#aabbcc',
                   fontWeight: isWinner ? 'bold' : 'normal',
                 }}>
                   {p.name}
-                  {p.isHuman && <span style={{ fontSize: '0.55rem', color: `${ACCENT}55`, marginLeft: 6 }}>YOU</span>}
+                  {p.isHuman && <span style={{ fontSize: '0.5rem', color: `${ACCENT}55`, marginLeft: 5 }}>YOU</span>}
+                </span>
+
+                {/* Cards played */}
+                <span style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 36, textAlign: 'center' }}>
+                  {cardsPlayed > 0 ? `${cardsPlayed}c` : '--'}
                 </span>
 
                 {/* Daemons */}
-                <span style={{ fontSize: '0.65rem', color: rowAccent, letterSpacing: 1, width: 44, textAlign: 'center' }}>
-                  {p.daemons.length > 0 ? `[D] x${p.daemons.length}` : '--'}
+                <span style={{ fontSize: '0.6rem', color: rowAccent, letterSpacing: 1, width: 36, textAlign: 'center' }}>
+                  {p.daemons.length > 0 ? `[D]×${p.daemons.length}` : '--'}
                 </span>
 
                 {/* Credits */}
-                <span style={{ fontSize: '0.8rem', color: isWinner ? ACCENT : rowAccent, letterSpacing: 1, width: 48, textAlign: 'right', fontWeight: isWinner ? 'bold' : 'normal' }}>
+                <span style={{ fontSize: '0.8rem', color: isWinner ? ACCENT : rowAccent, letterSpacing: 1, width: 44, textAlign: 'right', fontWeight: isWinner ? 'bold' : 'normal' }}>
                   {p.credits}¢
                 </span>
 
@@ -192,8 +230,18 @@ export function GameOverScreen() {
           })}
         </div>
 
+        {/* Elimination order */}
+        {elimOrder.length > 0 && (
+          <div className="go-fade-in-4" style={{
+            fontSize: '0.55rem', color: `${ACCENT}33`, letterSpacing: 2,
+            textAlign: 'center',
+          }}>
+            ELIMINATED: {elimOrder.join(' → ')}
+          </div>
+        )}
+
         {/* Reboot button */}
-        <div className="go-fade-in-4" style={{ display: 'flex', justifyContent: 'center' }}>
+        <div className="go-fade-in-5" style={{ display: 'flex', justifyContent: 'center' }}>
           <button
             onClick={() => resetToSetup()}
             style={{

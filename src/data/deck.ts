@@ -48,7 +48,7 @@ const positiveEvents: Card[] = [
   // Multitasking ×2 — play two cards in one turn (no WAR or COUNTER as second card)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Multitasking', category: 'EVENT_POSITIVE' as const,
-    description: 'Run parallel processes. Play one additional card this turn (cannot be a Conflict or Countermeasure card).',
+    description: 'Run parallel processes. Play 1–2 additional cards this turn (cannot be a Conflict or Countermeasure card).',
     rarity: 'RARE' as const, effect: 'EXTRA_PLAY', amount: 0,
     flavourText: 'Two threads. One clock cycle.',
   })),
@@ -134,13 +134,13 @@ const negativeEvents: Card[] = [
     rarity: 'LEGENDARY' as const, effect: 'CORRUPTION', amount: 10, targetsOther: true,
     flavourText: 'Once it spreads, nothing is clean.',
   },
-  // Power Cycle ×2 — hard reset: target returns to starting credits, loses daemons, new hand
-  ...Array(2).fill(null).map(() => ({
+  // Power Cycle ×1 — hard reset: target returns to starting credits, loses daemons, new hand
+  {
     id: uid(), name: 'Power Cycle', category: 'EVENT_NEGATIVE' as const,
     description: 'Force a full system reboot. Target\'s credits reset to starting amount, all daemons are purged, and their hand is replaced with 5 new cards.',
     rarity: 'LEGENDARY' as const, effect: 'POWER_CYCLE', amount: 0, targetsOther: true,
     flavourText: 'Have you tried turning it off and on again?',
-  })),
+  },
   // M.A.D. ×2 — new card (both actor and target lose 15 credits)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'M.A.D.', category: 'EVENT_NEGATIVE' as const,
@@ -240,10 +240,10 @@ export const generateDeck = (): Card[] => {
   const all = [
     ...creditCards,    // 12
     ...positiveEvents, //  6
-    ...negativeEvents, // 32
+    ...negativeEvents, // 31
     ...warCards,       //  7
     ...counterCards,   //  9
-    ...daemonCards,    // 12  → total: 78
+    ...daemonCards,    // 12  → total: 77
   ];
   return shuffle(all);
 };

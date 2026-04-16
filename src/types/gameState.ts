@@ -67,8 +67,15 @@ export interface GameState {
   pendingOverclockCard: import('./cards').Card | null;
   /** When true, all AI timers are suspended and no AI actions fire. */
   paused: boolean;
-  /** When true, the human player has an extra card play remaining (from Multitasking). */
-  extraPlayPending: boolean;
+  /** Number of extra card plays remaining for the current player (from Multitasking). 0 = none. */
+  extraPlayPending: number;
+  /** Accumulated per-game statistics — reset each new game. */
+  gameStats: {
+    /** Number of cards played per player, keyed by player id. */
+    cardsPlayed: Record<string, number>;
+    /** Player ids in order of elimination (first eliminated = index 0). */
+    eliminationOrder: string[];
+  };
   /**
    * Non-null when an AI played a targeted EVENT_NEGATIVE at the human and they
    * have a reactive counter (Quarantine / System Interrupt) in hand — pauses the
