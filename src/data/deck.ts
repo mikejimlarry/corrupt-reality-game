@@ -41,7 +41,7 @@ const positiveEvents: Card[] = [
   // Overclock ×2 — new card (doubles next Stability Roll gain)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Overclock', category: 'EVENT_POSITIVE' as const,
-    description: 'Push your systems to the limit. Your next Stability Roll gain is doubled.',
+    description: 'Push your systems to the limit. Adds +5 to your next Stability Roll. In Corruption mode, subtracts 5 instead — reducing damage taken.',
     rarity: 'RARE' as const, effect: 'OVERCLOCK', amount: 0,
     flavourText: 'Red-line everything. Deal with the consequences later.',
   })),

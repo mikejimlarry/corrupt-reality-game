@@ -198,7 +198,7 @@ export class Card extends Phaser.GameObjects.Container {
     this.add(desc);
 
     // ── Footer: flavour text + card number ────────────────────────────────
-    const footerY = top + CARD_H - 10;
+    const footerY = top + CARD_H - 16;
     if (d.flavourText) {
       const flavour = this.txt(
         left + PAD + 4, footerY,
