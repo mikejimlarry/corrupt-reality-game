@@ -48,13 +48,16 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.rebuildScene(width, height);
 
-    // Rebuild on window resize — but ignore the spurious resize Phaser fires
-    // immediately after scene creation (which would double-animate the deal).
+    // Rebuild on window resize — ignore the spurious resize Phaser fires immediately
+    // after scene creation, then debounce subsequent resizes so rapid drags don't
+    // trigger multiple expensive full-scene rebuilds.
     let resizeReady = false;
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     this.time.delayedCall(300, () => { resizeReady = true; });
     this.scale.on('resize', (size: Phaser.Structs.Size) => {
       if (!resizeReady) return;
-      this.rebuildScene(size.width, size.height);
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => { this.rebuildScene(size.width, size.height); }, 150);
     });
 
     // Subscribe to store changes
@@ -603,18 +606,28 @@ export class GameScene extends Phaser.Scene {
     bg.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
     con.add(bg);
 
-    con.add(this.add.text(0, -CARD_H / 2 + 11, 'HACK PROTOCOL', {
-      fontFamily: 'monospace', fontSize: '8px', color: '#ff3355', resolution: dpr,
+    con.add(this.add.text(0, -CARD_H / 2 + 11, 'HACK PROTOCOL  ·  LEGENDARY', {
+      fontFamily: 'monospace', fontSize: '7px', color: '#ff3355', resolution: dpr,
     }).setOrigin(0.5));
 
-    con.add(this.add.text(0, -14, 'THE\nCORRUPTION', {
-      fontFamily: 'monospace', fontSize: '22px', color: '#ffffff', fontStyle: 'bold',
+    con.add(this.add.text(0, -24, 'THE\nCORRUPTION', {
+      fontFamily: 'monospace', fontSize: '20px', color: '#ffffff', fontStyle: 'bold',
       align: 'center', lineSpacing: 4, resolution: dpr,
     }).setOrigin(0.5));
 
-    con.add(this.add.text(0, CARD_H / 2 - 52, 'CORRUPTION\nMODE BEGINS', {
-      fontFamily: 'monospace', fontSize: '11px', color: '#ff3355',
+    con.add(this.add.text(0, 12, 'Unleash the virus.\nTarget loses -10 credits.', {
+      fontFamily: 'monospace', fontSize: '7.5px', color: '#cc8899',
       align: 'center', lineSpacing: 3, resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, CARD_H / 2 - 56, 'CORRUPTION MODE BEGINS', {
+      fontFamily: 'monospace', fontSize: '9px', color: '#ff3355',
+      align: 'center', resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, CARD_H / 2 - 40, 'STABILITY ROLLS INVERTED', {
+      fontFamily: 'monospace', fontSize: '7px', color: '#ff335566',
+      align: 'center', resolution: dpr,
     }).setOrigin(0.5));
 
     con.add(this.add.text(0, CARD_H / 2 - 16, '"Once it spreads,\nnothing is clean."', {

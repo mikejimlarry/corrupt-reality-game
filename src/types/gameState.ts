@@ -75,6 +75,8 @@ export interface GameState {
     cardsPlayed: Record<string, number>;
     /** Player ids in order of elimination (first eliminated = index 0). */
     eliminationOrder: string[];
+    /** Total credits dealt as damage to other players, keyed by player id. */
+    damageDealt: Record<string, number>;
   };
   /** Non-null when a WAR card just resolved — scene shows a dice-roll animation then clears this. */
   warRollDisplay: { r1: number; r2: number; actorName: string; targetName: string; actorWins: boolean } | null;

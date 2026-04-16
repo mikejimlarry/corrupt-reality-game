@@ -5,7 +5,7 @@ import { useGameStore } from '../state/useGameStore';
 import {
   sfxDraw, sfxGain, sfxLoss, sfxAttack,
   sfxDaemon, sfxTurnStart, sfxWar, sfxRollStart,
-  sfxCorruption, sfxWin, sfxGameOver,
+  sfxCorruption, sfxWin, sfxGameOver, sfxWarWin, sfxWarLoss,
 } from '../lib/audio';
 
 export function useGameAudio() {
@@ -16,11 +16,14 @@ export function useGameAudio() {
   const corruption  = useGameStore(s => s.globalCorruptionMode);
   const winnerId    = useGameStore(s => s.winnerId);
 
+  const warRollDisplay = useGameStore(s => s.warRollDisplay);
+
   const prevPhase         = useRef(phase);
   const prevDiscardLen    = useRef(discard.length);
   const prevCorruption    = useRef(corruption);
   const prevHandLen       = useRef<number | null>(null);
   const prevRollTriggered = useRef(rollTriggered);
+  const prevWarRoll       = useRef(warRollDisplay);
 
   // Track per-player credits and daemon counts to detect changes
   const prevCredits = useRef<Map<string, number>>(new Map());
@@ -39,6 +42,22 @@ export function useGameAudio() {
       else sfxGameOver();
     }
   }, [phase, players, winnerId]);
+
+  // ── WAR result — play win/loss sound from the human's perspective ────────
+  useEffect(() => {
+    if (warRollDisplay && !prevWarRoll.current) {
+      const human = players.find(p => p.isHuman);
+      if (human) {
+        const humanIsActor = warRollDisplay.actorName === human.name;
+        const humanIsTarget = warRollDisplay.targetName === human.name;
+        if (humanIsActor || humanIsTarget) {
+          const humanWon = humanIsActor ? warRollDisplay.actorWins : !warRollDisplay.actorWins;
+          if (humanWon) sfxWarWin(); else sfxWarLoss();
+        }
+      }
+    }
+    prevWarRoll.current = warRollDisplay;
+  }, [warRollDisplay, players]);
 
   // ── Roll triggered ────────────────────────────────────────────────────────
   useEffect(() => {

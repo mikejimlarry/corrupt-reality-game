@@ -1,5 +1,5 @@
 // src/ui/HUD.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useGameStore } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
 import { sfxCardPlay, getMusicEnabled, setMusicEnabled, sfxToggleOn, sfxToggleOff } from '../lib/audio';
@@ -100,6 +100,10 @@ export function HUD() {
   const corruptionPendingTarget  = useGameStore(s => s.corruptionPendingTarget);
 
   const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
+
+  const panelStyle      = useMemo(() => panel(ACCENT), [ACCENT]);
+  const primaryBtnStyle = useMemo(() => btnPrimary(ACCENT), [ACCENT]);
+  const dimBtnStyle     = useMemo(() => btnDim(ACCENT), [ACCENT]);
 
   const [logExpanded, setLogExpanded] = useState(false);
   const [showHelp, setShowHelp]       = useState(false);
@@ -238,7 +242,7 @@ export function HUD() {
 
         {/* Game log */}
         {log.length > 0 && (
-          <div style={{ ...panel(ACCENT), padding: 0, overflow: 'hidden' }}>
+          <div style={{ ...panelStyle, padding: 0, overflow: 'hidden' }}>
 
             {/* Header row — always visible, click to expand/collapse */}
             <button
@@ -336,7 +340,7 @@ export function HUD() {
         )}
 
         {/* Status panel */}
-        <div style={panel(ACCENT)}>
+        <div style={panelStyle}>
           <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 4 }}>
             TURN {turnNumber} · {phase}
           </div>
@@ -347,11 +351,11 @@ export function HUD() {
 
         {/* BEGIN SEQUENCE button — human PHASE_ROLL only, appears after animations settle */}
         {phase === 'PHASE_ROLL' && isHuman && rollReady && !rollTriggered && (
-          <div style={panel(ACCENT)} className={corruption ? 'corruption-pulse' : 'hud-pulse'}>
+          <div style={panelStyle} className={corruption ? 'corruption-pulse' : 'hud-pulse'}>
             <div style={{ fontSize: 10, color: `${ACCENT}55`, letterSpacing: 3, marginBottom: 8 }}>
               SEQUENCE READY
             </div>
-            <button style={btnPrimary(ACCENT)} onClick={() => triggerRoll()}>
+            <button style={primaryBtnStyle} onClick={() => triggerRoll()}>
               ▶ BEGIN SEQUENCE
             </button>
           </div>
@@ -359,7 +363,7 @@ export function HUD() {
 
         {/* Targeting banner — click an opponent on the board to select them */}
         {phase === 'TARGETING' && (
-          <div style={{ ...panel(ACCENT), borderColor: '#ff333388' }} className="hud-pulse">
+          <div style={{ ...panelStyle, borderColor: '#ff333388' }} className="hud-pulse">
             <div style={{ fontSize: 10, color: '#ff3333', letterSpacing: 3, marginBottom: 8 }}>
               SELECT A TARGET
             </div>
@@ -376,9 +380,9 @@ export function HUD() {
 
         {/* Action panel — only when game active, human turn, not rolling, not ending turn */}
         {phase !== 'GAME_OVER' && phase !== 'PHASE_ROLL' && phase !== 'TARGETING' && phase !== 'END_TURN' && isHuman && (
-          <div style={panel(ACCENT)} className={phase === 'DRAW' ? (corruption ? 'corruption-pulse' : 'hud-pulse') : ''}>
+          <div style={panelStyle} className={phase === 'DRAW' ? (corruption ? 'corruption-pulse' : 'hud-pulse') : ''}>
             {phase === 'DRAW' && (
-              <button style={btnPrimary(ACCENT)} onClick={() => drawCard()}>
+              <button style={primaryBtnStyle} onClick={() => drawCard()}>
                 DRAW CARD
               </button>
             )}
@@ -434,11 +438,11 @@ export function HUD() {
                   {selectedCard.name.toUpperCase()}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button style={btnPrimary(ACCENT)} onClick={() => { sfxCardPlay(); playCard(selectedCard.id); }}>
+                  <button style={primaryBtnStyle} onClick={() => { sfxCardPlay(); playCard(selectedCard.id); }}>
                     PLAY
                   </button>
                   {!isForced && extraPlayPending === 0 && (
-                    <button style={btnDim(ACCENT)} onClick={() => discardCard(selectedCard.id)}>
+                    <button style={dimBtnStyle} onClick={() => discardCard(selectedCard.id)}>
                       DISCARD
                     </button>
                   )}
@@ -450,7 +454,7 @@ export function HUD() {
 
         {/* End turn — auto-advances after 900 ms; show a brief status flash */}
         {phase === 'END_TURN' && (
-          <div style={{ ...panel(ACCENT), opacity: 0.7 }}>
+          <div style={{ ...panelStyle, opacity: 0.7 }}>
             <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2 }}>
               TURN COMPLETE
             </div>

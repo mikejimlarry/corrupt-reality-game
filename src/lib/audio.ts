@@ -199,7 +199,7 @@ export function sfxRollStart() {
 
 /** Corruption mode activates. */
 export function sfxCorruption() {
-  play('deck_ui_switch_toggle_off.wav', 1.0);
+  play('deck_ui_side_menu_fly_out.wav', 1.0);
 }
 
 /** The Corruption card is revealed — shown centre-screen when drawn. */

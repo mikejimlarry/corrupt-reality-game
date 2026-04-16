@@ -343,9 +343,37 @@ function pickAiCard(
       };
       return [...ai.hand].sort((a, b) => score(b) - score(a))[0];
     }
+    case 'BALANCED': {
+      // Desperate recovery: critically low credits → prioritise income first
+      if (ai.credits < 15) {
+        return ai.hand.find(c => c.category === 'CREDITS')
+          ?? ai.hand.find(c =>
+              c.category === 'EVENT_POSITIVE' &&
+              (c as PositiveEventCard).effect !== 'OVERCLOCK' &&
+              (c as PositiveEventCard).effect !== 'EXTRA_PLAY'
+            )
+          ?? ai.hand[0];
+      }
+      // Opportunistic Power Cycle only when the target is a clear runaway leader
+      if (powerCycleCard && powerCycleScore >= 30) return powerCycleCard;
+      // Multitasking when a high-damage follow-up exists
+      if (multitaskingCard && hasGoodFollowUp && random() < 0.5) return multitaskingCard;
+      // Adaptive: if behind → build resources; if ahead → press the attack
+      const isAhead = richestOpponent ? ai.credits >= richestOpponent.credits : true;
+      if (!isAhead) {
+        return ai.hand.find(c => c.category === 'DAEMON')
+          ?? ai.hand.find(c => c.category === 'CREDITS')
+          ?? ai.hand.find(c => c.category === 'EVENT_POSITIVE')
+          ?? ai.hand[0];
+      }
+      if (random() < 0.65) {
+        return ai.hand.find(c => c.category === 'EVENT_NEGATIVE')
+          ?? ai.hand.find(c => c.category === 'WAR')
+          ?? ai.hand[0];
+      }
+      return ai.hand[Math.floor(random() * ai.hand.length)];
+    }
     default:
-      // BALANCED — also play Multitasking if a follow-up is available
-      if (multitaskingCard && hasGoodFollowUp && random() < 0.6) return multitaskingCard;
       return ai.hand[Math.floor(random() * ai.hand.length)];
   }
 }
@@ -489,7 +517,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   counterPending: null,
   paused: false,
   extraPlayPending: 0,
-  gameStats: { cardsPlayed: {}, eliminationOrder: [] },
+  gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {} },
   warRollDisplay: null,
   postCorruptionTargetIndex: null,
 };
@@ -553,7 +581,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       startingPop,
       hidePpCounts,
       deadMansSwitch,
-      gameStats: { cardsPlayed: {}, eliminationOrder: [] },
+      gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {} },
     });
 
     get().addLog('Game started. Welcome to Corrupt Reality.', 'turn');
@@ -771,7 +799,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           pendingCardId: null,
           validTargetIds: [],
           daemonStealPending: { targetIndex, availableDaemons: [...targetDaemons] },
-          gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder },
+          gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: prevStats.damageDealt },
         });
         get().addLog(`${actor.name} played Backdoor — choose which daemon to steal.`, 'card');
         return;
@@ -896,6 +924,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           gameStats: {
             cardsPlayed: newCardsPlayed,
             eliminationOrder: winnerId ? [..._eliminationOrder] : prevStats.eliminationOrder,
+            damageDealt: prevStats.damageDealt,
           },
         });
         if (!winnerId && !actor.isHuman) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
@@ -908,7 +937,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     _daemonImmunityBlockedBy = null;
     _warRollResult = null;
     _lastTargetName = null;
+    const creditsBefore = players.map(p => p.credits);
     players = applyCardEffect(card, players, actorIndex, targetIndex);
+    const damageByCard = creditsBefore.reduce((sum, before, i) => {
+      if (i === actorIndex) return sum;
+      return sum + Math.max(0, before - players[i].credits);
+    }, 0);
+    const newDamageDealt = damageByCard > 0
+      ? { ...prevStats.damageDealt, [actor.id]: (prevStats.damageDealt[actor.id] ?? 0) + damageByCard }
+      : prevStats.damageDealt;
     const capturedWarRoll = (card.category === 'WAR' ? _warRollResult : null) as WarRollSnapshot | null;
     const blockedBy = _quarantineBlockedBy;
     const negotiateBlockedBy = _negotiateBlockedBy;
@@ -973,7 +1010,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         validTargetIds: [],
         deadMansSwitchPending: humanDmsPending,
         warRollDisplay: null,
-        gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder },
+        gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: newDamageDealt },
       });
       return; // advanceTurn fires after overlay resolves
     }
@@ -1001,7 +1038,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         selectedCardId: null, pendingCardId: null, validTargetIds: [],
         deadMansSwitchPending: null,
         pendingOverclockCard: state.pendingOverclockCard,
-        gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder },
+        gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: newDamageDealt },
       });
       get().addLog(`${actor.name} activated Multitasking — ${extraCount} extra play${extraCount > 1 ? 's' : ''} granted!`, 'effect');
       // AI immediately picks a valid extra card (no redraw)
@@ -1065,6 +1102,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gameStats: {
         cardsPlayed: newCardsPlayed,
         eliminationOrder: winnerId ? [..._eliminationOrder] : prevStats.eliminationOrder,
+        damageDealt: newDamageDealt,
       },
     });
 
@@ -1401,10 +1439,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const actorIndex = state.currentPlayerIndex;
     let players = state.players;
     let discard = state.discard;
+    const prevStatsWar = state.gameStats;
 
     _warRollResult = null;
     _negotiateBlockedBy = null;
+    const warCreditsBefore = players.map(p => p.credits);
     players = applyCardEffect(warCard, players, p1Index, p2Index);
+    const warDamageByCard = warCreditsBefore.reduce((sum, before, i) => {
+      if (i === p1Index) return sum;
+      return sum + Math.max(0, before - players[i].credits);
+    }, 0);
     const capturedWarRoll = _warRollResult as WarRollSnapshot | null;
     const negotiateBlockedBy = _negotiateBlockedBy;
     _negotiateBlockedBy = null;
@@ -1445,6 +1489,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       actorWins: capturedWarRoll.actorWins,
     } : null;
 
+    const actorId = state.players[actorIndex]?.id;
+    const warCardsPlayed = actorId
+      ? { ...prevStatsWar.cardsPlayed, [actorId]: (prevStatsWar.cardsPlayed[actorId] ?? 0) + 1 }
+      : prevStatsWar.cardsPlayed;
+    const warDamageDealt = actorId && warDamageByCard > 0
+      ? { ...prevStatsWar.damageDealt, [actorId]: (prevStatsWar.damageDealt[actorId] ?? 0) + warDamageByCard }
+      : prevStatsWar.damageDealt;
+
     if (humanDmsPending) {
       players = markEliminations(players, true);
       set({
@@ -1455,6 +1507,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         validTargetIds: [],
         deadMansSwitchPending: humanDmsPending,
         warRollDisplay: warDisplayPayload,
+        gameStats: { cardsPlayed: warCardsPlayed, eliminationOrder: prevStatsWar.eliminationOrder, damageDealt: warDamageDealt },
       });
       return;
     }
@@ -1463,13 +1516,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const alive = players.filter(p => !p.eliminated);
     const winnerId = alive.length === 1 ? alive[0].id : null;
     if (winnerId) get().addLog(`${alive[0].name} wins the game!`, 'turn');
-
-    // Track war card as played by the initiating actor
-    const actorId = state.players[actorIndex]?.id;
-    const prevStatsWar = state.gameStats;
-    const warCardsPlayed = actorId
-      ? { ...prevStatsWar.cardsPlayed, [actorId]: (prevStatsWar.cardsPlayed[actorId] ?? 0) + 1 }
-      : prevStatsWar.cardsPlayed;
 
     if (winnerId && !_recordSaved) {
       _recordSaved = true;
@@ -1491,6 +1537,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gameStats: {
         cardsPlayed: warCardsPlayed,
         eliminationOrder: winnerId ? [..._eliminationOrder] : prevStatsWar.eliminationOrder,
+        damageDealt: warDamageDealt,
       },
     });
   },

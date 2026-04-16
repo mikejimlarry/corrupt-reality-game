@@ -204,6 +204,11 @@ export function GameOverScreen() {
                   {cardsPlayed > 0 ? `${cardsPlayed}c` : '--'}
                 </span>
 
+                {/* Damage dealt */}
+                <span style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 40, textAlign: 'center' }}>
+                  {(gameStats.damageDealt[p.id] ?? 0) > 0 ? `${gameStats.damageDealt[p.id]}↯` : '--'}
+                </span>
+
                 {/* Daemons */}
                 <span style={{ fontSize: '0.6rem', color: rowAccent, letterSpacing: 1, width: 36, textAlign: 'center' }}>
                   {p.daemons.length > 0 ? `[D]×${p.daemons.length}` : '--'}
