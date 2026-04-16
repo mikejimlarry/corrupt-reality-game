@@ -908,8 +908,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     _warRollResult = null;
     _lastTargetName = null;
     players = applyCardEffect(card, players, actorIndex, targetIndex);
-    const _wr = _warRollResult;
-    const capturedWarRoll = card.category === 'WAR' && _wr ? { ..._wr } : null;
+    const capturedWarRoll = card.category === 'WAR' ? _warRollResult : null;
     const blockedBy = _quarantineBlockedBy;
     const negotiateBlockedBy = _negotiateBlockedBy;
     const daemonBlockedBy = _daemonImmunityBlockedBy;
@@ -1405,8 +1404,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     _warRollResult = null;
     _negotiateBlockedBy = null;
     players = applyCardEffect(warCard, players, p1Index, p2Index);
-    const _wr2 = _warRollResult;
-    const capturedWarRoll = _wr2 ? { ..._wr2 } : null;
+    const capturedWarRoll = _warRollResult;
     const negotiateBlockedBy = _negotiateBlockedBy;
     _negotiateBlockedBy = null;
 
