@@ -6,7 +6,7 @@ import { AboutModal } from './AboutModal';
 import { GlitchTitle } from './GlitchTitle';
 import {
   resumeAudio, sfxNavClick, sfxSliderUp, sfxSliderDown,
-  sfxToggleOn, sfxToggleOff, sfxShowModal, sfxJackIn,
+  sfxToggleOn, sfxToggleOff, sfxShowModal, sfxConnect,
   getMusicEnabled, setMusicEnabled,
 } from '../lib/audio';
 
@@ -204,7 +204,7 @@ export const SetupScreen: React.FC = () => {
     localStorage.setItem('crg-credits', String(startingPop));
     localStorage.setItem('crg-hide-credits', String(hidePpCounts));
     localStorage.setItem('crg-dead-mans-switch', String(deadMansSwitch));
-    sfxJackIn();
+    sfxConnect();
     startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch);
   };
 
@@ -341,7 +341,7 @@ export const SetupScreen: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          JACK IN →
+          CONNECT →
         </button>
       </div>
     </div>

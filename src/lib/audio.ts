@@ -254,7 +254,7 @@ export function sfxShowModal() {
   play('deck_ui_show_modal.wav', 0.85);
 }
 
-/** JACK IN — start game. */
-export function sfxJackIn() {
+/** CONNECT — start game. */
+export function sfxConnect() {
   play('deck_ui_side_menu_fly_in.wav', 1.0);
 }

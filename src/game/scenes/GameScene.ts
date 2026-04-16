@@ -76,6 +76,7 @@ export class GameScene extends Phaser.Scene {
       useGameStore.getState().players.map(p => [p.id, p.credits])
     );
     let prevPendingOverclockCard: import('../../types/cards').Card | null = null;
+    let prevWarRollDisplay: import('../../types/gameState').GameState['warRollDisplay'] = null;
 
     this.unsubscribeStore = useGameStore.subscribe(state => {
       const { players, selectedCardId } = state;
@@ -130,8 +131,10 @@ export class GameScene extends Phaser.Scene {
               if (prev !== undefined) prevCreditsMap.set(player.id, player.credits);
               else prevCreditsMap.set(player.id, player.credits);
               if (zone) zone.refresh(player);
-              // Refresh AI daemon boards
-              if (!player.isHuman) {
+              // Refresh daemon boards for all players
+              if (player.isHuman) {
+                this.humanDaemonBoard?.refresh(player.daemons);
+              } else {
                 this.aiDaemonBoards.get(player.id)?.refresh(player.daemons);
               }
             });
@@ -283,6 +286,29 @@ export class GameScene extends Phaser.Scene {
           this.hideOverclockCard();
         }
       }
+
+      // ── WAR dice roll — fires after conflict card resolves ──────────────────
+      if (state.warRollDisplay && !prevWarRollDisplay) {
+        prevWarRollDisplay = state.warRollDisplay;
+        const rollData = state.warRollDisplay;
+        const isHumanActor = state.players[state.currentPlayerIndex]?.isHuman ?? false;
+        const delay = isHumanActor ? 500 : 1500;
+        this.time.delayedCall(delay, () => {
+          const current = useGameStore.getState().warRollDisplay;
+          if (!current) return;
+          const customToast = current.actorWins
+            ? `◆  ${current.actorName.toUpperCase()} WINS`
+            : `◆  ${current.targetName.toUpperCase()} WINS`;
+          this.ledDisplay?.roll(
+            rollData.r1, rollData.r2,
+            `${rollData.actorName} vs ${rollData.targetName}`,
+            0, false,
+            () => { useGameStore.getState().clearWarRollDisplay(); },
+            customToast,
+          );
+        });
+      }
+      if (!state.warRollDisplay) prevWarRollDisplay = null;
 
       // Update centre zone pile counts and turn number
       if (state.deck.length !== prevDeckLen) {
@@ -1014,7 +1040,7 @@ export class GameScene extends Phaser.Scene {
       targets: con, alpha: 1,
       duration: 150, ease: 'Quad.easeOut',
       onComplete: () => {
-        this.time.delayedCall(1450, () => {
+        this.time.delayedCall(800, () => {
           this.tweens.add({
             targets: con, alpha: 0,
             duration: 200, ease: 'Quad.easeIn',

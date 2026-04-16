@@ -92,9 +92,9 @@ const negativeEvents: Card[] = [
     rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true,
     flavourText: 'Hunger is a weapon when you control the supply chain.',
   })),
-  // Inferno Protocol ×3 — P&P Fire (10 damage + one daemon removed; Firewall immune)
+  // Sigterm ×3 — P&P Fire (10 damage + one daemon removed; Firewall immune)
   ...Array(3).fill(null).map(() => ({
-    id: uid(), name: 'Inferno Protocol', category: 'EVENT_NEGATIVE' as const,
+    id: uid(), name: 'Sigterm', category: 'EVENT_NEGATIVE' as const,
     description: 'Torch a faction\'s daemons. Target loses 10 credits and one daemon. (Firewall immune)',
     rarity: 'UNCOMMON' as const, effect: 'DAMAGE_DAEMON', amount: 10, targetsOther: true, immuneDaemon: 'FIREWALL' as const,
     flavourText: 'Burn rate: maximum.',
@@ -113,21 +113,21 @@ const negativeEvents: Card[] = [
     rarity: 'LEGENDARY' as const, effect: 'DAMAGE_ALL_DAEMON', amount: 10, targetsOther: false,
     flavourText: 'The storm does not choose its victims.',
   })),
-  // Pestilence Protocol ×6 — P&P Pestilence (5 damage to target)
+  // Memory Leak ×6 — P&P Pestilence (5 damage to target)
   ...Array(6).fill(null).map(() => ({
-    id: uid(), name: 'Pestilence Protocol', category: 'EVENT_NEGATIVE' as const,
+    id: uid(), name: 'Memory Leak', category: 'EVENT_NEGATIVE' as const,
     description: 'Spread a slow-acting virus through a rival faction. Target loses 5 credits.',
     rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 5, targetsOther: true,
     flavourText: 'Polymorphic. Persistent. Patient.',
   })),
-  // Raid Protocol ×2 — P&P Viking Raid (10 damage to target; Hardened Node immune)
+  // Node Rip ×2 — P&P Viking Raid (10 damage to target; Hardened Node immune)
   ...Array(2).fill(null).map(() => ({
-    id: uid(), name: 'Raid Protocol', category: 'EVENT_NEGATIVE' as const,
+    id: uid(), name: 'Node Rip', category: 'EVENT_NEGATIVE' as const,
     description: 'Strike fast and hard at a rival faction. Target loses 10 credits. (Hardened Node immune)',
     rarity: 'UNCOMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true, immuneDaemon: 'HARDENED_NODE' as const,
     flavourText: 'In and out before the firewall wakes.',
   })),
-  // The Corruption ×1 — P&P Death Ship (10 damage; triggers Corruption mode)
+  // The Corruption ×1 — P&P Death Ship (10 damage to target; triggers Corruption mode)
   {
     id: uid(), name: 'The Corruption', category: 'EVENT_NEGATIVE' as const,
     description: 'Unleash the virus. Target loses 10 credits. Corruption mode begins.',
@@ -211,7 +211,7 @@ const daemonCards: Card[] = [
   // Firewall ×4 — P&P Aqueduct (+1 Prosperity, -1 Plague; immune to Drought & Fire)
   ...Array(4).fill(null).map((_, i) => ({
     id: uid(), name: 'Firewall', category: 'DAEMON' as const,
-    description: '+1 to Stability Roll\n-1 to Corruption Roll\nImmune to Data Drought and Inferno Protocol.',
+    description: '+1 to Stability Roll\n-1 to Corruption Roll\nImmune to Data Drought and Sigterm.',
     rarity: common(i + 2) as CardRarity, daemonType: 'FIREWALL' as const,
     prosperityBonus: 1, corruptionPenalty: -1,
     flavourText: 'The first line of defence. And the last.',
@@ -227,7 +227,7 @@ const daemonCards: Card[] = [
   // Hardened Node ×5 — P&P City Walls (+1 Prosperity, -1 Plague; immune to Viking Raid & war losses)
   ...Array(5).fill(null).map((_, i) => ({
     id: uid(), name: 'Hardened Node', category: 'DAEMON' as const,
-    description: '+1 to Stability Roll\n-1 to Corruption Roll\nImmune to Raid Protocol.\nReduces war losses by 5.',
+    description: '+1 to Stability Roll\n-1 to Corruption Roll\nImmune to Node Rip.\nReduces war losses by 5.',
     rarity: common(i + 1) as CardRarity, daemonType: 'HARDENED_NODE' as const,
     prosperityBonus: 1, corruptionPenalty: -1,
     flavourText: 'Built to survive the end of the net.',

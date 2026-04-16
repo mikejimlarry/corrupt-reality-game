@@ -17,7 +17,7 @@ const MAX_CREDITS = 200;
 
 const IMP_LABEL: Record<string, string> = {
   FIREWALL:      '[FW] FIREWALL',
-  ENCRYPTION:    '[ENC] ENCRYPT',
+  ENCRYPTION:    '[EN] ENCRYPT',
   HARDENED_NODE: '[HN] H-NODE',
 };
 
@@ -35,6 +35,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
   private daemonItems: Phaser.GameObjects.GameObject[] = [];
   // AI card count label — updated on refresh
   private cardCountText?: Phaser.GameObjects.Text;
+  private statusDotTween?: Phaser.Tweens.Tween;
 
   constructor(scene: Phaser.Scene, x: number, y: number, player: PlayerState, hidePop = false) {
     super(scene, x, y);
@@ -71,13 +72,13 @@ export class PlayerZone extends Phaser.GameObjects.Container {
 
     // ── Status dot ──────────────────────────────────────────────────────────
     this.statusDot = this.scene.add.circle(left + W - PAD - 5, top + PAD + 5, 4, accent, 1);
-    this.scene.tweens.add({
+    this.statusDotTween = this.scene.tweens.add({
       targets: this.statusDot, alpha: { from: 1, to: 0.3 },
       duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
     });
     this.add(this.statusDot);
 
-    const statusLabel = this.txt(left + W - PAD - 14, top + PAD + 5, 'ONLINE', {
+    const statusLabel = this.txt(left + W - PAD - 14, top + PAD + 5, !p.eliminated ? 'ONLINE' : 'OFFLINE', {
       fontFamily: 'monospace', fontSize: '7px', color: accentHex, letterSpacing: 1,
     }).setOrigin(1, 0.5);
     this.add(statusLabel);
@@ -214,6 +215,12 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     this.buildDaemonRow(player.daemons);
     if (this.cardCountText) {
       this.cardCountText.setText(`[${player.hand.length}] CARDS`);
+    }
+
+    // Stop the status dot pulse once a player is eliminated
+    if (player.eliminated && this.statusDotTween?.isPlaying()) {
+      this.statusDotTween.stop();
+      this.statusDot.setAlpha(0.25);
     }
 
     // Flash credit change

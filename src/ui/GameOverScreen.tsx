@@ -139,7 +139,7 @@ export function GameOverScreen() {
             textShadow: `0 0 24px ${ACCENT}88`,
             lineHeight: 1.1,
           }}>
-            {humanWon ? 'JACK OUT' : 'FLATLINED'}
+            {humanWon ? 'TASK COMPLETE' : 'FAILURE'}
           </div>
           <div style={{ fontSize: '0.7rem', color: `${ACCENT}88`, letterSpacing: 3, marginTop: '0.4rem' }}>
             {humanWon

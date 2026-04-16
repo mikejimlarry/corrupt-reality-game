@@ -65,7 +65,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     this.bezel.strokeRoundedRect(-PANEL_W / 2 + 5, -PANEL_H / 2 + 5, PANEL_W - 10, PANEL_H - 10, 9);
     this.add(this.bezel);
 
-    // Corner screws
+    // ── Corner screws ─────────────────────────────────────────────────────
     [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sy]) => {
       const cx = sx * (PANEL_W / 2 - 14);
       const cy = sy * (PANEL_H / 2 - 14);
@@ -227,7 +227,8 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   }
 
   // ── Run slot-machine animation then call onComplete ────────────────────────
-  roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void) {
+  roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string) {
+    this.setVisible(true);
     this.standbyTween?.stop();
     this.digit1Gfx.setAlpha(1);
     this.digit2Gfx.setAlpha(1);
@@ -298,7 +299,11 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
           let toastHex: string;
           let toastBgColor: number;
 
-          if (creditDelta === 0) {
+          if (customToast) {
+            toastLabel   = customToast;
+            toastHex     = '#00ccff';
+            toastBgColor = 0x00080f;
+          } else if (creditDelta === 0) {
             toastLabel  = '◆  NO CREDITS';
             toastHex    = '#446655';
             toastBgColor = 0x111a15;

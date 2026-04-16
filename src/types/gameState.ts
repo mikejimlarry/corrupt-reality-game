@@ -76,6 +76,10 @@ export interface GameState {
     /** Player ids in order of elimination (first eliminated = index 0). */
     eliminationOrder: string[];
   };
+  /** Non-null when a WAR card just resolved — scene shows a dice-roll animation then clears this. */
+  warRollDisplay: { r1: number; r2: number; actorName: string; targetName: string; actorWins: boolean } | null;
+  /** When set, the next advanceTurn call routes to this player index (first turn after Corruption card). */
+  postCorruptionTargetIndex: number | null;
   /**
    * Non-null when an AI played a targeted EVENT_NEGATIVE at the human and they
    * have a reactive counter (Quarantine / System Interrupt) in hand — pauses the

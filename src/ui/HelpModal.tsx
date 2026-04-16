@@ -63,30 +63,30 @@ const CARDS: CardEntry[] = [
   { name: 'Multitasking',        category: 'EVENT_POSITIVE', count: 2, effect: 'Play 1–2 additional cards this turn (randomly determined). Bonus cards cannot be Conflict or Countermeasure cards.' },
   // Negative events
   { name: 'Signal Theft',        category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal 15 credits from a target.' },
-  { name: 'Pestilence Protocol', category: 'EVENT_NEGATIVE', count: 6, effect: 'Target loses 5 credits.' },
+  { name: 'Memory Leak',         category: 'EVENT_NEGATIVE', count: 6, effect: 'Target loses 5 credits.' },
   { name: 'Digital Crusade',     category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses 10 credits.' },
   { name: 'Data Drought',        category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses 10 credits.', note: 'Firewall immune' },
   { name: 'Data Famine',         category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses 10 credits.' },
   { name: 'Data Flood',          category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses 10 credits.', note: 'Encryption immune' },
-  { name: 'Raid Protocol',       category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses 10 credits.', note: 'Hardened Node immune' },
+  { name: 'Node Rip',            category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses 10 credits.', note: 'Hardened Node immune' },
   { name: 'System Quake',        category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses 5 credits and one daemon.' },
-  { name: 'Inferno Protocol',    category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses 10 credits and one daemon.', note: 'Firewall immune' },
+  { name: 'Sigterm',             category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses 10 credits and one daemon.', note: 'Firewall immune' },
   { name: 'M.A.D.',              category: 'EVENT_NEGATIVE', count: 2, effect: 'You and the target each lose 15 credits.' },
   { name: 'Backdoor',            category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal one daemon from a target.' },
   { name: 'Network Storm',       category: 'EVENT_NEGATIVE', count: 2, effect: 'Every opponent loses 10 credits and one daemon.' },
   { name: 'The Corruption',      category: 'EVENT_NEGATIVE', count: 1, effect: 'Target loses 10 credits. Corruption mode begins.' },
   { name: 'Power Cycle',         category: 'EVENT_NEGATIVE', count: 1, effect: 'Target\'s credits reset to the starting amount, all their daemons are purged, and their hand is replaced with 5 new cards.' },
   // Wars
-  { name: 'Proxy Conflict',           category: 'WAR',            count: 4, effect: 'Attack a target. You lose 5 credits · Target loses 10 credits.' },
-  { name: 'Grid Conflict',            category: 'WAR',            count: 3, effect: 'Attack a target. You lose 10 credits · Target loses 20 credits and one daemon.' },
+  { name: 'Proxy Conflict',      category: 'WAR',            count: 4, effect: 'Attack a target. You lose 5 credits · Target loses 10 credits.' },
+  { name: 'Grid Conflict',       category: 'WAR',            count: 3, effect: 'Attack a target. You lose 10 credits · Target loses 20 credits and one daemon.' },
   // Counters
   { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Your next WAR roll gets +1. Play before initiating a conflict.' },
   { name: 'System Interrupt',    category: 'COUNTER',        count: 3, effect: 'Block the next Grid Conflict, Proxy Conflict, or Digital Crusade targeting you. Cannot block standard hack protocols or M.A.D.' },
   { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Block the next hack protocol targeting you — except Digital Crusade and M.A.D. Cannot block Conflict cards. One use.' },
   // Daemons
-  { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Data Drought & Inferno Protocol.' },
+  { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Data Drought & Sigterm.' },
   { name: 'Encryption',          category: 'DAEMON',    count: 3, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Data Flood.' },
-  { name: 'Hardened Node',       category: 'DAEMON',    count: 5, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Raid Protocol · Reduces WAR losses by 5.' },
+  { name: 'Hardened Node',       category: 'DAEMON',    count: 5, effect: '+1 credit per Stability Roll · Absorbs 1 Corruption loss per roll · Immune to Node Rip · Reduces WAR losses by 5.' },
 ];
 
 // ── Shared styles ─────────────────────────────────────────────────────────────

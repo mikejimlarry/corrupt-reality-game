@@ -156,11 +156,14 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         });
       }
 
-      // STEAL_DAEMON — take one random daemon from target, add to actor if not already held
+      // STEAL_DAEMON — take one random daemon from target, add to actor if not already held.
+      // Prefer daemons the actor doesn't own yet; fall back to any if all are duplicates.
       if (neg.effect === 'STEAL_DAEMON') {
         const targetImps = players[ti].daemons;
         if (targetImps.length === 0) return players; // nothing to steal
-        const stolen = targetImps[Math.floor(random() * targetImps.length)];
+        const preferredImps = targetImps.filter(imp => !players[actorIndex].daemons.includes(imp));
+        const stealPool = preferredImps.length > 0 ? preferredImps : targetImps;
+        const stolen = stealPool[Math.floor(random() * stealPool.length)];
         return players.map((p, i) => {
           if (i === ti)
             return { ...p, daemons: p.daemons.filter(imp => imp !== stolen) };
@@ -421,6 +424,7 @@ interface GameStore extends GameState {
   corruptionPendingTarget: boolean;
   pendingCardId: string | null;
   validTargetIds: string[];
+  clearWarRollDisplay(): void;
   togglePause(): void;
   startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean): void;
   resetToSetup(): void;
@@ -485,6 +489,8 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   paused: false,
   extraPlayPending: 0,
   gameStats: { cardsPlayed: {}, eliminationOrder: [] },
+  warRollDisplay: null,
+  postCorruptionTargetIndex: null,
 };
 
 // ── Cyberpunk AI names & personalities ────────────────────────────────────────
@@ -657,13 +663,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ deck, discard, players, phase: 'MAIN', corruptionReveal: true, globalCorruptionMode: true, corruptionPendingTarget: true });
       } else {
         // AI: apply damage to a random live opponent immediately before the reveal
+        let corruptionTargetIdx: number | null = null;
         if (liveOps.length > 0) {
           const { i: ti } = liveOps[Math.floor(random() * liveOps.length)];
+          corruptionTargetIdx = ti;
           players = players.map((p, i) =>
             i === ti ? { ...p, credits: Math.max(0, p.credits - 10) } : p
           );
         }
-        set({ deck, discard, players, phase: 'MAIN', corruptionReveal: true, globalCorruptionMode: true });
+        set({ deck, discard, players, phase: 'MAIN', corruptionReveal: true, globalCorruptionMode: true, postCorruptionTargetIndex: corruptionTargetIdx });
       }
     } else {
       set({ deck, discard, players, phase: 'MAIN' });
@@ -900,6 +908,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     _warRollResult = null;
     _lastTargetName = null;
     players = applyCardEffect(card, players, actorIndex, targetIndex);
+    const capturedWarRoll = card.category === 'WAR' && _warRollResult ? { ..._warRollResult } : null;
     const blockedBy = _quarantineBlockedBy;
     const negotiateBlockedBy = _negotiateBlockedBy;
     const daemonBlockedBy = _daemonImmunityBlockedBy;
@@ -962,6 +971,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingCardId: null,
         validTargetIds: [],
         deadMansSwitchPending: humanDmsPending,
+        warRollDisplay: null,
         gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder },
       });
       return; // advanceTurn fires after overlay resolves
@@ -1044,6 +1054,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       validTargetIds: [],
       deadMansSwitchPending: null,
       pendingOverclockCard: isHumanOverclock ? card : state.pendingOverclockCard,
+      warRollDisplay: capturedWarRoll ? {
+        r1: capturedWarRoll.actorBase,
+        r2: capturedWarRoll.targetBase,
+        actorName: actor.name,
+        targetName: capturedWarRoll.targetName,
+        actorWins: capturedWarRoll.actorWins,
+      } : null,
       gameStats: {
         cardsPlayed: newCardsPlayed,
         eliminationOrder: winnerId ? [..._eliminationOrder] : prevStats.eliminationOrder,
@@ -1103,6 +1120,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         validTargetIds: [],
         corruptionPendingTarget: false,
         winnerId,
+        postCorruptionTargetIndex: winnerId ? null : targetIndex,
       });
       return;
     }
@@ -1386,6 +1404,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     _warRollResult = null;
     _negotiateBlockedBy = null;
     players = applyCardEffect(warCard, players, p1Index, p2Index);
+    const capturedWarRoll = _warRollResult ? { ..._warRollResult } : null;
     const negotiateBlockedBy = _negotiateBlockedBy;
     _negotiateBlockedBy = null;
 
@@ -1417,6 +1436,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
 
+    const warDisplayPayload = capturedWarRoll ? {
+      r1: capturedWarRoll.actorBase,
+      r2: capturedWarRoll.targetBase,
+      actorName: state.players[actorIndex].name,
+      targetName: capturedWarRoll.targetName,
+      actorWins: capturedWarRoll.actorWins,
+    } : null;
+
     if (humanDmsPending) {
       players = markEliminations(players, true);
       set({
@@ -1426,6 +1453,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingCardId: null,
         validTargetIds: [],
         deadMansSwitchPending: humanDmsPending,
+        warRollDisplay: warDisplayPayload,
       });
       return;
     }
@@ -1458,6 +1486,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       selectedCardId: null,
       pendingCardId: null,
       validTargetIds: [],
+      warRollDisplay: warDisplayPayload,
       gameStats: {
         cardsPlayed: warCardsPlayed,
         eliminationOrder: winnerId ? [..._eliminationOrder] : prevStatsWar.eliminationOrder,
@@ -1505,19 +1534,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (state.phase === 'GAME_OVER') return;
 
-    const { players, currentPlayerIndex, turnNumber } = state;
+    const { players, currentPlayerIndex, turnNumber, postCorruptionTargetIndex } = state;
     const total = players.length;
 
-    // Find next non-eliminated player
-    let nextIndex = (currentPlayerIndex + 1) % total;
-    let loops = 0;
-    while (players[nextIndex].eliminated && loops < total) {
-      nextIndex = (nextIndex + 1) % total;
-      loops++;
+    let nextIndex: number;
+    // After a Corruption card targets a player, that player goes next
+    if (postCorruptionTargetIndex !== null && !players[postCorruptionTargetIndex].eliminated) {
+      nextIndex = postCorruptionTargetIndex;
+    } else {
+      // Find next non-eliminated player in rotation
+      nextIndex = (currentPlayerIndex + 1) % total;
+      let loops = 0;
+      while (players[nextIndex].eliminated && loops < total) {
+        nextIndex = (nextIndex + 1) % total;
+        loops++;
+      }
+      // If all are eliminated somehow, do nothing
+      if (players[nextIndex].eliminated) return;
     }
-
-    // If all are eliminated somehow, do nothing
-    if (players[nextIndex].eliminated) return;
 
     const wrappedAround = nextIndex <= currentPlayerIndex;
     const newTurnNumber = wrappedAround ? turnNumber + 1 : turnNumber;
@@ -1530,6 +1564,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       rollResult: roll,
       rollTriggered: false,
       selectedCardId: null,
+      postCorruptionTargetIndex: null,
     });
 
     const nextPlayer = players[nextIndex];
@@ -1711,6 +1746,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       setTimeout(() => { if (!get().paused) get().runAiTurn(); }, 400);
     }
   },
+
+  clearWarRollDisplay: () => set({ warRollDisplay: null }),
 
   runAiTurn: () => {
     if (get().paused) return; // ← guard: don't start a new AI turn while paused
