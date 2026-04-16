@@ -13,7 +13,7 @@ const RADIUS = 8;
 
 // ── Colour palettes ──────────────────────────────────────────────────────────
 const CAT_COLOR: Record<CardCategory, number> = {
-  CREDITS:         0x00ff88,
+  CREDITS:       0x00ff88,
   EVENT_POSITIVE:0x00ccff,
   EVENT_NEGATIVE:0xff3355,
   WAR:           0xff8800,
@@ -22,7 +22,7 @@ const CAT_COLOR: Record<CardCategory, number> = {
 };
 
 const CAT_LABEL: Record<CardCategory, string> = {
-  CREDITS:         'DATA HARVEST',
+  CREDITS:       'DATA HARVEST',
   EVENT_POSITIVE:'SYSTEM EVENT',
   EVENT_NEGATIVE:'HACK PROTOCOL',
   WAR:           'GRID CONFLICT',
@@ -73,12 +73,12 @@ export class Card extends Phaser.GameObjects.Container {
 
   private build() {
     const { cardData: d } = this;
-    const catColor  = CAT_COLOR[d.category];
-    const catHex    = `#${catColor.toString(16).padStart(6, '0')}`;
+    const catColor    = CAT_COLOR[d.category];
+    const catHex      = `#${catColor.toString(16).padStart(6, '0')}`;
     const rarityColor = RARITY_COLOR[d.rarity];
-    const rarityHex = RARITY_TEXT_COLOR[d.rarity];
-    const left  = -CARD_W / 2;
-    const top   = -CARD_H / 2;
+    const rarityHex   = RARITY_TEXT_COLOR[d.rarity];
+    const left        = -CARD_W / 2;
+    const top         = -CARD_H / 2;
 
     // ── Background ────────────────────────────────────────────────────────
     const bg = this.scene.add.graphics();
@@ -198,7 +198,7 @@ export class Card extends Phaser.GameObjects.Container {
     this.add(desc);
 
     // ── Footer: flavour text + card number ────────────────────────────────
-    const footerY = top + CARD_H - 16;
+    const footerY = top + CARD_H - 12;
     if (d.flavourText) {
       const flavour = this.txt(
         left + PAD + 4, footerY,
