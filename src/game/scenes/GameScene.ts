@@ -819,29 +819,34 @@ export class GameScene extends Phaser.Scene {
       let x: number, y: number, angle: number;
 
       if (seat === 0) {
-        // Top — horizontal fan peeking from top edge
+        // Top — horizontal fan peeking from top edge.
+        // Cards are rotated 180° (upside-down). Negate c so outer cards tilt
+        // away from centre rather than toward it.
         const FAN_DEG = 18;
         const totalW  = (count - 1) * OVERLAP;
         const startX  = width / 2 - totalW / 2;
         x     = startX + OVERLAP * i;
         y     = -(CARD_H / 2 - 44);
-        angle = c * FAN_DEG + 180;
+        angle = -c * FAN_DEG + 180;
       } else if (seat === 1) {
-        // Left — vertical fan with quadratic arc
+        // Left — vertical fan with quadratic arc.
+        // Cards are rotated −90°. Negate the sign so top cards tilt upward
+        // and bottom cards tilt downward (natural fan opening toward centre).
         const FAN_DEG = 20, ARC_DROP = 16;
         const totalH  = (count - 1) * OVERLAP;
         const startY  = midY - totalH / 2;
         x     = -(CARD_H / 2 - 40) + c * c * ARC_DROP * 4;
         y     = startY + OVERLAP * i;
-        angle = -(c * FAN_DEG) - 90;
+        angle = c * FAN_DEG - 90;
       } else {
-        // Right — vertical fan (mirrored)
+        // Right — vertical fan (mirrored from left).
+        // Cards are rotated +90°. Negate c so top cards tilt upward.
         const FAN_DEG = 20, ARC_DROP = 16;
         const totalH  = (count - 1) * OVERLAP;
         const startY  = midY - totalH / 2;
         x     = width + CARD_H / 2 - 40 - c * c * ARC_DROP * 4;
         y     = startY + OVERLAP * i;
-        angle = (c * FAN_DEG) + 90;
+        angle = -c * FAN_DEG + 90;
       }
       result.push({ x, y, angle });
     }
