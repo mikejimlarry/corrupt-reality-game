@@ -42,6 +42,12 @@ let _eliminationOrder: string[] = [];
 // Guards against double-saving the game record when multiple set() paths fire.
 let _recordSaved = false;
 
+// ── AI turn pacing (ms) ───────────────────────────────────────────────────────
+const AI_ROLL_DELAY    = 1600; // standby on PHASE_ROLL before triggering the roll
+const AI_DRAW_DELAY    = 900;  // gap between roll-complete and the draw/play phase
+const AI_CARD_DELAY    = 1300; // gap between drawing cards and picking one to play
+const AI_ADVANCE_DELAY = 1400; // pause after a card resolves before the next turn
+
 // ── localStorage win/loss record ──────────────────────────────────────────────
 
 interface _SessionRecord { date: string; humanWon: boolean; turns: number; playerCount: number; corrupted: boolean; }
@@ -296,6 +302,13 @@ function pickAiCard(
     c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).amount >= 10
   );
 
+  // COUNTER cards are reactive by design — never play them as a generic fallback.
+  // Explicit personality branches may still choose specific counter types intentionally.
+  const nonCounterHand = ai.hand.filter(c => c.category !== 'COUNTER');
+  const anyCard = nonCounterHand.length > 0
+    ? nonCounterHand[Math.floor(random() * nonCounterHand.length)]
+    : ai.hand[0] ?? null;
+
   switch (ai.personality) {
     case 'AGGRESSIVE': {
       // Use Power Cycle if target is significantly ahead AND has daemons
@@ -310,19 +323,19 @@ function pickAiCard(
         return ai.hand.find(c => c.category === 'COUNTER' && (c as CounterCard).counterType === 'TACTICAL_ADVANTAGE')
           ?? ai.hand.find(c => c.category === 'WAR')
           ?? ai.hand.find(c => c.category === 'EVENT_NEGATIVE')
-          ?? ai.hand[0];
+          ?? nonCounterHand[0] ?? ai.hand[0];
       return ai.hand.find(c => c.category === 'WAR')
         ?? ai.hand.find(c => c.category === 'EVENT_NEGATIVE')
-        ?? ai.hand[0];
+        ?? nonCounterHand[0] ?? ai.hand[0];
     }
     case 'CAUTIOUS':
-      // Play System Interrupt when low on credits as a defensive shield
+      // Play System Interrupt only as a last-resort shield when credits are critically low
       return ai.hand.find(c => c.category === 'DAEMON')
         ?? ai.hand.find(c => c.category === 'CREDITS')
         ?? (ai.credits < 20
           ? ai.hand.find(c => c.category === 'COUNTER' && (c as CounterCard).counterType === 'NEGOTIATE')
           : undefined)
-        ?? ai.hand[0];
+        ?? nonCounterHand[0] ?? ai.hand[0];
     case 'TACTICAL': {
       const score = (c: Card): number => {
         if (c.category === 'WAR') return (c as WarCard).loserLoses;
@@ -333,13 +346,12 @@ function pickAiCard(
         }
         if (c.category === 'EVENT_POSITIVE') {
           const pos = c as PositiveEventCard;
-          // Score Multitasking based on whether a strong follow-up card exists
           if (pos.effect === 'EXTRA_PLAY') return hasGoodFollowUp ? 15 : 0;
           return pos.amount;
         }
         if (c.category === 'CREDITS') return (c as CreditsCard).amount;
         if (c.category === 'DAEMON') return 8;
-        return 0;
+        return 0; // COUNTER cards score 0 — effectively excluded from proactive picks
       };
       return [...ai.hand].sort((a, b) => score(b) - score(a))[0];
     }
@@ -352,7 +364,7 @@ function pickAiCard(
               (c as PositiveEventCard).effect !== 'OVERCLOCK' &&
               (c as PositiveEventCard).effect !== 'EXTRA_PLAY'
             )
-          ?? ai.hand[0];
+          ?? nonCounterHand[0] ?? ai.hand[0];
       }
       // Opportunistic Power Cycle only when the target is a clear runaway leader
       if (powerCycleCard && powerCycleScore >= 30) return powerCycleCard;
@@ -364,17 +376,17 @@ function pickAiCard(
         return ai.hand.find(c => c.category === 'DAEMON')
           ?? ai.hand.find(c => c.category === 'CREDITS')
           ?? ai.hand.find(c => c.category === 'EVENT_POSITIVE')
-          ?? ai.hand[0];
+          ?? nonCounterHand[0] ?? ai.hand[0];
       }
       if (random() < 0.65) {
         return ai.hand.find(c => c.category === 'EVENT_NEGATIVE')
           ?? ai.hand.find(c => c.category === 'WAR')
-          ?? ai.hand[0];
+          ?? nonCounterHand[0] ?? ai.hand[0];
       }
-      return ai.hand[Math.floor(random() * ai.hand.length)];
+      return anyCard;
     }
     default:
-      return ai.hand[Math.floor(random() * ai.hand.length)];
+      return anyCard;
   }
 }
 
@@ -600,7 +612,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (!currentPlayer?.isHuman && state.phase !== 'GAME_OVER') {
         const phase = state.phase;
         if (phase === 'PHASE_ROLL') {
-          setTimeout(() => { if (!get().paused) get().triggerRoll(); }, 900);
+          setTimeout(() => { if (!get().paused) get().triggerRoll(); }, AI_ROLL_DELAY);
         } else if (phase === 'MAIN') {
           setTimeout(() => {
             if (get().paused) return;
@@ -617,13 +629,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
               : pickAiCard(actor, s.players, s.currentPlayerIndex, s.startingPop);
             if (!card) {
               set({ extraPlayPending: 0, phase: 'END_TURN' });
-              setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+              setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
               return;
             }
             get().applyPlayCard(card.id, undefined);
-          }, 700);
+          }, AI_CARD_DELAY);
         } else if (phase === 'END_TURN') {
-          setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+          setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
         }
       }
     }
@@ -829,7 +841,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               (c as CounterCard).counterType === 'SHIELD'
             ) as CounterCard[];
             if (eligibleCounters.length > 0) {
-              set({ counterPending: { attackerIndex: actorIndex, cardId, targetIndex: targetI, eligibleCounters } });
+              set({ counterPending: { type: 'ATTACK', attackerIndex: actorIndex, cardId, targetIndex: targetI, eligibleCounters } });
               return; // resume via resolveCounterOpportunity
             }
           } else if (!target.isHuman && !target.quarantined) {
@@ -863,6 +875,31 @@ export const useGameStore = create<GameStore>((set, get) => ({
               _skipCounterCheck = false;
               return;
             }
+          }
+        }
+      }
+    }
+
+    // ── WAR counter opportunity — when AI targets human with a WAR card ───────
+    // Give the human a chance to play System Interrupt (cancel) or Firewall Surge
+    // (+1 roll bonus) before the war resolves. Skip if human already has the
+    // negotiating flag active (Cease & Desist already armed — auto-blocks in effect).
+    if (!_skipCounterCheck && !actor.isHuman && card.category === 'WAR') {
+      const liveOpponents = state.players
+        .map((p, i) => ({ p, i }))
+        .filter(({ p, i }) => i !== actorIndex && !p.eliminated);
+      if (liveOpponents.length > 0) {
+        const targetI = liveOpponents[Math.floor(random() * liveOpponents.length)].i;
+        const target  = state.players[targetI];
+        if (target.isHuman && !target.negotiating) {
+          const eligibleCounters = target.hand.filter(c =>
+            c.category === 'COUNTER' &&
+            ((c as CounterCard).counterType === 'NEGOTIATE' ||
+             (c as CounterCard).counterType === 'TACTICAL_ADVANTAGE')
+          ) as CounterCard[];
+          if (eligibleCounters.length > 0) {
+            set({ counterPending: { type: 'WAR', attackerIndex: actorIndex, cardId, targetIndex: targetI, eligibleCounters } });
+            return; // resume via resolveCounterOpportunity
           }
         }
       }
@@ -927,7 +964,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             damageDealt: prevStats.damageDealt,
           },
         });
-        if (!winnerId && !actor.isHuman) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+        if (!winnerId && !actor.isHuman) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
       }
       return;
     }
@@ -1056,11 +1093,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
             : null;
           if (!card2) {
             set({ extraPlayPending: 0, phase: 'END_TURN' });
-            setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+            setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
             return;
           }
           get().applyPlayCard(card2.id, undefined);
-        }, 700);
+        }, AI_CARD_DELAY);
       }
       return;
     }
@@ -1122,13 +1159,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
             : null;
           if (!card2) {
             set({ extraPlayPending: 0, phase: 'END_TURN' });
-            setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+            setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
             return;
           }
           get().applyPlayCard(card2.id, undefined);
-        }, 700);
+        }, AI_CARD_DELAY);
       } else {
-        setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+        setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
       }
     }
   },
@@ -1222,7 +1259,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         : state.gameStats,
     });
 
-    if (!winnerId && !humanResolved) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+    if (!winnerId && !humanResolved) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
   },
 
   resolveDaemonSteal: (daemon) => {
@@ -1392,45 +1429,48 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const pending = state.counterPending;
     if (!pending) return;
 
-    const { attackerIndex, cardId, targetIndex } = pending;
+    const { type, attackerIndex, cardId, targetIndex } = pending;
 
     if (counterCardId === null) {
-      // Human chose to allow the attack — re-run applyPlayCard with skip flag
-      // and the pre-resolved target so the effect applies normally.
+      // Human chose to allow — proceed with the original card at the pre-resolved target.
       set({ counterPending: null });
       _skipCounterCheck = true;
       get().applyPlayCard(cardId, targetIndex);
       _skipCounterCheck = false;
-    } else {
-      // Human played a counter card — block the attack entirely.
-      const attacker  = state.players[attackerIndex];
-      const attackCard = attacker?.hand.find(c => c.id === cardId);
-      const human     = state.players.find(p => p.isHuman);
-      const counterCard = human?.hand.find(c => c.id === counterCardId) as CounterCard | undefined;
-      if (!attackCard || !counterCard) { set({ counterPending: null }); return; }
+      return;
+    }
 
-      // Remove both cards from their owners' hands
-      let players = state.players.map((p, i) => {
+    const attacker   = state.players[attackerIndex];
+    const attackCard = attacker?.hand.find(c => c.id === cardId);
+    const human      = state.players.find(p => p.isHuman);
+    const counterCard = human?.hand.find(c => c.id === counterCardId) as CounterCard | undefined;
+    if (!attackCard || !counterCard) { set({ counterPending: null }); return; }
+
+    if (type === 'WAR' && counterCard.counterType === 'TACTICAL_ADVANTAGE') {
+      // Firewall Surge in a WAR — boost human's roll but let the war proceed.
+      const players = state.players.map(p =>
+        p.isHuman
+          ? { ...p, hand: p.hand.filter(c => c.id !== counterCardId), tacticalBonus: p.tacticalBonus + 1 }
+          : p
+      );
+      const discard = [...state.discard, counterCard];
+      set({ players, discard, counterPending: null });
+      get().addLog(`${human!.name} plays ${counterCard.name} — +1 to their war roll!`, 'effect');
+      // Let the WAR resolve at the pre-resolved target with the bonus now applied.
+      _skipCounterCheck = true;
+      get().applyPlayCard(cardId, targetIndex);
+      _skipCounterCheck = false;
+    } else {
+      // NEGOTIATE (blocks WAR / EVENT_NEGATIVE) or SHIELD (blocks EVENT_NEGATIVE) — cancel entirely.
+      const players = state.players.map((p, i) => {
         if (i === attackerIndex) return { ...p, hand: p.hand.filter(c => c.id !== cardId) };
         if (p.isHuman)           return { ...p, hand: p.hand.filter(c => c.id !== counterCardId) };
         return p;
       });
-
       const discard = [...state.discard, attackCard, counterCard];
-
-      set({
-        players,
-        discard,
-        counterPending: null,
-        phase: 'MAIN',
-        selectedCardId: null,
-        validTargetIds: [],
-      });
-
+      set({ players, discard, counterPending: null, phase: 'MAIN', selectedCardId: null, validTargetIds: [] });
       get().addLog(`${attacker.name} played ${attackCard.name} — blocked by ${human!.name}'s ${counterCard.name}!`, 'effect');
-
-      // Resume the AI's turn
-      setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+      setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
     }
   },
 
@@ -1620,7 +1660,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // AI auto-triggers the roll after the standby display has had time to appear
     if (!nextPlayer.isHuman) {
-      setTimeout(() => { if (!get().paused) get().triggerRoll(); }, 900);
+      setTimeout(() => { if (!get().paused) get().triggerRoll(); }, AI_ROLL_DELAY);
     }
   },
 
@@ -1783,7 +1823,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ? { ...state.gameStats, eliminationOrder: [..._eliminationOrder] }
           : state.gameStats,
       });
-      if (alive.length > 1) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 950);
+      if (alive.length > 1) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
       return;
     }
 
@@ -1791,7 +1831,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (actor.isHuman) {
       set({ phase: 'DRAW' });
     } else {
-      setTimeout(() => { if (!get().paused) get().runAiTurn(); }, 400);
+      setTimeout(() => { if (!get().paused) get().runAiTurn(); }, AI_DRAW_DELAY);
     }
   },
 
@@ -1844,6 +1884,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       // AI skips the TARGETING phase — applyPlayCard picks a random target internally
       get().applyPlayCard(card.id, undefined);
-    }, 700);
+    }, AI_CARD_DELAY);
   },
 }));

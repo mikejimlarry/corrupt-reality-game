@@ -83,17 +83,18 @@ export interface GameState {
   /** When set, the next advanceTurn call routes to this player index (first turn after Corruption card). */
   postCorruptionTargetIndex: number | null;
   /**
-   * Non-null when an AI played a targeted EVENT_NEGATIVE at the human and they
-   * have a reactive counter (Quarantine / System Interrupt) in hand — pauses the
-   * AI turn so the human can choose whether to block.
+   * Non-null when an AI played a targeted EVENT_NEGATIVE or WAR at the human and they
+   * have a reactive counter card in hand — pauses the AI turn so the human can respond.
    */
   counterPending: {
+    /** Whether the incoming threat is a hack-protocol attack or a WAR card. */
+    type: 'ATTACK' | 'WAR';
     attackerIndex: number;
     /** ID of the attacker's card (still in their hand until resolved). */
     cardId: string;
     /** Pre-resolved target index — always the human player. */
     targetIndex: number;
-    /** Counter cards the human can play to block. */
+    /** Counter cards the human can play to respond. */
     eligibleCounters: CounterCard[];
   } | null;
 }
