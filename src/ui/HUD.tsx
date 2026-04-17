@@ -377,71 +377,37 @@ export function HUD() {
           </div>
         )}
 
-        {/* Action panel — MAIN phase only */}
-        {phase === 'MAIN' && isHuman && (
+        {/* Multitasking indicator — shown in top-right when extra plays are pending */}
+        {phase === 'MAIN' && isHuman && extraPlayPending > 0 && (
           <div style={panelStyle}>
-            {extraPlayPending > 0 && (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                gap: 8,
-                fontSize: 9, color: '#00ffcc66', letterSpacing: 2,
-                marginBottom: 6, borderBottom: '1px solid #00ffcc22', paddingBottom: 6,
-              }}>
-                <span>⟳ MULTITASKING — {extraPlayPending} MORE CARD{extraPlayPending > 1 ? 'S' : ''} TO PLAY</span>
-                <button
-                  onClick={() => cancelExtraPlays()}
-                  title="End your turn now without using remaining plays"
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid #00ffcc33',
-                    color: '#00ffcc55',
-                    fontFamily: 'monospace',
-                    fontSize: 8,
-                    letterSpacing: 1,
-                    padding: '2px 6px',
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                    transition: 'all 0.12s',
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.color = '#00ffcc';
-                    (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc88';
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(0,255,204,0.08)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.color = '#00ffcc55';
-                    (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc33';
-                    (e.currentTarget as HTMLElement).style.background = 'transparent';
-                  }}
-                >
-                  DONE
-                </button>
-              </div>
-            )}
-
-            {phase === 'MAIN' && !selectedCard && (
-              <div style={{ fontSize: 11, color: `${ACCENT}55`, letterSpacing: 1 }}>
-                SELECT A CARD TO PLAY
-              </div>
-            )}
-
-            {phase === 'MAIN' && selectedCard && (
-              <>
-                <div style={{ fontSize: 10, color: ACCENT, marginBottom: 8, letterSpacing: 1 }}>
-                  {selectedCard.name.toUpperCase()}
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button style={primaryBtnStyle} onClick={() => { sfxCardPlay(); playCard(selectedCard.id); }}>
-                    PLAY
-                  </button>
-                  {!isForced && extraPlayPending === 0 && (
-                    <button style={dimBtnStyle} onClick={() => discardCard(selectedCard.id)}>
-                      DISCARD
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+              fontSize: 9, color: '#00ffcc66', letterSpacing: 2,
+            }}>
+              <span>⟳ MULTITASKING — {extraPlayPending} MORE CARD{extraPlayPending > 1 ? 'S' : ''} TO PLAY</span>
+              <button
+                onClick={() => cancelExtraPlays()}
+                title="End your turn now without using remaining plays"
+                style={{
+                  background: 'transparent', border: '1px solid #00ffcc33',
+                  color: '#00ffcc55', fontFamily: 'monospace',
+                  fontSize: 8, letterSpacing: 1, padding: '2px 6px',
+                  cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.color = '#00ffcc';
+                  (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc88';
+                  (e.currentTarget as HTMLElement).style.background = 'rgba(0,255,204,0.08)';
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.color = '#00ffcc55';
+                  (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc33';
+                  (e.currentTarget as HTMLElement).style.background = 'transparent';
+                }}
+              >
+                DONE
+              </button>
+            </div>
           </div>
         )}
 
@@ -475,11 +441,58 @@ export function HUD() {
           </div>
           <button
             className={corruption ? 'corruption-pulse' : 'hud-pulse'}
-            style={{ ...primaryBtnStyle, width: 180, fontSize: 13, letterSpacing: 2 }}
+            style={{ ...primaryBtnStyle, width: 200, fontSize: 13, letterSpacing: 2 }}
             onClick={() => triggerRoll()}
           >
             ▶ BEGIN SEQUENCE
           </button>
+        </div>
+      )}
+
+      {/* ── MAIN phase — play / discard centered over the protocol zone ── */}
+      {phase === 'MAIN' && isHuman && (
+        <div style={{
+          position: 'fixed',
+          top: '46%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 8,
+          pointerEvents: 'auto',
+          animation: 'protocol-fade-in 0.18s ease-out forwards',
+        }}>
+          {!selectedCard && (
+            <div style={{ fontSize: 10, color: `${ACCENT}33`, letterSpacing: 3, fontFamily: 'monospace' }}>
+              SELECT A CARD
+            </div>
+          )}
+          {selectedCard && (
+            <>
+              <div style={{ fontSize: 10, color: `${ACCENT}aa`, letterSpacing: 2, fontFamily: 'monospace' }}>
+                {selectedCard.name.toUpperCase()}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  className={corruption ? 'corruption-pulse' : 'hud-pulse'}
+                  style={{ ...primaryBtnStyle, width: 100, fontSize: 12 }}
+                  onClick={() => { sfxCardPlay(); playCard(selectedCard.id); }}
+                >
+                  PLAY
+                </button>
+                {!isForced && extraPlayPending === 0 && (
+                  <button
+                    style={{ ...dimBtnStyle, width: 100, fontSize: 12 }}
+                    onClick={() => discardCard(selectedCard.id)}
+                  >
+                    DISCARD
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
