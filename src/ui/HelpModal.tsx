@@ -38,7 +38,7 @@ const CAT_LABEL: Record<string, string> = {
   CREDITS:        'CREDIT CARD',
   EVENT_POSITIVE: 'SYSTEM EVENT',
   EVENT_NEGATIVE: 'HACK PROTOCOL',
-  WAR:            'GRID CONFLICT',
+  WAR:            'WARFARE',
   COUNTER:        'COUNTERMEASURE',
   DAEMON:    'DAEMON',
 };
@@ -55,33 +55,33 @@ interface CardEntry {
 // ── Card catalogue ────────────────────────────────────────────────────────────
 const CARDS: CardEntry[] = [
   // Credits
-  { name: 'Data Harvest',        category: 'CREDITS',        count: 6, effect: 'Gain +5 credits.' },
-  { name: 'Neural Uplink',       category: 'CREDITS',        count: 6, effect: 'Gain +10 credits.' },
+  { name: 'Data Harvest',        category: 'CYCLES',        count: 6, effect: 'Gain +5 cycles.' },
+  { name: 'Neural Uplink',       category: 'CYCLES',        count: 6, effect: 'Gain +10 cycles.' },
   // Positive events
-  { name: 'Mass Assimilation',   category: 'EVENT_POSITIVE', count: 2, effect: 'Each opponent loses -5 credits; you gain +5 per opponent.' },
+  { name: 'Mass Assimilation',   category: 'EVENT_POSITIVE', count: 2, effect: 'Each opponent loses -5 cycles; you gain +5 per opponent.' },
   { name: 'Overclock',           category: 'EVENT_POSITIVE', count: 2, effect: 'Adds +5 to your next Stability Roll total or -5 to your next Corruption Roll.' },
   { name: 'Multitasking',        category: 'EVENT_POSITIVE', count: 2, effect: 'Play 1–2 additional cards this turn. Bonus cards cannot be Conflict or Countermeasure cards.' },
   // Negative events
-  { name: 'Signal Theft',        category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal 15 credits from a target.' },
-  { name: 'Memory Leak',         category: 'EVENT_NEGATIVE', count: 6, effect: 'Target loses -5 credits.' },
-  { name: 'Digital Crusade',     category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses -10 credits.' },
-  { name: 'Data Drought',        category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 credits.', note: 'Firewall immune' },
-  { name: 'Data Famine',         category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 credits.' },
-  { name: 'Data Flood',          category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 credits.', note: 'Encryption immune' },
-  { name: 'Node Rip',            category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses -10 credits.', note: 'Hardened Node immune' },
-  { name: 'System Quake',        category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -5 credits and one active daemon.' },
-  { name: 'Sigterm',             category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 credits and one active daemon.', note: 'Firewall immune' },
-  { name: 'M.A.D.',              category: 'EVENT_NEGATIVE', count: 2, effect: 'You and the target each lose -15 credits.' },
+  { name: 'Signal Theft',        category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal 15 cycles from a target.' },
+  { name: 'Memory Leak',         category: 'EVENT_NEGATIVE', count: 6, effect: 'Target loses -5 cycles.' },
+  { name: 'Digital Crusade',     category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses -10 cycles.' },
+  { name: 'Data Drought',        category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 cycles.', note: 'Firewall immune' },
+  { name: 'Data Famine',         category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 cycles.' },
+  { name: 'Data Flood',          category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 cycles.', note: 'Encryption immune' },
+  { name: 'Node Rip',            category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses -10 cycles.', note: 'Hardened Node immune' },
+  { name: 'System Quake',        category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -5 cycles and one active daemon.' },
+  { name: 'Sigterm',             category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 cycles and one active daemon.', note: 'Firewall immune' },
+  { name: 'M.A.D.',              category: 'EVENT_NEGATIVE', count: 2, effect: 'You and the target each lose -15 cycles.' },
   { name: 'Backdoor',            category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal one active daemon from a target.' },
-  { name: 'Network Storm',       category: 'EVENT_NEGATIVE', count: 2, effect: 'Every opponent loses -10 credits and one active daemon.' },
-  { name: 'The Corruption',      category: 'EVENT_NEGATIVE', count: 1, effect: 'Target loses -10 credits. Corruption mode begins.' },
-  { name: 'Power Cycle',         category: 'EVENT_NEGATIVE', count: 1, effect: 'Target\'s credits reset to the starting amount, all their active daemons are purged, and their hand is replaced with 5 new cards.' },
+  { name: 'Network Storm',       category: 'EVENT_NEGATIVE', count: 2, effect: 'Every opponent loses -10 cycles and one active daemon.' },
+  { name: 'The Corruption',      category: 'EVENT_NEGATIVE', count: 1, effect: 'Target loses -10 cycles. Corruption mode begins.' },
+  { name: 'Power Cycle',         category: 'EVENT_NEGATIVE', count: 1, effect: 'Target\'s cycles reset to the starting amount, all their active daemons are purged, and their hand is replaced with 5 new cards.' },
   // Wars
-  { name: 'Proxy Conflict',      category: 'WAR',            count: 4, effect: 'Winner loses -5 credits. Loser loses -10 credits.' },
-  { name: 'Grid Conflict',       category: 'WAR',            count: 3, effect: 'Winner loses -10 credits. Loser loses -20 credits and one daemon.' },
+  { name: 'Skirmish',            category: 'WAR',            count: 4, effect: 'Winner loses -5 cycles. Loser loses -10 cycles.' },
+  { name: 'Total Siege',         category: 'WAR',            count: 3, effect: 'Winner loses -10 cycles. Loser loses -20 cycles and one daemon.' },
   // Counters
   { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Your next Conflict roll gets +1. Play before initiating a conflict.' },
-  { name: 'System Interrupt',    category: 'COUNTER',        count: 3, effect: 'Block the next Grid Conflict, Proxy Conflict, or Digital Crusade targeting you. Cannot block standard hack protocols or M.A.D.' },
+  { name: 'System Interrupt',    category: 'COUNTER',        count: 3, effect: 'Block the next Total Siege, Skirmish, or Digital Crusade targeting you. Cannot block standard hack protocols or M.A.D.' },
   { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Block the next hack protocol targeting you, excludes Digital Crusade, M.A.D., and Conflict cards. One use.' },
   // Daemons
   { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 to Stability Roll\n-1 to Corruption Roll\nImmune to Data Drought & Sigterm.' },
@@ -175,7 +175,7 @@ function RollTable() {
     <table style={{ width: '100%', borderCollapse: 'collapse', ...mono() }}>
       <thead>
         <tr>
-          {['ROLL', 'CREDITS', 'STATUS'].map(h => (
+          {['ROLL', 'CYCLES', 'STATUS'].map(h => (
             <th key={h} style={{ textAlign: 'left', fontSize: '0.6rem', letterSpacing: 2, color: '#446655', paddingBottom: 6, borderBottom: '1px solid #00ffcc22' }}>{h}</th>
           ))}
         </tr>
@@ -227,18 +227,18 @@ function TabHowToPlay() {
   return (
     <div>
       <Section title="OBJECTIVE">
-        <P>Be the last faction standing with credits. Manage your resources, attack rivals with hack protocols and conflicts, deploy daemons to protect yourself — and survive until everyone else is eliminated.</P>
+        <P>Be the last faction standing with cycles. Manage your resources, attack rivals with hack protocols and conflicts, deploy daemons to protect yourself — and survive until everyone else is eliminated.</P>
       </Section>
 
       <Section title="SETUP">
-        <Bullet>Each player starts with <Highlight>50 credits</Highlight> (adjustable in options).</Bullet>
+        <Bullet>Each player starts with <Highlight>50 cycles</Highlight> (adjustable in options).</Bullet>
         <Bullet>Each player is dealt <Highlight>5 cards</Highlight> from the shuffled deck.</Bullet>
         <Bullet>The remaining cards form a face-down <Highlight>draw pile</Highlight> in the centre.</Bullet>
         <Bullet>The player with the highest single die roll goes first.</Bullet>
       </Section>
 
       <Section title="YOUR TURN">
-        <Bullet><Highlight>1. Stability Roll</Highlight> — Roll two dice. Gain credits based on the table below. Each active daemon you own <Highlight>adds +1</Highlight> to your Stability Roll.</Bullet>
+        <Bullet><Highlight>1. Stability Roll</Highlight> — Roll two dice. Gain cycles based on the table below. Each active daemon you own <Highlight>adds +1</Highlight> to your Stability Roll.</Bullet>
         <Bullet><Highlight>2. Draw</Highlight> — Draw cards from the pile until you hold 6.</Bullet>
         <Bullet><Highlight>3. Play or Discard</Highlight> — Play one card from your hand, or discard one. All played and discarded cards go face-up in the discard pile.</Bullet>
         <P>Once all players have gone, the round repeats. Play continues until only one faction remains.</P>
@@ -247,35 +247,35 @@ function TabHowToPlay() {
 
       <Section title="THE CORRUPTION">
         <P>
-          When <Highlight>The Corruption</Highlight> card is played, the targeted player loses 10 credits and Corruption Mode begins — the entire board shifts red. Stability Rolls now deal damage instead of granting credits, using the same thresholds in reverse. Each active daemon you own <Highlight>subtracts -1</Highlight> from your Stability Roll — enough daemons can negate a roll entirely.
+          When <Highlight>The Corruption</Highlight> card is played, the targeted player loses 10 cycles and Corruption Mode begins — the entire board shifts red. Stability Rolls now deal damage instead of granting cycles, using the same thresholds in reverse. Each active daemon you own <Highlight>subtracts -1</Highlight> from your Stability Roll — enough daemons can negate a roll entirely.
         </P>
       </Section>
 
       <Section title="COUNTERMEASURES">
         <P>Some cards can be played <Highlight>reactively</Highlight> — out of turn — to cancel an incoming attack before it lands.</P>
         <Bullet><Highlight>Quarantine</Highlight> blocks any hack protocol aimed at you, <em>except</em> Digital Crusade and M.A.D.</Bullet>
-        <Bullet><Highlight>System Interrupt</Highlight> blocks any Grid Conflict (Proxy Conflict or Grid Conflict) or Digital Crusade targeting you. It cannot block standard hack protocols or M.A.D.</Bullet>
+        <Bullet><Highlight>System Interrupt</Highlight> blocks any warfare card (Total Siege or Skirmish) or Digital Crusade targeting you. It cannot block standard hack protocols or M.A.D.</Bullet>
         <P>When an AI targets you with a blockable attack and you hold the right counter, you will be prompted to play it or allow the attack through. <Highlight>Using a counter ends the attacker's turn immediately</Highlight> — they do not get to choose another card or action.</P>
       </Section>
 
       <Section title="ELIMINATION">
-        <P>Any player whose credits reach <Highlight>0</Highlight> is immediately eliminated. If the <Highlight>Dead Man's Switch</Highlight> option is enabled, they may choose one last targeted negative card from their hand to play before they fall.</P>
+        <P>Any player whose cycles reach <Highlight>0</Highlight> is immediately eliminated. If the <Highlight>Dead Man's Switch</Highlight> option is enabled, they may choose one last targeted negative card from their hand to play before they fall.</P>
       </Section>
 
       <Section title="WINNING">
-        <P>The <Highlight>last player with credits</Highlight> wins the game.</P>
+        <P>The <Highlight>last player with cycles</Highlight> wins the game.</P>
       </Section>
     </div>
   );
 }
 
 function TabCards() {
-  const categories = ['CREDITS', 'EVENT_POSITIVE', 'EVENT_NEGATIVE', 'WAR', 'COUNTER', 'DAEMON'];
+  const categories = ['CYCLES', 'EVENT_POSITIVE', 'EVENT_NEGATIVE', 'WAR', 'COUNTER', 'DAEMON'];
   const sectionTitle: Record<string, string> = {
     CREDITS:        'CREDIT CARDS',
     EVENT_POSITIVE: 'SYSTEM EVENTS',
     EVENT_NEGATIVE: 'HACK PROTOCOLS',
-    WAR:            'GRID CONFLICTS',
+    WAR:            'WARFARE',
     COUNTER:        'COUNTERMEASURES',
     DAEMON:         'DAEMONS',
   };
@@ -303,8 +303,8 @@ function TabCards() {
 function TabOptions() {
   return (
     <div>
-      <Section title="STARTING CREDITS">
-        <P>Slide to choose how many credits each player starts with (30–100 in steps of 5, default 50). This sets the length and pace of the game.</P>
+      <Section title="STARTING CYCLES">
+        <P>Slide to choose how many cycles each player starts with (30–100 in steps of 5, default 50). This sets the length and pace of the game.</P>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
           {[
             { range: '30–44', label: 'SHORT GAME', desc: 'Fast and brutal. One bad roll or hack protocol can swing the whole game.' },
@@ -328,7 +328,7 @@ function TabOptions() {
       </Section>
 
       <Section title="DEAD MAN'S SWITCH">
-        <P>When enabled, any player whose credits hit zero does not die silently. Before being eliminated, they may choose one targeted negative card from their hand to play as a final act. AI players pick automatically; the human player gets a choice.</P>
+        <P>When enabled, any player whose cycles hit zero does not die silently. Before being eliminated, they may choose one targeted negative card from their hand to play as a final act. AI players pick automatically; the human player gets a choice.</P>
         <P>Makes endgame eliminations more dangerous — a desperate faction can still cause chaos on their way out. Best used in longer games or with experienced players.</P>
       </Section>
     </div>

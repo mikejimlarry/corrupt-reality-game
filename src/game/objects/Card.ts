@@ -8,7 +8,7 @@ import { sfxCardSelect } from '../../lib/audio';
 export const CARD_W = 150;
 export const CARD_H = 210;
 const PAD = 9;
-const ART_H = 36;
+const ART_H = 52;   // enlarged — now the primary visual zone
 const RADIUS = 8;
 
 // ── Colour palettes ──────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ const CAT_LABEL: Record<CardCategory, string> = {
   CREDITS:       'DATA HARVEST',
   EVENT_POSITIVE:'SYSTEM EVENT',
   EVENT_NEGATIVE:'HACK PROTOCOL',
-  WAR:           'GRID CONFLICT',
+  WAR:           'WARFARE',
   COUNTER:       'COUNTERMEASURE',
   DAEMON:        'DAEMON',
 };
@@ -77,8 +77,13 @@ export class Card extends Phaser.GameObjects.Container {
     const catHex      = `#${catColor.toString(16).padStart(6, '0')}`;
     const rarityColor = RARITY_COLOR[d.rarity];
     const rarityHex   = RARITY_TEXT_COLOR[d.rarity];
-    const left        = -CARD_W / 2;
-    const top         = -CARD_H / 2;
+    const left = -CARD_W / 2;
+    const top  = -CARD_H / 2;
+
+    // Row heights (measured downward from card top)
+    const HEADER_H   = 18;  // category label + rarity badge bar
+    const NAME_ROW_H = 22;  // card name + stat pill
+    const GAP        = 4;   // generic vertical gap
 
     // ── Background ────────────────────────────────────────────────────────
     const bg = this.scene.add.graphics();
@@ -88,98 +93,94 @@ export class Card extends Phaser.GameObjects.Container {
     bg.strokeRoundedRect(left, top, CARD_W, CARD_H, RADIUS);
     this.add(bg);
 
-    // ── Rarity badge (right side, rotated vertical) ──────────────────────
-    // Natural rect: badgeW × badgeH. After –90° rotation it appears badgeH px
-    // wide and badgeW px tall, flush with the right card edge.
-    const badgeW = 42, badgeH = 13;
-    const badgeConX = left + CARD_W - 2 - badgeH / 2; // centre-x of rotated badge
-    const badgeConY = top  + 6 + badgeW / 2;           // centre-y of rotated badge
-    const badgeCon = this.scene.add.container(badgeConX, badgeConY);
+    // ── Header bar: category label (left) + rarity badge (right) ─────────
+    const headerBg = this.scene.add.graphics();
+    headerBg.fillStyle(catColor, 0.18);
+    headerBg.fillRoundedRect(left, top, CARD_W, HEADER_H, { tl: RADIUS, tr: RADIUS, bl: 0, br: 0 });
+    headerBg.lineStyle(0.5, catColor, 0.4);
+    headerBg.beginPath();
+    headerBg.moveTo(left + PAD, top + HEADER_H);
+    headerBg.lineTo(left + CARD_W - PAD, top + HEADER_H);
+    headerBg.strokePath();
+    this.add(headerBg);
 
-    const badgeGfx = this.scene.add.graphics();
-    badgeGfx.fillStyle(rarityColor, 0.25);
-    badgeGfx.fillRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 4);
-    badgeGfx.lineStyle(1, rarityColor, 0.9);
-    badgeGfx.strokeRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 4);
-    badgeCon.add(badgeGfx);
-
-    const rarityLbl = this.scene.add.text(0, 0, d.rarity, {
-      fontFamily: 'monospace', fontSize: '7px', color: rarityHex,
-      resolution: window.devicePixelRatio,
-    }).setOrigin(0.5);
-    badgeCon.add(rarityLbl);
-    badgeCon.setAngle(-90);
-    this.add(badgeCon);
-
-    // Name spans from left pad to just before the badge (badge visual width = badgeH px)
-    const nameLeft = left + PAD;                           // left edge for name & category
-    const nameWrap = CARD_W - PAD - (badgeH + 2 + 5);     // stop before badge
-
-    // ── Card name ─────────────────────────────────────────────────────────
-    const nameY = top + 25;
-    const name = this.txt(
-      nameLeft, nameY,
-      d.name.toUpperCase(),
-      { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff',
-        fontStyle: 'bold', wordWrap: { width: nameWrap } }
-    ).setOrigin(0, 0.5);
-    this.add(name);
-
-    // ── Category label ────────────────────────────────────────────────────
+    // Category label — left
     const catLabel = this.txt(
-      nameLeft, nameY + 14,
+      left + PAD, top + HEADER_H / 2,
       CAT_LABEL[d.category],
       { fontFamily: 'monospace', fontSize: '7px', color: catHex, letterSpacing: 2 }
     ).setOrigin(0, 0.5);
     this.add(catLabel);
 
-    // ── Separator line ────────────────────────────────────────────────────
-    const sepY = top + 48;
-    const sep = this.scene.add.graphics();
-    sep.lineStyle(0.5, catColor, 0.3);
-    sep.beginPath();
-    sep.moveTo(left + PAD, sepY);
-    sep.lineTo(left + CARD_W - PAD, sepY);
-    sep.strokePath();
-    this.add(sep);
+    // Rarity badge — right, horizontal pill
+    const badgeW = 48, badgeH = 12;
+    const badgeX = left + CARD_W - PAD - badgeW;
+    const badgeY = top + (HEADER_H - badgeH) / 2;
+    const badgeGfx = this.scene.add.graphics();
+    badgeGfx.fillStyle(rarityColor, 0.22);
+    badgeGfx.fillRoundedRect(badgeX, badgeY, badgeW, badgeH, 3);
+    badgeGfx.lineStyle(1, rarityColor, 0.9);
+    badgeGfx.strokeRoundedRect(badgeX, badgeY, badgeW, badgeH, 3);
+    this.add(badgeGfx);
+    const rarityLbl = this.txt(
+      badgeX + badgeW / 2, badgeY + badgeH / 2,
+      d.rarity,
+      { fontFamily: 'monospace', fontSize: '7px', color: rarityHex }
+    ).setOrigin(0.5);
+    this.add(rarityLbl);
 
-    // ── Art area ──────────────────────────────────────────────────────────
-    const artX = left + PAD;
-    const artY = sepY + 3;
-    const artW = CARD_W - PAD * 2;
-    const art = this.scene.add.graphics();
-    art.fillStyle(0x061420, 1);
-    art.fillRoundedRect(artX, artY, artW, ART_H, 4);
-    this.add(art);
+    // ── Name row: card name (left) + stat pill (right) ────────────────────
+    const nameRowTop = top + HEADER_H + GAP;
+    const nameRowCY  = nameRowTop + NAME_ROW_H / 2;
 
-    // Circuit pattern inside art area
-    this.drawCircuit(artX, artY, artW, ART_H, catColor);
-    this.animateArt(artX, artY, artW, ART_H, catColor);
-
-    // ── Stat pill (population/war amounts) ───────────────────────────────
     const statText = this.getStatText(d);
+    const pillW = 36, pillH = 16;
+    const pillX = left + CARD_W - PAD - pillW;
+
     if (statText) {
       const pill = this.scene.add.graphics();
-      const pillW = 36, pillH = 15;
-      const pillX = left + CARD_W - PAD - pillW;
-      const pillY = artY + ART_H - pillH - 2;
       pill.fillStyle(catColor, 0.25);
-      pill.fillRoundedRect(pillX, pillY, pillW, pillH, 3);
+      pill.fillRoundedRect(pillX, nameRowCY - pillH / 2, pillW, pillH, 3);
       pill.lineStyle(1, catColor, 0.7);
-      pill.strokeRoundedRect(pillX, pillY, pillW, pillH, 3);
+      pill.strokeRoundedRect(pillX, nameRowCY - pillH / 2, pillW, pillH, 3);
       this.add(pill);
-
       const stat = this.txt(
-        pillX + pillW / 2, pillY + pillH / 2,
+        pillX + pillW / 2, nameRowCY,
         statText,
         { fontFamily: 'monospace', fontSize: '9px', color: catHex, fontStyle: 'bold' }
       ).setOrigin(0.5);
       this.add(stat);
     }
 
-    // ── Effect block ──────────────────────────────────────────────────────
-    const effectY = artY + ART_H + 5;
-    const effectH = (top + CARD_H - PAD) - effectY;
+    const nameWrap = statText
+      ? CARD_W - PAD * 2 - pillW - 5
+      : CARD_W - PAD * 2;
+    const name = this.txt(
+      left + PAD, nameRowCY,
+      d.name.toUpperCase(),
+      { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff',
+        fontStyle: 'bold', wordWrap: { width: nameWrap } }
+    ).setOrigin(0, 0.5);
+    this.add(name);
+
+    // ── Art area ──────────────────────────────────────────────────────────
+    const artX = left + PAD;
+    const artY = nameRowTop + NAME_ROW_H + GAP;
+    const artW = CARD_W - PAD * 2;
+    const art  = this.scene.add.graphics();
+    art.fillStyle(0x061420, 1);
+    art.fillRoundedRect(artX, artY, artW, ART_H, 4);
+    this.add(art);
+
+    this.drawCircuit(artX, artY, artW, ART_H, catColor);
+    this.animateArt(artX, artY, artW, ART_H, catColor);
+
+    // ── Description block ─────────────────────────────────────────────────
+    const footerReserve = d.flavourText ? 24 + GAP : 0;
+    const effectY   = artY + ART_H + GAP;
+    const effectBot = top + CARD_H - PAD - footerReserve;
+    const effectH   = Math.max(20, effectBot - effectY);
+
     const effectBg = this.scene.add.graphics();
     effectBg.fillStyle(0x12122a, 1);
     effectBg.fillRoundedRect(left + PAD, effectY, CARD_W - PAD * 2, effectH, 4);
@@ -188,34 +189,24 @@ export class Card extends Phaser.GameObjects.Container {
     this.add(effectBg);
 
     const desc = this.txt(
-      left + PAD + 4, effectY + 4,
+      left + PAD + 4, effectY + 5,
       d.description,
       {
-        fontFamily: 'monospace', fontSize: '9px', color: '#c8d8e8',
-        wordWrap: { width: CARD_W - PAD * 2 - 8 }, lineSpacing: 0,
+        fontFamily: 'monospace', fontSize: '8.5px', color: '#c8d8e8',
+        wordWrap: { width: CARD_W - PAD * 2 - 8 }, lineSpacing: 1,
       }
     ).setOrigin(0, 0);
     this.add(desc);
 
-    // ── Footer: flavour text + card number ────────────────────────────────
-    const footerY = top + CARD_H - 12;
+    // ── Flavour text ──────────────────────────────────────────────────────
     if (d.flavourText) {
       const flavour = this.txt(
-        left + PAD + 4, footerY,
+        left + PAD + 4, top + CARD_H - PAD,
         `"${d.flavourText}"`,
         { fontFamily: 'monospace', fontSize: '7px', color: '#4a5c6a',
-          fontStyle: 'italic', wordWrap: { width: CARD_W - PAD * 2 - 30 } }
+          fontStyle: 'italic', wordWrap: { width: CARD_W - PAD * 2 - 8 } }
       ).setOrigin(0, 1);
       this.add(flavour);
-    }
-
-    if (d.cardNumber !== undefined) {
-      const num = this.txt(
-        left + CARD_W - PAD, footerY,
-        `#${String(d.cardNumber).padStart(3, '0')}`,
-        { fontFamily: 'monospace', fontSize: '7px', color: '#334455' }
-      ).setOrigin(1, 1);
-      this.add(num);
     }
 
     // ── Interactivity ─────────────────────────────────────────────────────

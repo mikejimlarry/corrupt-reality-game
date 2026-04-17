@@ -214,9 +214,9 @@ export function GameOverScreen() {
                   {p.daemons.length > 0 ? `[D]×${p.daemons.length}` : '--'}
                 </span>
 
-                {/* Credits */}
+                {/* Cycles */}
                 <span style={{ fontSize: '0.8rem', color: isWinner ? ACCENT : rowAccent, letterSpacing: 1, width: 44, textAlign: 'right', fontWeight: isWinner ? 'bold' : 'normal' }}>
-                  {p.credits}¢
+                  {p.credits}⟳
                 </span>
 
                 {/* Status badge */}

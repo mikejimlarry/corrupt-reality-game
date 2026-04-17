@@ -615,7 +615,7 @@ export class GameScene extends Phaser.Scene {
       align: 'center', lineSpacing: 4, resolution: dpr,
     }).setOrigin(0.5));
 
-    con.add(this.add.text(0, 12, 'Unleash the virus.\nTarget loses -10 credits.', {
+    con.add(this.add.text(0, 12, 'Unleash the virus.\nTarget loses -10 cycles.', {
       fontFamily: 'monospace', fontSize: '7.5px', color: '#cc8899',
       align: 'center', lineSpacing: 3, resolution: dpr,
     }).setOrigin(0.5));
@@ -1014,7 +1014,7 @@ export class GameScene extends Phaser.Scene {
       CREDITS:        'DATA HARVEST',
       EVENT_POSITIVE: 'SYSTEM EVENT',
       EVENT_NEGATIVE: 'HACK PROTOCOL',
-      WAR:            'GRID CONFLICT',
+      WAR:            'WARFARE',
       COUNTER:        'COUNTERMEASURE',
       DAEMON:         'DAEMON',
     };

@@ -117,7 +117,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     }).setOrigin(1, 0.5);
     this.add(this.popLabel);
 
-    const popUnit = this.txt(left + W - PAD, barY + barH + 6, 'CREDITS', {
+    const popUnit = this.txt(left + W - PAD, barY + barH + 6, 'CYCLES', {
       fontFamily: 'monospace', fontSize: '7px', color: '#334455', letterSpacing: 3,
     }).setOrigin(1, 0);
     this.add(popUnit);

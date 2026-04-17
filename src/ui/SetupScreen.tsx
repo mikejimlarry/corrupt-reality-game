@@ -136,8 +136,8 @@ function OptionsModal({
         <Toggle
           checked={hidePpCounts}
           onChange={v => setHidePpCounts(v)}
-          label="HIDE CREDITS"
-          description="Exact credit totals are hidden — judge your rivals by the bar alone."
+          label="HIDE CYCLES"
+          description="Exact cycle totals are hidden — judge your rivals by the bar alone."
         />
 
         <div style={{ borderBottom: '1px solid #00ffcc11', margin: '0.25rem 0' }} />
@@ -295,7 +295,7 @@ export const SetupScreen: React.FC = () => {
         {/* Starting credits */}
         <div>
           <div style={{ ...LABEL, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span>STARTING CREDITS</span>
+            <span>STARTING CYCLES</span>
             <span style={{ fontSize: '0.85rem', color: '#00ffcc', letterSpacing: 2 }}>{startingPop}</span>
           </div>
           <input

@@ -16,7 +16,7 @@ const CAT_LABEL: Record<CardCategory, string> = {
   CREDITS:        'DATA HARVEST',
   EVENT_POSITIVE: 'SYSTEM EVENT',
   EVENT_NEGATIVE: 'HACK PROTOCOL',
-  WAR:            'GRID CONFLICT',
+  WAR:            'WARFARE',
   COUNTER:        'COUNTERMEASURE',
   DAEMON:         'DAEMON',
 };

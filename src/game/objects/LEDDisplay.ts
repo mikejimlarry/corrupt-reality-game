@@ -304,15 +304,15 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
             toastHex     = '#00ccff';
             toastBgColor = 0x00080f;
           } else if (creditDelta === 0) {
-            toastLabel  = '◆  NO CREDITS';
+            toastLabel  = '◆  NO CYCLES';
             toastHex    = '#446655';
             toastBgColor = 0x111a15;
           } else if (isCorruption) {
-            toastLabel  = `▼  ${creditDelta} CREDITS LOST`;
+            toastLabel  = `▼  ${creditDelta} CYCLES LOST`;
             toastHex    = '#ff3355';
             toastBgColor = 0x1a0508;
           } else {
-            toastLabel  = `▲  ${creditDelta} CREDITS GAINED`;
+            toastLabel  = `▲  ${creditDelta} CYCLES GAINED`;
             toastHex    = '#00ff55';
             toastBgColor = 0x0a1a10;
           }

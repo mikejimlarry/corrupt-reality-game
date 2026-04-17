@@ -45,7 +45,7 @@ export const WarPreOverlay: React.FC = () => {
         {player.name}
       </div>
       <div style={{ fontSize: '0.55rem', color: isActive ? '#ff336688' : '#443344', marginBottom: 3 }}>
-        {player.credits}¢
+        {player.credits}⟳
         {player.tacticalBonus > 0 && (
           <span style={{ color: '#ff9955', marginLeft: 6 }}>+{player.tacticalBonus} roll</span>
         )}

@@ -393,16 +393,16 @@ function pickAiCard(
 function cardLogText(card: Card, actorName: string): string {
   switch (card.category) {
     case 'CREDITS':
-      return `${actorName} ran ${card.name} (+${(card as CreditsCard).amount} credits)`;
+      return `${actorName} ran ${card.name} (+${(card as CreditsCard).amount} cycles)`;
     case 'EVENT_POSITIVE': {
       const pos = card as PositiveEventCard;
       if (pos.effect === 'DRAIN_ALL')
-        return `${actorName} deployed ${card.name} (drained ${pos.amount} credits from every opponent)`;
+        return `${actorName} deployed ${card.name} (drained ${pos.amount} cycles from every opponent)`;
       if (pos.effect === 'OVERCLOCK')
         return `${actorName} activated ${card.name} — next roll is doubled`;
       if (pos.effect === 'EXTRA_PLAY')
         return `${actorName} activated ${card.name} — plays an additional card this turn`;
-      return `${actorName} triggered ${card.name} (+${pos.amount} credits)`;
+      return `${actorName} triggered ${card.name} (+${pos.amount} cycles)`;
     }
     case 'EVENT_NEGATIVE': {
       const neg = card as NegativeEventCard;
@@ -1742,13 +1742,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         players = players.map((p, i) =>
           i === actorIndex ? { ...p, credits: Math.max(0, p.credits - finalAmount) } : p
         );
-        const lossNote = finalAmount === 0 ? 'losses fully absorbed' : `lost ${finalAmount} credits`;
+        const lossNote = finalAmount === 0 ? 'losses fully absorbed' : `lost ${finalAmount} cycles`;
         get().addLog(`${rollLabel} — ${lossNote}. (${r1}+${r2}=${total})${overclock}${daemonNote}`, 'effect');
       } else {
         players = players.map((p, i) =>
           i === actorIndex ? { ...p, credits: Math.min(200, p.credits + finalAmount) } : p
         );
-        get().addLog(`${rollLabel} — gained ${finalAmount} credits. (${r1}+${r2}=${total})${overclock}${daemonNote}`, 'effect');
+        get().addLog(`${rollLabel} — gained ${finalAmount} cycles. (${r1}+${r2}=${total})${overclock}${daemonNote}`, 'effect');
       }
     } else {
       get().addLog(`${rollLabel}. (${r1}+${r2}=${total})`, 'roll');

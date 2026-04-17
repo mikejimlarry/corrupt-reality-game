@@ -12,7 +12,7 @@ const DAEMON_LABELS: Record<DaemonType, string> = {
 const DAEMON_DESCRIPTIONS: Record<DaemonType, string> = {
   FIREWALL: 'Deflects incoming WAR card damage',
   ENCRYPTION: 'Blocks incoming EVENT_NEGATIVE cards',
-  HARDENED_NODE: 'Grants passive credit gain each stability roll',
+  HARDENED_NODE: 'Grants passive cycle gain each stability roll',
 };
 
 export const DaemonStealOverlay: React.FC = () => {
