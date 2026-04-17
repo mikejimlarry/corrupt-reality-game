@@ -1143,7 +1143,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       },
     });
 
-    // AI continues — either play another extra card or advance turn
+    // AI continues — either play another extra card or advance turn.
+    // For WAR cards (capturedWarRoll !== null) the turn advance is deferred:
+    // clearWarRollDisplay() fires once the LED dice animation completes, then
+    // calls advanceTurn(). Advancing here would race the animation.
     if (!winnerId && !isHuman) {
       if (moreExtraPlays) {
         setTimeout(() => {
@@ -1164,9 +1167,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
           }
           get().applyPlayCard(card2.id, undefined);
         }, AI_CARD_DELAY);
-      } else {
+      } else if (!capturedWarRoll) {
+        // Non-WAR card: advance after the card animation has had time to play out
         setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
       }
+      // WAR card (capturedWarRoll set): clearWarRollDisplay() handles the advance
     }
   },
 
@@ -1614,7 +1619,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   endTurn: () => {
-    if (get().phase !== 'END_TURN') return;
+    const state = get();
+    if (state.phase !== 'END_TURN') return;
+    if (state.warRollDisplay !== null) return; // wait for war dice roll to finish
     get().advanceTurn();
   },
 
@@ -1835,7 +1842,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  clearWarRollDisplay: () => set({ warRollDisplay: null }),
+  clearWarRollDisplay: () => {
+    set({ warRollDisplay: null });
+    // Advance the turn now that the war dice animation has completed
+    if (get().phase !== 'GAME_OVER') {
+      setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 300);
+    }
+  },
 
   runAiTurn: () => {
     if (get().paused) return; // ← guard: don't start a new AI turn while paused
