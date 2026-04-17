@@ -85,15 +85,12 @@ interface OptionsModalProps {
   setHidePpCounts: (v: boolean) => void;
   deadMansSwitch: boolean;
   setDeadMansSwitch: (v: boolean) => void;
-  musicOn: boolean;
-  setMusicOn: (v: boolean) => void;
 }
 
 function OptionsModal({
   onClose,
   hidePpCounts, setHidePpCounts,
   deadMansSwitch, setDeadMansSwitch,
-  musicOn, setMusicOn,
 }: OptionsModalProps) {
   return (
     <div
@@ -138,18 +135,6 @@ function OptionsModal({
           onChange={v => setHidePpCounts(v)}
           label="HIDE CYCLES"
           description="Exact cycle totals are hidden — judge your rivals by the bar alone."
-        />
-
-        <div style={{ borderBottom: '1px solid #00ffcc11', margin: '0.25rem 0' }} />
-
-        <Toggle
-          checked={musicOn}
-          onChange={v => {
-            setMusicOn(v);
-            setMusicEnabled(v);
-          }}
-          label="BACKGROUND MUSIC"
-          description={`Cyberpunk ambient score — "The Mountain" by Pixabay.`}
         />
 
         <button
@@ -208,18 +193,23 @@ export const SetupScreen: React.FC = () => {
     startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch);
   };
 
-  // Small helper so all three meta-buttons share the same look
-  const metaBtn = (onClick: () => void, label: string) => (
+  // Small helper so all meta-buttons share the same look; pass active=true to light it up
+  const metaBtn = (onClick: () => void, label: string, active?: boolean) => (
     <button
       onClick={onClick}
       style={{
-        background: 'transparent', border: '1px solid #00ffcc33',
-        color: '#446655', fontFamily: 'monospace', fontSize: '0.65rem',
+        background: active ? '#00ffcc11' : 'transparent',
+        border: `1px solid ${active ? '#00ffcc66' : '#00ffcc33'}`,
+        color: active ? '#00ffcc' : '#446655',
+        fontFamily: 'monospace', fontSize: '0.65rem',
         letterSpacing: 2, cursor: 'pointer', padding: '0.25rem 0.8rem',
         transition: 'all 0.15s',
       }}
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#00ffcc'; (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc66'; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#446655'; (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc33'; }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLElement).style.color = active ? '#00ffcc' : '#446655';
+        (e.currentTarget as HTMLElement).style.borderColor = active ? '#00ffcc66' : '#00ffcc33';
+      }}
     >
       {label}
     </button>
@@ -247,6 +237,13 @@ export const SetupScreen: React.FC = () => {
         {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowHelp(true); },    '? HELP')}
         {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowOptions(true); }, '⚙ OPTIONS')}
         {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowAbout(true); },   'i ABOUT')}
+        {metaBtn(() => {
+          resumeAudio();
+          const next = !musicOn;
+          (next ? sfxToggleOn : sfxToggleOff)();
+          setMusicOn(next);
+          setMusicEnabled(next);
+        }, '♫ MUSIC', musicOn)}
       </div>
 
       {showHelp    && <HelpModal    onClose={() => setShowHelp(false)} />}
@@ -256,7 +253,6 @@ export const SetupScreen: React.FC = () => {
           onClose={() => setShowOptions(false)}
           hidePpCounts={hidePpCounts}   setHidePpCounts={setHidePpCounts}
           deadMansSwitch={deadMansSwitch} setDeadMansSwitch={setDeadMansSwitch}
-          musicOn={musicOn}             setMusicOn={setMusicOn}
         />
       )}
 
