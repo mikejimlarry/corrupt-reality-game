@@ -38,7 +38,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => (
       {/* Game blurb */}
       <p style={{ fontSize: '0.65rem', color: '#446655', letterSpacing: 1, lineHeight: 1.8, margin: '0 0 1.5rem' }}>
         A cyberpunk card game of survival, corruption, and calculated betrayal.
-        Outmanoeuvre rival agents, deploy daemons, and be the last operative standing
+        Outmaneuver rival agents, deploy daemons, and be the last operative standing
         when the system collapses.
       </p>
 
@@ -56,7 +56,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => (
             GAME DESIGN &amp; DEVELOPMENT
           </div>
           <div style={{ fontSize: '0.7rem', color: '#00ffcc99', letterSpacing: 1 }}>
-            Corrupt Reality Team
+            corrupt reality team
           </div>
         </div>
 
@@ -65,7 +65,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => (
             BACKGROUND MUSIC
           </div>
           <div style={{ fontSize: '0.7rem', color: '#00ffcc99', letterSpacing: 1, marginBottom: '0.25rem' }}>
-            "The Mountain" — Suspense / Cyberpunk
+            Suspense Cyberpunk
           </div>
           <div style={{ fontSize: '0.6rem', color: '#446655', letterSpacing: 0.5, lineHeight: 1.7 }}>
             by{' '}
@@ -75,7 +75,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => (
               rel="noopener noreferrer"
               style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
             >
-              Pixabay / Ambient Suspense Cyberpunk
+              The_Mountain
             </a>
             <br />
             Licensed under the{' '}
@@ -95,8 +95,20 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => (
           <div style={{ fontSize: '0.55rem', color: '#557766', letterSpacing: 2, marginBottom: '0.2rem' }}>
             UI SOUND EFFECTS
           </div>
+          <div style={{ fontSize: '0.7rem', color: '#00ffcc99', letterSpacing: 1, marginBottom: '0.25rem' }}>
+            Cyberpunk 2077 UI SFX PACK
+          </div>
           <div style={{ fontSize: '0.6rem', color: '#446655', letterSpacing: 0.5, lineHeight: 1.7 }}>
-            Steam Deck UI SFX Pack — Valve Corporation.<br />
+            by{' '}
+            <a
+              href="https://deckthemes.com/packs/view?themeId=4e22b111-612b-46b7-b94d-296018fc2708"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
+            >
+              MasterXCortez
+            </a>
+            <br />
             Used for non-commercial game audio prototyping.
           </div>
         </div>
@@ -107,7 +119,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => (
 
       {/* Version */}
       <div style={{ fontSize: '0.5rem', color: '#334455', letterSpacing: 2, marginBottom: '1.5rem' }}>
-        VERSION 0.1.0 &nbsp;·&nbsp; BUILT WITH REACT + PHASER 3
+        VERSION 0.4.0 &nbsp;·&nbsp; BUILT WITH REACT + PHASER 3
       </div>
 
       {/* Close */}
