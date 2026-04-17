@@ -1029,12 +1029,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
 
-    get().addLog(cardLogText(card, actor.name), 'card');
+    const cardLog = cardLogText(card, actor.name);
     _warRollResult = null;
     _lastTargetName = null;
     if (blockedBy) get().addLog(`${blockedBy}'s Quarantine absorbed the attack!`, 'effect');
     if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s System Interrupt cancelled the attack!`, 'effect');
     if (daemonBlockedBy) get().addLog(`${daemonBlockedBy} blocked the attack!`, 'effect');
+    // WAR log deferred to clearWarRollDisplay() so it appears after the dice animation.
+    // For blocked wars (no capturedWarRoll) there is no animation, so log immediately.
+    if (!capturedWarRoll) get().addLog(cardLog, 'card');
 
     if (humanDmsPending) {
       // Mark AI eliminations now; keep the human's eliminated flag clear until they resolve
@@ -1135,6 +1138,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         actorName: actor.name,
         targetName: capturedWarRoll.targetName,
         actorWins: capturedWarRoll.actorWins,
+        logText: cardLog,
       } : null,
       gameStats: {
         cardsPlayed: newCardsPlayed,
@@ -1498,9 +1502,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const negotiateBlockedBy = _negotiateBlockedBy;
     _negotiateBlockedBy = null;
 
-    get().addLog(cardLogText(warCard, state.players[actorIndex].name), 'card');
+    const warCardLog = cardLogText(warCard, state.players[actorIndex].name);
     _warRollResult = null;
     if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Cease & Desist cancelled the war!`, 'effect');
+    if (!capturedWarRoll) get().addLog(warCardLog, 'card');
 
     // Dead Man's Switch check
     let humanDmsPending: { playerIndex: number; eligibleCards: NegativeEventCard[] } | null = null;
@@ -1532,6 +1537,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       actorName: state.players[actorIndex].name,
       targetName: capturedWarRoll.targetName,
       actorWins: capturedWarRoll.actorWins,
+      logText: warCardLog,
     } : null;
 
     const actorId = state.players[actorIndex]?.id;
@@ -1843,6 +1849,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   clearWarRollDisplay: () => {
+    const display = get().warRollDisplay;
+    // Flush the deferred WAR log entry now that the animation has finished
+    if (display?.logText) get().addLog(display.logText, 'card');
     set({ warRollDisplay: null });
     // Advance the turn now that the war dice animation has completed
     if (get().phase !== 'GAME_OVER') {

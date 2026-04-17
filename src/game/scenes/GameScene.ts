@@ -314,6 +314,7 @@ export class GameScene extends Phaser.Scene {
             0, false,
             () => { useGameStore.getState().clearWarRollDisplay(); },
             customToast,
+            true, // warMode — no summed total, "vs" operator
           );
         });
       }

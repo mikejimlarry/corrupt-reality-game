@@ -209,7 +209,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     this.totalTxt.setText('').setColor('#334455');
     this.toastTxt.setText('').setAlpha(0);
     this.toastBg.clear().setAlpha(0);
-    this.operatorTxt.setColor('#334455');
+    this.operatorTxt.setText('+').setColor('#334455');
     this.statusTxt.setText(`SCANNING · ${playerName.toUpperCase()}`).setColor('#00ffcc55');
     this.drawDigit(this.digit1Gfx, this.glow1, '-', COLOR_DIM, -D_CX);
     this.drawDigit(this.digit2Gfx, this.glow2, '-', COLOR_DIM,  D_CX);
@@ -227,31 +227,31 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   }
 
   // ── Run slot-machine animation then call onComplete ────────────────────────
-  roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string) {
+  // warMode: true when showing a WAR conflict roll — omits the summed total and
+  // uses "vs" between the dice instead of "+" since r1/r2 belong to different players.
+  roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string, warMode?: boolean) {
     this.setVisible(true);
     this.standbyTween?.stop();
     this.digit1Gfx.setAlpha(1);
     this.digit2Gfx.setAlpha(1);
 
     const total    = r1 + r2;
-    // Colour thresholds mirror the Prosperity phase roll table.
-    // Red is reserved for the future Plague phase — no losses happen yet.
-    //  ≤ 3  → amber  (no gain)
-    //  4-8  → green  (moderate gain)
-    //  9-12 → green  (large gain, same colour, brighter status)
-    const finalColor  = total <= 3 ? COLOR_AMBER : COLOR_GREEN;
-    const finalHex    = total <= 3 ? '#ffaa00'   : '#00ff55';
-    const statusLabel =
-      total <= 3  ? '◆  NO GAIN'         :
-      total <= 5  ? '◆  LOW SEQUENCE'    :
-      total <= 8  ? '◆  STABLE SEQUENCE' :
-      total <= 11 ? '◆  STABILITY BONUS' : '◆  PEAK STABILITY';
+    // Colour logic only used for normal stability rolls (not WAR).
+    const finalColor  = warMode ? COLOR_GREEN : (total <= 3 ? COLOR_AMBER : COLOR_GREEN);
+    const finalHex    = warMode ? '#00ff55'   : (total <= 3 ? '#ffaa00'   : '#00ff55');
+    const statusLabel = warMode
+      ? '◆  CONFLICT RESOLVED'
+      : (total <= 3  ? '◆  NO GAIN'         :
+         total <= 5  ? '◆  LOW SEQUENCE'    :
+         total <= 8  ? '◆  STABLE SEQUENCE' :
+         total <= 11 ? '◆  STABILITY BONUS' : '◆  PEAK STABILITY');
 
     this.statusTxt.setText(`GENERATING · ${playerName.toUpperCase()}`).setColor('#00ffcc66');
     this.totalTxt.setText('').setColor('#334455');
     this.toastTxt.setText('').setAlpha(0);
     this.toastBg.setAlpha(0);
-    this.operatorTxt.setColor('#334455');
+    // War mode uses "vs" between the two dice; normal rolls use "+"
+    this.operatorTxt.setText(warMode ? 'vs' : '+').setColor('#334455');
 
     // Make sure panel is fully visible (already shown from standby)
     this.scene.tweens.add({ targets: this, alpha: 1, duration: 150 });
@@ -285,9 +285,9 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
         this.drawDigit(this.digit2Gfx, this.glow2, r2, finalColor, D_CX);
         this.operatorTxt.setColor(finalHex);
 
-        // Show total after a short beat
+        // Show total after a short beat (skipped in war mode — no meaningful sum)
         this.scene.time.delayedCall(180, () => {
-          this.totalTxt.setText(`= ${total}`).setColor(finalHex);
+          if (!warMode) this.totalTxt.setText(`= ${total}`).setColor(finalHex);
           this.statusTxt.setText(statusLabel).setColor(finalHex);
 
           // ── Credit toast ───────────────────────────────────────────────

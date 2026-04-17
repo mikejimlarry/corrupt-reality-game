@@ -79,7 +79,7 @@ export interface GameState {
     damageDealt: Record<string, number>;
   };
   /** Non-null when a WAR card just resolved — scene shows a dice-roll animation then clears this. */
-  warRollDisplay: { r1: number; r2: number; actorName: string; targetName: string; actorWins: boolean } | null;
+  warRollDisplay: { r1: number; r2: number; actorName: string; targetName: string; actorWins: boolean; logText: string } | null;
   /** When set, the next advanceTurn call routes to this player index (first turn after Corruption card). */
   postCorruptionTargetIndex: number | null;
   /**
