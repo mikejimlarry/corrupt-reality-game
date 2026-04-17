@@ -25,6 +25,16 @@ const PULSE_STYLE = `
 }
 .corruption-flicker { animation: corruption-flicker 3s infinite; }
 
+@keyframes hud-fade-in {
+  from { opacity: 0; transform: translate(-50%, 38px); }
+  to   { opacity: 1; transform: translate(-50%, 30px); }
+}
+
+@keyframes protocol-fade-in {
+  from { opacity: 0; transform: translate(-50%, -44%); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+
 .log-scroll::-webkit-scrollbar { width: 3px; }
 .log-scroll::-webkit-scrollbar-track { background: transparent; }
 .log-scroll::-webkit-scrollbar-thumb { background: #00ffcc33; border-radius: 2px; }
@@ -236,7 +246,7 @@ export function HUD() {
               (e.currentTarget as HTMLElement).style.borderColor = paused ? '#ff990066' : `${ACCENT}18`;
             }}
           >
-            {paused ? '▶' : '⏸'}
+            {paused ? '▶' : 'Ⅱ'}
           </button>
         </div>
 
@@ -349,17 +359,6 @@ export function HUD() {
           </div>
         </div>
 
-        {/* BEGIN SEQUENCE button — human PHASE_ROLL only, appears after animations settle */}
-        {phase === 'PHASE_ROLL' && isHuman && rollReady && !rollTriggered && (
-          <div style={panelStyle} className={corruption ? 'corruption-pulse' : 'hud-pulse'}>
-            <div style={{ fontSize: 10, color: `${ACCENT}55`, letterSpacing: 3, marginBottom: 8 }}>
-              SEQUENCE READY
-            </div>
-            <button style={primaryBtnStyle} onClick={() => triggerRoll()}>
-              ▶ BEGIN SEQUENCE
-            </button>
-          </div>
-        )}
 
         {/* Targeting banner — click an opponent on the board to select them */}
         {phase === 'TARGETING' && (
@@ -378,16 +377,10 @@ export function HUD() {
           </div>
         )}
 
-        {/* Action panel — only when game active, human turn, not rolling, not ending turn */}
-        {phase !== 'GAME_OVER' && phase !== 'PHASE_ROLL' && phase !== 'TARGETING' && phase !== 'END_TURN' && isHuman && (
-          <div style={panelStyle} className={phase === 'DRAW' ? (corruption ? 'corruption-pulse' : 'hud-pulse') : ''}>
-            {phase === 'DRAW' && (
-              <button style={primaryBtnStyle} onClick={() => drawCard()}>
-                DRAW CARD
-              </button>
-            )}
-
-            {phase === 'MAIN' && extraPlayPending > 0 && (
+        {/* Action panel — MAIN phase only */}
+        {phase === 'MAIN' && isHuman && (
+          <div style={panelStyle}>
+            {extraPlayPending > 0 && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 gap: 8,
@@ -461,6 +454,63 @@ export function HUD() {
           </div>
         )}
       </div>
+
+      {/* ── BEGIN SEQUENCE — centered inside the LED display ── */}
+      {phase === 'PHASE_ROLL' && isHuman && rollReady && !rollTriggered && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, 30px)',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 6,
+          pointerEvents: 'auto',
+          animation: 'hud-fade-in 0.2s ease-out forwards',
+        }}>
+          <div style={{ fontSize: 9, color: `${ACCENT}66`, letterSpacing: 4, fontFamily: 'monospace' }}>
+            SEQUENCE READY
+          </div>
+          <button
+            className={corruption ? 'corruption-pulse' : 'hud-pulse'}
+            style={{ ...primaryBtnStyle, width: 180, fontSize: 13, letterSpacing: 2 }}
+            onClick={() => triggerRoll()}
+          >
+            ▶ BEGIN SEQUENCE
+          </button>
+        </div>
+      )}
+
+      {/* ── DRAW CARD — centered over the protocol zone ── */}
+      {phase === 'DRAW' && isHuman && (
+        <div style={{
+          position: 'fixed',
+          top: '46%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 10,
+          pointerEvents: 'auto',
+          animation: 'protocol-fade-in 0.18s ease-out forwards',
+        }}>
+          <button
+            className={corruption ? 'corruption-pulse' : 'hud-pulse'}
+            style={{
+              ...BTN_BASE,
+              width: 120,
+              background: `${ACCENT}18`,
+              color: ACCENT,
+              border: `1px solid ${ACCENT}88`,
+              fontSize: 11,
+              letterSpacing: 2,
+            }}
+            onClick={() => drawCard()}
+          >
+            DRAW CARD
+          </button>
+        </div>
+      )}
     </>
   );
 }
