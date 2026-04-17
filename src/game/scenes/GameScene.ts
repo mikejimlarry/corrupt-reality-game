@@ -282,9 +282,15 @@ export class GameScene extends Phaser.Scene {
       // ── Overclock card visual ────────────────────────────────────────────────
       const pendingOC = (state as any).pendingOverclockCard ?? null;
       if (pendingOC !== prevPendingOverclockCard) {
+        const oldCard = prevPendingOverclockCard;
         prevPendingOverclockCard = pendingOC;
         if (pendingOC) {
           this.time.delayedCall(340, () => this.showOverclockCard(pendingOC, w, h));
+        } else if (oldCard) {
+          // Roll consumed the overclock — fly the visual to the discard pile
+          const discardWX = w / 2 + DISCARD_LOCAL_CX;
+          const discardWY = h * 0.46 + DISCARD_LOCAL_CY;
+          this.hideOverclockCard(oldCard, discardWX, discardWY);
         } else {
           this.hideOverclockCard();
         }
@@ -525,13 +531,20 @@ export class GameScene extends Phaser.Scene {
             this.humanDaemonBoard?.refresh(imps);
           });
         } else {
-          obj.playOut(discardWorldX, discardWorldY, () => {
-            obj.destroy();
-            const pendingOCId = (useGameStore.getState() as any).pendingOverclockCard?.id;
-            if (pendingOCId !== cardData.id) {
+          const pendingOCId = (useGameStore.getState() as any).pendingOverclockCard?.id;
+          if (pendingOCId === cardData.id) {
+            // Overclock — float up and fade; the overclockVisual takes over display
+            this.tweens.add({
+              targets: obj, alpha: 0, y: obj.y - 30,
+              duration: 350, ease: 'Quad.easeOut',
+              onComplete: () => obj.destroy(),
+            });
+          } else {
+            obj.playOut(discardWorldX, discardWorldY, () => {
+              obj.destroy();
               this.centreZone?.setDiscardTop(cardData);
-            }
-          });
+            });
+          }
         }
         return false;
       }
@@ -731,19 +744,35 @@ export class GameScene extends Phaser.Scene {
     this.overclockVisual = con;
   }
 
-  private hideOverclockCard() {
+  private hideOverclockCard(card?: CardData, discardX?: number, discardY?: number) {
     if (!this.overclockVisual) return;
     const con = this.overclockVisual;
     this.overclockVisual = undefined;
     this.tweens.killTweensOf(con);
     con.list.forEach(child => this.tweens.killTweensOf(child));
-    this.tweens.add({
-      targets: con,
-      alpha: 0,
-      scaleX: 0.65, scaleY: 0.65,
-      duration: 280, ease: 'Quad.easeIn',
-      onComplete: () => con.destroy(),
-    });
+
+    if (card && discardX !== undefined && discardY !== undefined) {
+      // Fly to the discard pile then reveal the card face
+      this.tweens.add({
+        targets: con,
+        x: discardX, y: discardY,
+        scaleX: 0.55, scaleY: 0.55,
+        alpha: 0,
+        duration: 380, ease: 'Quad.easeIn',
+        onComplete: () => {
+          con.destroy();
+          this.centreZone?.setDiscardTop(card);
+        },
+      });
+    } else {
+      this.tweens.add({
+        targets: con,
+        alpha: 0,
+        scaleX: 0.65, scaleY: 0.65,
+        duration: 280, ease: 'Quad.easeIn',
+        onComplete: () => con.destroy(),
+      });
+    }
   }
 
   // ── Background + grid ─────────────────────────────────────────────────────
