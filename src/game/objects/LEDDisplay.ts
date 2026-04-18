@@ -203,6 +203,45 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     }
   }
 
+  // ── Unfold open — scaleY expands first, then scaleX (mirrors HelpModal CSS) ──
+  private unfoldOpen(playSound = true) {
+    this.setScaleX(0.04);
+    this.setScaleY(0);
+    this.setAlpha(0);
+    this.setVisible(true);
+    if (playSound) sfxShowDiceRoll();
+    this.scene.tweens.add({
+      targets: this, scaleY: 1, alpha: 1,
+      duration: 152, ease: 'Cubic.easeOut',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: this, scaleX: 1,
+          duration: 228, ease: 'Quad.easeOut',
+        });
+      },
+    });
+  }
+
+  // ── Fold close — scaleX collapses first, then scaleY (mirrors HelpModal CSS) ─
+  private foldClose(onComplete: () => void) {
+    this.scene.tweens.killTweensOf(this);
+    this.scene.tweens.add({
+      targets: this, scaleX: 0.04,
+      duration: 154, ease: 'Quad.easeIn',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: this, scaleY: 0, alpha: 0,
+          duration: 126, ease: 'Quad.easeIn',
+          onComplete: () => {
+            this.setVisible(false);
+            this.setScale(1); // reset for next open
+            onComplete();
+          },
+        });
+      },
+    });
+  }
+
   // ── Fade panel in showing standby "- -" state ─────────────────────────────
   showStandby(playerName: string) {
     this.standbyTween?.stop();
@@ -214,9 +253,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     this.drawDigit(this.digit1Gfx, this.glow1, '-', COLOR_DIM, -D_CX);
     this.drawDigit(this.digit2Gfx, this.glow2, '-', COLOR_DIM,  D_CX);
 
-    this.setVisible(true);
-    sfxShowDiceRoll();
-    this.scene.tweens.add({ targets: this, alpha: 1, duration: 220, ease: 'Quad.easeOut' });
+    this.unfoldOpen();
 
     // Slow pulse on both digit graphics to indicate "waiting"
     this.standbyTween = this.scene.tweens.add({
@@ -230,7 +267,8 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   // warMode: true when showing a WAR conflict roll — omits the summed total and
   // uses "vs" between the dice instead of "+" since r1/r2 belong to different players.
   roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string, warMode?: boolean) {
-    this.setVisible(true);
+    // WAR rolls skip showStandby, so the panel may still be hidden — unfold it now.
+    const needsOpen = !this.visible;
     this.standbyTween?.stop();
     this.digit1Gfx.setAlpha(1);
     this.digit2Gfx.setAlpha(1);
@@ -253,8 +291,13 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     // War mode uses "vs" between the two dice; normal rolls use "+"
     this.operatorTxt.setText(warMode ? 'vs' : '+').setColor('#334455');
 
-    // Make sure panel is fully visible (already shown from standby)
-    this.scene.tweens.add({ targets: this, alpha: 1, duration: 150 });
+    if (needsOpen) {
+      // WAR roll — panel was hidden, play the unfold before the dice start
+      this.unfoldOpen(true);
+    } else {
+      // Normal roll — panel already open from standby, just ensure full alpha
+      this.scene.tweens.add({ targets: this, alpha: 1, duration: 150 });
+    }
 
     const TOTAL_TICKS = 26;
     let   tick        = 0;
@@ -337,19 +380,15 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
                 targets: [this.toastBg, this.toastTxt],
                 alpha: 1, duration: 200, ease: 'Quad.easeOut',
               });
-              // Hold result, fade out
-              this.scene.time.delayedCall(1600, () => {
-                this.scene.tweens.add({
-                  targets: this, alpha: 0, duration: 250, ease: 'Quad.easeIn',
-                  onComplete: () => { this.setVisible(false); onComplete(); },
-                });
-              });
+              // Hold result, fold closed
+              this.scene.time.delayedCall(1600, () => { this.foldClose(onComplete); });
             },
           });
         });
       }
     };
 
-    this.scene.time.delayedCall(120, doTick);
+    // Give WAR rolls time for the unfold animation before the dice start ticking
+    this.scene.time.delayedCall(needsOpen ? 360 : 120, doTick);
   }
 }
