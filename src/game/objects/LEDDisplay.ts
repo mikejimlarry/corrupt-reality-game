@@ -205,8 +205,9 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
   // ── Unfold open — scaleY expands first, then scaleX (mirrors HelpModal CSS) ──
   private unfoldOpen(playSound = true) {
+    this.scene.tweens.killTweensOf(this);
     this.setScaleX(0.04);
-    this.setScaleY(0);
+    this.setScaleY(0.01); // non-zero so Phaser doesn't skip the container in the render pass
     this.setAlpha(0);
     this.setVisible(true);
     if (playSound) sfxShowDiceRoll();
@@ -230,11 +231,12 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
       duration: 154, ease: 'Quad.easeIn',
       onComplete: () => {
         this.scene.tweens.add({
-          targets: this, scaleY: 0, alpha: 0,
+          targets: this, scaleY: 0.01, alpha: 0,
           duration: 126, ease: 'Quad.easeIn',
           onComplete: () => {
             this.setVisible(false);
-            this.setScale(1); // reset for next open
+            this.setScaleX(1);
+            this.setScaleY(1);
             onComplete();
           },
         });
@@ -267,8 +269,14 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   // warMode: true when showing a WAR conflict roll — omits the summed total and
   // uses "vs" between the dice instead of "+" since r1/r2 belong to different players.
   roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string, warMode?: boolean) {
-    // WAR rolls skip showStandby, so the panel may still be hidden — unfold it now.
+    // WAR rolls skip showStandby so the panel may be hidden; check before forcing visible.
     const needsOpen = !this.visible;
+    // Kill any in-progress unfold tweens so the roll can take full control of scale/alpha.
+    this.scene.tweens.killTweensOf(this);
+    this.setVisible(true);
+    this.setScaleX(1);
+    this.setScaleY(1);
+    this.setAlpha(1);
     this.standbyTween?.stop();
     this.digit1Gfx.setAlpha(1);
     this.digit2Gfx.setAlpha(1);
@@ -294,10 +302,8 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     if (needsOpen) {
       // WAR roll — panel was hidden, play the unfold before the dice start
       this.unfoldOpen(true);
-    } else {
-      // Normal roll — panel already open from standby, just ensure full alpha
-      this.scene.tweens.add({ targets: this, alpha: 1, duration: 150 });
     }
+    // Normal roll — panel already fully open from standby; scale/alpha reset above.
 
     const TOTAL_TICKS = 26;
     let   tick        = 0;
