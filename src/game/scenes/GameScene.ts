@@ -228,11 +228,14 @@ export class GameScene extends Phaser.Scene {
             });
           }
         }
-        // Show LED standby after table/AI-hand animations settle (~650ms)
+        // Show LED standby shortly after phase starts — 280ms lets the card-deal
+        // animations begin without waiting for them to settle. The BEGIN SEQUENCE
+        // button is gated on ledDisplayOpen (set by the unfold onComplete callback),
+        // so it appears only after the animation actually finishes.
         if (state.phase === 'PHASE_ROLL') {
           const currentPlayer = state.players[state.currentPlayerIndex];
           if (currentPlayer) {
-            this.time.delayedCall(650, () => {
+            this.time.delayedCall(280, () => {
               // Only show if still in PHASE_ROLL (not already rolled)
               if (useGameStore.getState().phase === 'PHASE_ROLL') {
                 this.ledDisplay?.showStandby(currentPlayer.name);

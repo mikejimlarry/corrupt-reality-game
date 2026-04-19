@@ -119,13 +119,14 @@ export function HUD() {
   const [showHelp, setShowHelp]       = useState(false);
   const [musicOn, setMusicOn]         = useState(() => getMusicEnabled());
 
+  // True once the LED panel's unfold animation fires 'crg:led-open'.
+  // Reset whenever the phase leaves PHASE_ROLL so stale events don't bleed through.
   const [rollReady, setRollReady] = useState(false);
   useEffect(() => {
-    if (phase === 'PHASE_ROLL') {
-      setRollReady(false);
-      const t = setTimeout(() => setRollReady(true), 700);
-      return () => clearTimeout(t);
-    }
+    if (phase !== 'PHASE_ROLL') { setRollReady(false); return; }
+    const handler = () => setRollReady(true);
+    window.addEventListener('crg:led-open', handler);
+    return () => { window.removeEventListener('crg:led-open', handler); setRollReady(false); };
   }, [phase]);
 
   useEffect(() => {

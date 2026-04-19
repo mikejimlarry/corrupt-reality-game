@@ -203,40 +203,105 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     }
   }
 
-  // ── Unfold open — scaleY expands first, then scaleX (mirrors HelpModal CSS) ──
+  // ── Open animation — two-phase wipe using a Graphics mask ─────────────────
+  // Phase 1 (152ms): mask expands vertically (scaleY 0→1 on the mask rect).
+  // Phase 2 (228ms): mask expands horizontally (scaleX 0.04→1 on the mask rect).
+  // The container itself stays at full scale so children always render correctly.
+  private maskGfx?: Phaser.GameObjects.Graphics;
+
   private unfoldOpen(playSound = true) {
-    this.scene.tweens.killTweensOf(this);
-    this.setScaleX(0.04);
-    this.setScaleY(0.01); // non-zero so Phaser doesn't skip the container in the render pass
-    this.setAlpha(0);
+    // Remove any existing mask
+    if (this.maskGfx) { this.maskGfx.destroy(); this.maskGfx = undefined; }
+    this.clearMask();
+
+    this.setAlpha(1);
     this.setVisible(true);
     if (playSound) sfxShowDiceRoll();
+
+    const W = PANEL_W + 4, H = PANEL_H + 4;
+    // Use the constructor directly (NOT scene.add.graphics) so the mask graphics
+    // is NOT added to the scene display list — avoids rendering a visible white
+    // rectangle over the LED while it's being used as a geometry mask.
+    const mg = new Phaser.GameObjects.Graphics(this.scene);
+    // Proxy object to drive the tween
+    const proxy = { sy: 0.01, sx: 0.04 };
+
+    const redraw = () => {
+      mg.clear();
+      mg.fillStyle(0xffffff);
+      const w = W * proxy.sx;
+      const h = H * proxy.sy;
+      mg.fillRect(this.x - w / 2, this.y - h / 2, w, h);
+    };
+    redraw();
+
+    const bitmapMask = mg.createGeometryMask();
+    this.setMask(bitmapMask);
+    this.maskGfx = mg;
+
+    // Phase 1: expand vertically
     this.scene.tweens.add({
-      targets: this, scaleY: 1, alpha: 1,
+      targets: proxy, sy: 1,
       duration: 152, ease: 'Cubic.easeOut',
+      onUpdate: redraw,
       onComplete: () => {
+        // Phase 2: expand horizontally
         this.scene.tweens.add({
-          targets: this, scaleX: 1,
+          targets: proxy, sx: 1,
           duration: 228, ease: 'Quad.easeOut',
+          onUpdate: redraw,
+          onComplete: () => {
+            // Mask no longer needed once fully open
+            this.clearMask();
+            mg.destroy();
+            this.maskGfx = undefined;
+            // Signal React that the LED panel is fully open
+            window.dispatchEvent(new CustomEvent('crg:led-open'));
+          },
         });
       },
     });
   }
 
-  // ── Fold close — scaleX collapses first, then scaleY (mirrors HelpModal CSS) ─
+  // ── Close animation — two-phase wipe in reverse ───────────────────────────
   private foldClose(onComplete: () => void) {
-    this.scene.tweens.killTweensOf(this);
+    if (this.maskGfx) { this.maskGfx.destroy(); this.maskGfx = undefined; }
+    this.clearMask();
+
+    const W = PANEL_W + 4, H = PANEL_H + 4;
+    // Same as unfoldOpen: avoid scene.add.graphics() to prevent visible white rect.
+    const mg = new Phaser.GameObjects.Graphics(this.scene);
+    const proxy = { sy: 1, sx: 1 };
+
+    const redraw = () => {
+      mg.clear();
+      mg.fillStyle(0xffffff);
+      const w = W * proxy.sx;
+      const h = H * proxy.sy;
+      mg.fillRect(this.x - w / 2, this.y - h / 2, w, h);
+    };
+    redraw();
+
+    const bitmapMask = mg.createGeometryMask();
+    this.setMask(bitmapMask);
+    this.maskGfx = mg;
+
+    // Phase 1: collapse horizontally
     this.scene.tweens.add({
-      targets: this, scaleX: 0.04,
+      targets: proxy, sx: 0.04,
       duration: 154, ease: 'Quad.easeIn',
+      onUpdate: redraw,
       onComplete: () => {
+        // Phase 2: collapse vertically
         this.scene.tweens.add({
-          targets: this, scaleY: 0.01, alpha: 0,
+          targets: proxy, sy: 0.01,
           duration: 126, ease: 'Quad.easeIn',
+          onUpdate: redraw,
           onComplete: () => {
+            this.clearMask();
+            mg.destroy();
+            this.maskGfx = undefined;
             this.setVisible(false);
-            this.setScaleX(1);
-            this.setScaleY(1);
             onComplete();
           },
         });
@@ -271,11 +336,9 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string, warMode?: boolean) {
     // WAR rolls skip showStandby so the panel may be hidden; check before forcing visible.
     const needsOpen = !this.visible;
-    // Kill any in-progress unfold tweens so the roll can take full control of scale/alpha.
+    // Kill any in-progress tweens on this container.
     this.scene.tweens.killTweensOf(this);
     this.setVisible(true);
-    this.setScaleX(1);
-    this.setScaleY(1);
     this.setAlpha(1);
     this.standbyTween?.stop();
     this.digit1Gfx.setAlpha(1);

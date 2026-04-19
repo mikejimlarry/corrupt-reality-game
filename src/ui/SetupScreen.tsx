@@ -128,7 +128,7 @@ function OptionsModal({
           checked={deadMansSwitch}
           onChange={v => setDeadMansSwitch(v)}
           label="DEAD MAN'S SWITCH"
-          description="An eliminated player may play one last negative card before they fall."
+          description="An eliminated player may play one last protocol card before they fall."
         />
         <Toggle
           checked={hidePpCounts}
@@ -171,12 +171,12 @@ function OptionsModal({
 
 export const SetupScreen: React.FC = () => {
   const startGame = useGameStore(s => s.startGame);
-  const [name, setName]               = useState(() => localStorage.getItem('crg-handle') ?? '');
-  const [count, setCount]             = useState(() => Number(localStorage.getItem('crg-count') ?? '1'));
-  const [startingPop, setStartingPop] = useState(() => Number(localStorage.getItem('crg-credits') ?? '50'));
+  const [name, setName]                     = useState(() => localStorage.getItem('crg-handle') ?? '');
+  const [count, setCount]                   = useState(() => Number(localStorage.getItem('crg-count') ?? '1'));
+  const [startingPop, setStartingPop]       = useState(() => Number(localStorage.getItem('crg-credits') ?? '50'));
   const [hidePpCounts, setHidePpCounts]     = useState(() => localStorage.getItem('crg-hide-credits') === 'true');
   const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
-  const [musicOn, setMusicOn]         = useState(() => getMusicEnabled());
+  const [musicOn, setMusicOn]               = useState(() => getMusicEnabled());
   const prevCredits = useRef(startingPop);
 
   const [showHelp, setShowHelp]       = useState(false);
@@ -198,6 +198,8 @@ export const SetupScreen: React.FC = () => {
     <button
       onClick={onClick}
       style={{
+        flexBasis: '50%',
+        maxWidth: 120,
         background: active ? '#00ffcc11' : 'transparent',
         border: `1px solid ${active ? '#00ffcc66' : '#00ffcc33'}`,
         color: active ? '#00ffcc' : '#446655',
@@ -233,7 +235,13 @@ export const SetupScreen: React.FC = () => {
       </p>
 
       {/* Meta buttons */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem' }}>
+      <div style={{
+        display: 'grid',
+        gap: '0.5rem',
+        marginBottom: '2rem',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gridTemplateRows: 'repeat(2, 1fr)',
+      }}>
         {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowHelp(true); },    '? HELP')}
         {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowOptions(true); }, '⚙ OPTIONS')}
         {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowAbout(true); },   'i ABOUT')}
