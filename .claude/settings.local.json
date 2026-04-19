@@ -11,7 +11,13 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(npx tsc:*)",
       "Bash(git push:*)",
-      "Bash(ls -la /Users/michaellawrence/Sites/corrupt-reality-game/src/game*)"
+      "Bash(ls -la /Users/michaellawrence/Sites/corrupt-reality-game/src/game*)",
+      "Bash(grep -E \"\\(package\\\\.json|tsconfig|\\\\.tsx?$\\)\")",
+      "Bash(sed -i '' 's/get\\\\.paused\\) get\\(\\).advanceTurn\\(\\); }, 950\\)/get.paused\\) get\\(\\).advanceTurn\\(\\); }, AI_ADVANCE_DELAY\\)/g' src/state/useGameStore.ts)",
+      "Bash(sed -i '' 's/get\\\\.paused\\) get\\(\\).runAiTurn\\(\\); }, 400\\)/get.paused\\) get\\(\\).runAiTurn\\(\\); }, AI_DRAW_DELAY\\)/g' src/state/useGameStore.ts)",
+      "Bash(node -e ' *)",
+      "Bash(git commit -m ' *)",
+      "mcp__Claude_in_Chrome__javascript_tool"
     ]
   }
 }

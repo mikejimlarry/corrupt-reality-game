@@ -7,8 +7,10 @@ import { GlitchTitle } from './GlitchTitle';
 import {
   resumeAudio, sfxNavClick, sfxSliderUp, sfxSliderDown,
   sfxToggleOn, sfxToggleOff, sfxShowModal, sfxConnect,
-  getMusicEnabled, setMusicEnabled,
+  getMusicEnabled, setMusicEnabled, getMusicTrack, nextMusicTrack,
 } from '../lib/audio';
+
+const TRACK_NAMES = ['NEURAL DRIFT', 'AMBIENT BG'] as const;
 
 const LABEL: React.CSSProperties = {
   fontSize: '0.65rem', letterSpacing: 3, color: '#446655', marginBottom: '0.5rem',
@@ -19,8 +21,8 @@ const SEP: React.CSSProperties = {
 };
 
 function SegmentButton({
-  active, onClick, children,
-}: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  active, onClick, children, fontSize = '0.85rem',
+}: { active: boolean; onClick: () => void; children: React.ReactNode; fontSize?: string }) {
   return (
     <button
       onClick={onClick}
@@ -29,7 +31,7 @@ function SegmentButton({
         background: active ? '#00ffcc22' : 'transparent',
         border: `1px solid ${active ? '#00ffcc' : '#00ffcc33'}`,
         color: active ? '#00ffcc' : '#446655',
-        fontFamily: 'monospace', fontSize: '0.85rem',
+        fontFamily: 'monospace', fontSize,
         cursor: 'pointer', letterSpacing: 1,
         transition: 'all 0.15s',
       }}
@@ -177,6 +179,7 @@ export const SetupScreen: React.FC = () => {
   const [hidePpCounts, setHidePpCounts]     = useState(() => localStorage.getItem('crg-hide-credits') === 'true');
   const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
   const [musicOn, setMusicOn]               = useState(() => getMusicEnabled());
+  const [musicTrack, setMusicTrack]         = useState(() => getMusicTrack());
   const prevCredits = useRef(startingPop);
 
   const [showHelp, setShowHelp]       = useState(false);
@@ -253,6 +256,34 @@ export const SetupScreen: React.FC = () => {
           setMusicEnabled(next);
         }, '♫ MUSIC', musicOn)}
       </div>
+
+      {/* Track selector — visible when music is on */}
+      {musicOn && (
+        <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+          <div style={{ fontSize: '0.5rem', letterSpacing: 3, color: '#00ffcc33', marginBottom: '0.4rem' }}>
+            SOUNDTRACK
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'stretch' }}>
+            {TRACK_NAMES.map((name, i) => (
+              <SegmentButton
+                key={i}
+                active={musicTrack === i}
+                fontSize='0.6rem'
+                whiteSpace='nowrap'
+                onClick={() => {
+                  if (musicTrack !== i) {
+                    resumeAudio();
+                    nextMusicTrack();
+                    setMusicTrack(i);
+                  }
+                }}
+              >
+                {i === 0 ? '①' : '②'} {name}
+              </SegmentButton>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showHelp    && <HelpModal    onClose={() => setShowHelp(false)} />}
       {showAbout   && <AboutModal   onClose={() => setShowAbout(false)} />}

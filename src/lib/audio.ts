@@ -56,13 +56,26 @@ function play(file: string, volume = 1.0) {
 }
 
 // ── Background music ───────────────────────────────────────────────────────────
-// Uses an HTML Audio element (loop support + no buffer-size limits).
+// Uses HTML Audio elements (loop support + no buffer-size limits).
+// Two tracks available; the active track index is persisted to localStorage.
 
-let _musicEl: HTMLAudioElement | null = null;
-const MUSIC_KEY = 'crg-music-enabled';
+const MUSIC_FILES = [
+  '/sfx/music_bg.mp3',   // track 1 — original
+  '/sfx/music_bg2.mp3',  // track 2 — ambient background
+] as const;
+
+let _musicEls: (HTMLAudioElement | null)[] = [null, null];
+const MUSIC_KEY       = 'crg-music-enabled';
+const MUSIC_TRACK_KEY = 'crg-music-track';
 
 export function getMusicEnabled(): boolean {
   return localStorage.getItem(MUSIC_KEY) !== 'false';
+}
+
+/** Returns the active track index (0 or 1). */
+export function getMusicTrack(): number {
+  const stored = parseInt(localStorage.getItem(MUSIC_TRACK_KEY) ?? '0', 10);
+  return (stored === 1) ? 1 : 0;
 }
 
 export function setMusicEnabled(enabled: boolean): void {
@@ -74,13 +87,26 @@ export function setMusicEnabled(enabled: boolean): void {
   }
 }
 
+/** Switch to the next track (cycles 0 → 1 → 0). Persists choice. */
+export function nextMusicTrack(): void {
+  const next = (getMusicTrack() + 1) % MUSIC_FILES.length;
+  localStorage.setItem(MUSIC_TRACK_KEY, String(next));
+  // Stop all tracks then play the new one
+  _musicEls.forEach(el => { if (el) { el.pause(); el.currentTime = 0; } });
+  if (getMusicEnabled()) _playMusicEl();
+}
+
 function _playMusicEl(): void {
-  if (!_musicEl) {
-    _musicEl = new Audio('/sfx/music_bg.mp3');
-    _musicEl.loop   = true;
-    _musicEl.volume = 0.35;
+  const idx = getMusicTrack();
+  if (!_musicEls[idx]) {
+    const el = new Audio(MUSIC_FILES[idx]);
+    el.loop   = true;
+    el.volume = 0.35;
+    _musicEls[idx] = el;
   }
-  _musicEl.play().catch(() => { /* autoplay blocked — will retry on next gesture */ });
+  // Pause any other playing track
+  _musicEls.forEach((el, i) => { if (el && i !== idx) { el.pause(); el.currentTime = 0; } });
+  _musicEls[idx]!.play().catch(() => { /* autoplay blocked — will retry on next gesture */ });
 }
 
 /** Start background music if the toggle is enabled. Call after first user gesture. */
@@ -91,10 +117,7 @@ export function startMusic(): void {
 
 /** Stop and reset background music. */
 export function stopMusic(): void {
-  if (_musicEl) {
-    _musicEl.pause();
-    _musicEl.currentTime = 0;
-  }
+  _musicEls.forEach(el => { if (el) { el.pause(); el.currentTime = 0; } });
 }
 
 // ── Preload everything on first user gesture ──────────────────────────────────

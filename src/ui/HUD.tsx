@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useGameStore } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
-import { sfxCardPlay, getMusicEnabled, setMusicEnabled, sfxToggleOn, sfxToggleOff } from '../lib/audio';
+import { sfxCardPlay, getMusicEnabled, setMusicEnabled, sfxToggleOn, sfxToggleOff, getMusicTrack, nextMusicTrack } from '../lib/audio';
 
 const PULSE_STYLE = `
 @keyframes hud-pulse {
@@ -118,6 +118,7 @@ export function HUD() {
   const [logExpanded, setLogExpanded] = useState(false);
   const [showHelp, setShowHelp]       = useState(false);
   const [musicOn, setMusicOn]         = useState(() => getMusicEnabled());
+  const [musicTrack, setMusicTrack]   = useState(() => getMusicTrack());
 
   // True once the LED panel's unfold animation fires 'crg:led-open'.
   // Reset whenever the phase leaves PHASE_ROLL so stale events don't bleed through.
@@ -153,6 +154,11 @@ export function HUD() {
     setMusicOn(next);
     (next ? sfxToggleOn : sfxToggleOff)();
     setMusicEnabled(next);
+  };
+
+  const handleTrackSwitch = () => {
+    nextMusicTrack();
+    setMusicTrack(getMusicTrack());
   };
 
   return (
@@ -222,6 +228,35 @@ export function HUD() {
           >
             {musicOn ? '♫' : '♪'}
           </button>
+
+          {/* Track switcher — only visible when music is on */}
+          {musicOn && (
+            <button
+              onClick={handleTrackSwitch}
+              title={`Track ${musicTrack + 1} — click to switch`}
+              style={{
+                ...BTN_BASE,
+                width: 'auto',
+                padding: '6px 10px',
+                background: `${ACCENT}18`,
+                border: `1px solid ${ACCENT}33`,
+                color: `${ACCENT}88`,
+                fontSize: 10,
+                letterSpacing: 0,
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.color = ACCENT;
+                (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}66`;
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.color = `${ACCENT}88`;
+                (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}33`;
+              }}
+            >
+              {musicTrack === 0 ? '①' : '②'}
+            </button>
+          )}
 
           {/* Pause toggle */}
           <button
