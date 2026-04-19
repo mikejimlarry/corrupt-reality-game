@@ -185,9 +185,9 @@ export const GlitchTitle: React.FC = () => (
     <style>{CSS_ANIM}</style>
     <h1
       className="cr-glitch"
-      data-text="C0RRUP7 R34LI7Y"
+      data-text="C0RRUpT_R3ALiTY"
     >
-      C<L letter="O">0</L>RRUP<L letter="T">7</L>{' '}R<L letter="E">3</L><L letter="A">4</L>LI<L letter="T">7</L>Y
+      C<L letter="O">0</L>RRUP<L letter="T">T</L>{' '}R<L letter="E">E</L><L letter="A">4</L>LI<L letter="T">T</L>Y
     </h1>
   </>
 );
