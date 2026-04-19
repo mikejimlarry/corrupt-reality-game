@@ -378,14 +378,14 @@ export function HUD() {
           </div>
         )}
 
-        {/* Multitasking indicator — shown in top-right when extra plays are pending */}
+        {/* Multithread indicator — shown in top-right when extra plays are pending */}
         {phase === 'MAIN' && isHuman && extraPlayPending > 0 && (
           <div style={panelStyle}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
               fontSize: 9, color: '#00ffcc66', letterSpacing: 2,
             }}>
-              <span>⟳ MULTITASKING — {extraPlayPending} MORE CARD{extraPlayPending > 1 ? 'S' : ''} TO PLAY</span>
+              <span>⟳ MULTITHREADING — {extraPlayPending} MORE CARD{extraPlayPending > 1 ? 'S' : ''} TO PLAY</span>
               <button
                 onClick={() => cancelExtraPlays()}
                 title="End your turn now without using remaining plays"
@@ -424,19 +424,22 @@ export function HUD() {
 
       {/* ── BEGIN SEQUENCE — centered inside the LED display ── */}
       {phase === 'PHASE_ROLL' && isHuman && rollReady && !rollTriggered && (
-        <div style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, 30px)',
-          zIndex: 10,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 6,
-          pointerEvents: 'auto',
-          animation: 'hud-fade-in 0.2s ease-out forwards',
-        }}>
+        <div
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, 30px)',
+            zIndex: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 6,
+            pointerEvents: 'auto',
+            animation: 'hud-fade-in 0.2s ease-out forwards',
+          }}
+          onMouseDown={e => e.nativeEvent.stopImmediatePropagation()}
+        >
           <div style={{ fontSize: 9, color: `${ACCENT}66`, letterSpacing: 4, fontFamily: 'monospace' }}>
             SEQUENCE READY
           </div>
@@ -452,19 +455,22 @@ export function HUD() {
 
       {/* ── MAIN phase — play / discard centered over the protocol zone ── */}
       {phase === 'MAIN' && isHuman && (
-        <div style={{
-          position: 'fixed',
-          top: '46%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 10,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 8,
-          pointerEvents: 'auto',
-          animation: 'protocol-fade-in 0.18s ease-out forwards',
-        }}>
+        <div
+          style={{
+            position: 'fixed',
+            top: '46%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 8,
+            pointerEvents: 'auto',
+            animation: 'protocol-fade-in 0.18s ease-out forwards',
+          }}
+          onMouseDown={e => e.nativeEvent.stopImmediatePropagation()}
+        >
           {!selectedCard && (
             <div style={{ fontSize: 10, color: `${ACCENT}33`, letterSpacing: 3, fontFamily: 'monospace' }}>
               SELECT A CARD
@@ -499,15 +505,18 @@ export function HUD() {
 
       {/* ── DRAW CARD — centered over the protocol zone ── */}
       {phase === 'DRAW' && isHuman && (
-        <div style={{
-          position: 'fixed',
-          top: '46%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 10,
-          pointerEvents: 'auto',
-          animation: 'protocol-fade-in 0.18s ease-out forwards',
-        }}>
+        <div
+          style={{
+            position: 'fixed',
+            top: '46%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 10,
+            pointerEvents: 'auto',
+            animation: 'protocol-fade-in 0.18s ease-out forwards',
+          }}
+          onMouseDown={e => e.nativeEvent.stopImmediatePropagation()}
+        >
           <button
             className={corruption ? 'corruption-pulse' : 'hud-pulse'}
             style={{

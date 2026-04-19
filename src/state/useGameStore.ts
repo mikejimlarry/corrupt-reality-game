@@ -248,9 +248,10 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
 
     case 'COUNTER': {
       const cnt = card as CounterCard;
-      // SHIELD (Quarantine) — protect the actor from the next incoming targeted EVENT_NEGATIVE
+      // SHIELD (Quarantine) — played via resolveCounterOpportunity which cancels the war
+      // directly; this applyCardEffect path is a no-op fallback.
       if (cnt.counterType === 'SHIELD') {
-        return players.map((p, i) => i === actorIndex ? { ...p, quarantined: true } : p);
+        return players;
       }
       // TACTICAL_ADVANTAGE (Firewall Surge) — adds +1 to the next WAR roll (stackable)
       if (cnt.counterType === 'TACTICAL_ADVANTAGE') {
@@ -283,7 +284,7 @@ function pickAiCard(
   const powerCycleCard = ai.hand.find(c =>
     c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).effect === 'POWER_CYCLE'
   );
-  const multitaskingCard = ai.hand.find(c =>
+  const multiThreadCard = ai.hand.find(c =>
     c.category === 'EVENT_POSITIVE' && (c as PositiveEventCard).effect === 'EXTRA_PLAY'
   );
 
@@ -297,7 +298,7 @@ function pickAiCard(
     ? Math.max(0, richestOpponent.credits - startingPop) + richestOpponent.daemons.length * 10
     : 0;
 
-  // Is there a high-impact follow-up card for after Multitasking?
+  // Is there a high-impact follow-up card for after Multithread?
   const hasGoodFollowUp = ai.hand.some(c =>
     c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).amount >= 10
   );
@@ -317,24 +318,13 @@ function pickAiCard(
           richestOpponent.daemons.length > 0) {
         return powerCycleCard;
       }
-      const hasWar = ai.hand.some(c => c.category === 'WAR');
-      // Play Firewall Surge just before going to war — waives own losses
-      if (hasWar && !ai.tacticalBonus)
-        return ai.hand.find(c => c.category === 'COUNTER' && (c as CounterCard).counterType === 'TACTICAL_ADVANTAGE')
-          ?? ai.hand.find(c => c.category === 'WAR')
-          ?? ai.hand.find(c => c.category === 'EVENT_NEGATIVE')
-          ?? nonCounterHand[0] ?? ai.hand[0];
       return ai.hand.find(c => c.category === 'WAR')
         ?? ai.hand.find(c => c.category === 'EVENT_NEGATIVE')
         ?? nonCounterHand[0] ?? ai.hand[0];
     }
     case 'CAUTIOUS':
-      // Play System Interrupt only as a last-resort shield when credits are critically low
       return ai.hand.find(c => c.category === 'DAEMON')
         ?? ai.hand.find(c => c.category === 'CREDITS')
-        ?? (ai.credits < 20
-          ? ai.hand.find(c => c.category === 'COUNTER' && (c as CounterCard).counterType === 'NEGOTIATE')
-          : undefined)
         ?? nonCounterHand[0] ?? ai.hand[0];
     case 'TACTICAL': {
       const score = (c: Card): number => {
@@ -368,8 +358,8 @@ function pickAiCard(
       }
       // Opportunistic Power Cycle only when the target is a clear runaway leader
       if (powerCycleCard && powerCycleScore >= 30) return powerCycleCard;
-      // Multitasking when a high-damage follow-up exists
-      if (multitaskingCard && hasGoodFollowUp && random() < 0.5) return multitaskingCard;
+      // Multithread when a high-damage follow-up exists
+      if (multiThreadCard && hasGoodFollowUp && random() < 0.5) return multiThreadCard;
       // Adaptive: if behind → build resources; if ahead → press the attack
       const isAhead = richestOpponent ? ai.credits >= richestOpponent.credits : true;
       if (!isAhead) {
@@ -476,7 +466,7 @@ interface GameStore extends GameState {
   playCard(cardId: string): void;
   applyPlayCard(cardId: string, targetIndex: number | undefined): void;
   discardCard(cardId: string): void;
-  /** Cancel remaining Multitasking extra plays and end the human's turn. */
+  /** Cancel remaining Multithread extra plays and end the human's turn. */
   cancelExtraPlays(): void;
   selectTarget(targetId: string): void;
   cancelTargeting(): void;
@@ -732,7 +722,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const actorIndex = state.currentPlayerIndex;
     const actor = state.players[actorIndex];
 
-    // During an extra play (Multitasking), WAR/COUNTER/Multitasking cards are not allowed
+    // During an extra play (Multithread), WAR/COUNTER/Multithread cards are not allowed
     if (state.extraPlayPending > 0) {
       const card = actor.hand.find(c => c.id === cardId);
       if (!card) return;
@@ -818,72 +808,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
 
-    // ── Reactive counter opportunity — pause before applying the effect ──────
-    // If an AI is about to hit the human with a targeted EVENT_NEGATIVE and the
-    // human holds a Quarantine (SHIELD) or Cease & Desist (NEGOTIATE) card,
-    // give them a chance to play it reactively before the damage lands.
-    if (!_skipCounterCheck && !actor.isHuman && card.category === 'EVENT_NEGATIVE') {
-      const neg = card as NegativeEventCard;
-      // Quarantine only works against regular hack protocols — not Digital Crusade or M.A.D.
-      const quarantineEligible = neg.name !== 'Digital Crusade' && neg.effect !== 'MUTUAL_DAMAGE';
-      if (neg.targetsOther && quarantineEligible) {
-        const liveOpponents = state.players
-          .map((p, i) => ({ p, i }))
-          .filter(({ p, i }) => i !== actorIndex && !p.eliminated);
-        if (liveOpponents.length > 0) {
-          const targetI = liveOpponents[Math.floor(random() * liveOpponents.length)].i;
-          const target  = state.players[targetI];
-          // Only intercept when the target is human and isn't already auto-shielded
-          if (target.isHuman && !target.quarantined && !target.negotiating) {
-            // Only SHIELD (Quarantine) can block EVENT_NEGATIVE — Cease & Desist is WAR/Crusade only
-            const eligibleCounters = target.hand.filter(c =>
-              c.category === 'COUNTER' &&
-              (c as CounterCard).counterType === 'SHIELD'
-            ) as CounterCard[];
-            if (eligibleCounters.length > 0) {
-              set({ counterPending: { type: 'ATTACK', attackerIndex: actorIndex, cardId, targetIndex: targetI, eligibleCounters } });
-              return; // resume via resolveCounterOpportunity
-            }
-          } else if (!target.isHuman && !target.quarantined) {
-            // AI reactive Quarantine — personality-based decision to use a SHIELD card
-            const shieldCard = target.hand.find(c =>
-              c.category === 'COUNTER' && (c as CounterCard).counterType === 'SHIELD'
-            ) as CounterCard | undefined;
-            const shouldDefend = shieldCard && (() => {
-              switch (target.personality) {
-                case 'CAUTIOUS':   return true;
-                case 'AGGRESSIVE': return false;
-                case 'TACTICAL':   return neg.amount >= 10 || neg.effect === 'STEAL_DAEMON';
-                default:           return random() < 0.5;
-              }
-            })();
-            if (shouldDefend && shieldCard) {
-              // Consume the AI's Quarantine card, mark them as shielded, then re-apply the attack
-              // The quarantined flag means applyCardEffect will absorb and clear it automatically
-              const updatedPlayers = state.players.map((p, i) =>
-                i === targetI
-                  ? { ...p, quarantined: true, hand: p.hand.filter(c => c.id !== shieldCard.id) }
-                  : p
-              );
-              set({ players: updatedPlayers, discard: [...state.discard, shieldCard] });
-              get().addLog(
-                `${target.name} reactively activated ${shieldCard.name} — incoming attack will be absorbed!`,
-                'effect',
-              );
-              _skipCounterCheck = true;
-              get().applyPlayCard(cardId, targetI);
-              _skipCounterCheck = false;
-              return;
-            }
-          }
-        }
-      }
-    }
-
     // ── WAR counter opportunity — when AI targets human with a WAR card ───────
-    // Give the human a chance to play System Interrupt (cancel) or Firewall Surge
-    // (+1 roll bonus) before the war resolves. Skip if human already has the
-    // negotiating flag active (Cease & Desist already armed — auto-blocks in effect).
+    // Give the human a chance to play a counter card before the war resolves.
+    // All COUNTER card types are eligible: NEGOTIATE (cancel), TACTICAL_ADVANTAGE
+    // (+1 roll), SHIELD (cancel — Quarantine blocks the war). Skip if human already
+    // has the negotiating flag active (System Interrupt already armed).
     if (!_skipCounterCheck && !actor.isHuman && card.category === 'WAR') {
       const liveOpponents = state.players
         .map((p, i) => ({ p, i }))
@@ -893,9 +822,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const target  = state.players[targetI];
         if (target.isHuman && !target.negotiating) {
           const eligibleCounters = target.hand.filter(c =>
-            c.category === 'COUNTER' &&
-            ((c as CounterCard).counterType === 'NEGOTIATE' ||
-             (c as CounterCard).counterType === 'TACTICAL_ADVANTAGE')
+            c.category === 'COUNTER'
           ) as CounterCard[];
           if (eligibleCounters.length > 0) {
             set({ counterPending: { type: 'WAR', attackerIndex: actorIndex, cardId, targetIndex: targetI, eligibleCounters } });
@@ -1069,7 +996,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       (card as PositiveEventCard).effect === 'EXTRA_PLAY';
 
     if (isExtraPlayCard && !winnerId) {
-      // Multitasking — randomly grant 1 or 2 extra card plays
+      // Multithread — randomly grant 1 or 2 extra card plays
       const extraCount = Math.floor(random() * 2) + 1;
       set({
         players, discard, globalCorruptionMode,
@@ -1080,7 +1007,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingOverclockCard: state.pendingOverclockCard,
         gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: newDamageDealt },
       });
-      get().addLog(`${actor.name} activated Multitasking — ${extraCount} extra play${extraCount > 1 ? 's' : ''} granted!`, 'effect');
+      get().addLog(`${actor.name} activated Multithread — ${extraCount} extra play${extraCount > 1 ? 's' : ''} granted!`, 'effect');
       // AI immediately picks a valid extra card (no redraw)
       if (!isHuman) {
         setTimeout(() => {
@@ -1105,7 +1032,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    // If this card was played as an extra play (from Multitasking), decrement the counter
+    // If this card was played as an extra play (from Multithread), decrement the counter
     const newExtraPlays = (state.extraPlayPending > 0 && !isExtraPlayCard)
       ? state.extraPlayPending - 1
       : 0;
@@ -1438,10 +1365,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const pending = state.counterPending;
     if (!pending) return;
 
-    const { type, attackerIndex, cardId, targetIndex } = pending;
+    const { attackerIndex, cardId, targetIndex } = pending;
 
     if (counterCardId === null) {
-      // Human chose to allow — proceed with the original card at the pre-resolved target.
+      // Human chose to allow — proceed with the original WAR card at the pre-resolved target.
       set({ counterPending: null });
       _skipCounterCheck = true;
       get().applyPlayCard(cardId, targetIndex);
@@ -1455,7 +1382,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const counterCard = human?.hand.find(c => c.id === counterCardId) as CounterCard | undefined;
     if (!attackCard || !counterCard) { set({ counterPending: null }); return; }
 
-    if (type === 'WAR' && counterCard.counterType === 'TACTICAL_ADVANTAGE') {
+    if (counterCard.counterType === 'TACTICAL_ADVANTAGE') {
       // Firewall Surge in a WAR — boost human's roll but let the war proceed.
       const players = state.players.map(p =>
         p.isHuman
@@ -1470,7 +1397,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       get().applyPlayCard(cardId, targetIndex);
       _skipCounterCheck = false;
     } else {
-      // NEGOTIATE (blocks WAR / EVENT_NEGATIVE) or SHIELD (blocks EVENT_NEGATIVE) — cancel entirely.
+      // NEGOTIATE or SHIELD — cancel the war entirely.
       const players = state.players.map((p, i) => {
         if (i === attackerIndex) return { ...p, hand: p.hand.filter(c => c.id !== cardId) };
         if (p.isHuman)           return { ...p, hand: p.hand.filter(c => c.id !== counterCardId) };
@@ -1621,7 +1548,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const actor = state.players[state.currentPlayerIndex];
     if (!actor.isHuman) return; // AI never calls this
     set({ extraPlayPending: 0, phase: 'END_TURN', selectedCardId: null });
-    get().addLog(`${actor.name} ended Multitasking early.`, 'effect');
+    get().addLog(`${actor.name} ended Multithread early.`, 'effect');
   },
 
   endTurn: () => {

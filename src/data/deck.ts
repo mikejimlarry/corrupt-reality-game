@@ -8,7 +8,6 @@ const uid = () => `card_${++_id}`;
 const common  = (n: number): CardRarity => n <= 3 ? 'COMMON' : n <= 5 ? 'UNCOMMON' : n <= 7 ? 'RARE' : 'LEGENDARY';
 
 // ── CREDITS (12) ─────────────────────────────────────────────────────────────
-// P&P: Fertility ×6 (+5), Plenty ×6 (+10)
 
 const creditCards: Card[] = [
   // Data Harvest ×6 — P&P Fertility (+5)
@@ -28,7 +27,6 @@ const creditCards: Card[] = [
 ];
 
 // ── EVENT_POSITIVE (6) ───────────────────────────────────────────────────────
-// P&P base: Migration ×2 | New: Overclock ×2, Multitasking ×2
 
 const positiveEvents: Card[] = [
   // Mass Assimilation ×2 — P&P Migration
@@ -45,9 +43,9 @@ const positiveEvents: Card[] = [
     rarity: 'RARE' as const, effect: 'OVERCLOCK', amount: 0,
     flavourText: 'Redline everything. Deal with the consequences later.',
   })),
-  // Multitasking ×2 — play two cards in one turn (no WAR or COUNTER as second card)
+  // Multithread ×2 — play two cards in one turn (no WAR or COUNTER as second card)
   ...Array(2).fill(null).map(() => ({
-    id: uid(), name: 'Multitasking', category: 'EVENT_POSITIVE' as const,
+    id: uid(), name: 'Multithread', category: 'EVENT_POSITIVE' as const,
     description: 'Run parallel processes. Play 1–2 additional cards this turn. Excludes Conflict and Countermeasure cards.',
     rarity: 'RARE' as const, effect: 'EXTRA_PLAY', amount: 0,
     flavourText: 'Two threads. One clock cycle.',
@@ -195,10 +193,10 @@ const counterCards: Card[] = [
     rarity: 'UNCOMMON' as const, counterType: 'NEGOTIATE' as const,
     flavourText: 'The most powerful line of code: null.',
   })),
-  // Quarantine ×2 — new card (SHIELD: block the next incoming targeted attack)
+  // Quarantine ×2 — SHIELD: cancel an incoming WAR before the roll
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Quarantine', category: 'COUNTER' as const,
-    description: 'INSTANT — Block the next targeted attack against you. One use.',
+    description: 'INSTANT — Cancel an incoming Conflict before it resolves.',
     rarity: 'UNCOMMON' as const, counterType: 'SHIELD' as const,
     flavourText: 'Nothing gets in. Nothing gets out.',
   })),

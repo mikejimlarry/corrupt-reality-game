@@ -1,6 +1,6 @@
 // src/ui/CounterOpportunityOverlay.tsx
-// Shown when an AI plays a targeted EVENT_NEGATIVE or WAR at the human and they
-// hold a reactive counter card they can play in response.
+// Shown when an AI declares WAR on the human and they hold a counter card.
+// Counter cards can only be played reactively during a WAR, before the roll.
 import React from 'react';
 import { useGameStore } from '../state/useGameStore';
 import type { CounterCard } from '../types/cards';
@@ -11,14 +11,9 @@ const COUNTER_LABEL: Record<string, string> = {
   TACTICAL_ADVANTAGE: 'FIREWALL SURGE',
 };
 
-// Descriptions vary by threat type
-const COUNTER_DESC_ATTACK: Record<string, string> = {
-  SHIELD:    'Absorbs this attack — blocks hack protocols (not Digital Crusade or M.A.D.).',
-  NEGOTIATE: 'Cancels this attack — blocks WAR cards and Digital Crusade.',
-};
-
-const COUNTER_DESC_WAR: Record<string, string> = {
-  NEGOTIATE:          'Cancel the war — System Interrupt blocks incoming WAR cards.',
+const COUNTER_DESC: Record<string, string> = {
+  SHIELD:             'Cancel the war — Quarantine nullifies the incoming Conflict.',
+  NEGOTIATE:          'Cancel the war — System Interrupt blocks incoming Conflict cards.',
   TACTICAL_ADVANTAGE: 'Boost your roll by +1 — war still proceeds, but you fight with an edge.',
 };
 
@@ -29,14 +24,11 @@ export const CounterOpportunityOverlay: React.FC = () => {
 
   if (!pending) return null;
 
-  const { type, attackerIndex, cardId, eligibleCounters } = pending;
-  const attacker  = players[attackerIndex];
+  const { attackerIndex, cardId, eligibleCounters } = pending;
+  const attacker   = players[attackerIndex];
   const attackCard = attacker?.hand.find(c => c.id === cardId);
 
   if (!attacker || !attackCard) return null;
-
-  const isWar = type === 'WAR';
-  const counterDesc = isWar ? COUNTER_DESC_WAR : COUNTER_DESC_ATTACK;
 
   // Group by counterType
   const shieldCards   = eligibleCounters.filter(c => c.counterType === 'SHIELD');
@@ -96,7 +88,7 @@ export const CounterOpportunityOverlay: React.FC = () => {
           color: '#ff5566', letterSpacing: 6, fontSize: '0.55rem',
           textAlign: 'center', marginBottom: '0.3rem',
         }}>
-          {isWar ? '⚔ INCOMING WAR' : '⚠ INCOMING ATTACK'}
+          ⚔ INCOMING WAR
         </div>
         <h2 style={{
           color: '#ff4466', letterSpacing: 3, fontSize: '1rem',
@@ -110,7 +102,7 @@ export const CounterOpportunityOverlay: React.FC = () => {
           fontSize: '0.65rem', color: '#ff336688', letterSpacing: 2,
           textAlign: 'center', marginBottom: '1.25rem',
         }}>
-          {attacker.name.toUpperCase()} {isWar ? 'is declaring war on you' : 'is targeting you'}
+          {attacker.name.toUpperCase()} is declaring war on you
         </div>
 
         {/* Counter options */}
@@ -118,14 +110,14 @@ export const CounterOpportunityOverlay: React.FC = () => {
           fontSize: '0.5rem', color: '#00ffcc44', letterSpacing: 3,
           marginBottom: '0.5rem',
         }}>
-          {isWar ? 'RESPOND BEFORE THE WAR BEGINS' : 'PLAY A COUNTER TO BLOCK'}
+          RESPOND BEFORE THE WAR BEGINS
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '1rem' }}>
           {shieldCards.length > 0 && (
             <>
               <div style={{ fontSize: '0.5rem', color: '#00ffcc33', letterSpacing: 2, marginBottom: 2 }}>
-                {COUNTER_LABEL.SHIELD} — {counterDesc.SHIELD}
+                {COUNTER_LABEL.SHIELD} — {COUNTER_DESC.SHIELD}
               </div>
               {shieldCards.map(counterBtn)}
             </>
@@ -136,7 +128,7 @@ export const CounterOpportunityOverlay: React.FC = () => {
                 fontSize: '0.5rem', color: '#00ffcc33', letterSpacing: 2,
                 marginTop: shieldCards.length > 0 ? 8 : 0, marginBottom: 2,
               }}>
-                {COUNTER_LABEL.NEGOTIATE} — {counterDesc.NEGOTIATE}
+                {COUNTER_LABEL.NEGOTIATE} — {COUNTER_DESC.NEGOTIATE}
               </div>
               {negCards.map(counterBtn)}
             </>
@@ -147,7 +139,7 @@ export const CounterOpportunityOverlay: React.FC = () => {
                 fontSize: '0.5rem', color: '#00ffcc33', letterSpacing: 2,
                 marginTop: (shieldCards.length > 0 || negCards.length > 0) ? 8 : 0, marginBottom: 2,
               }}>
-                {COUNTER_LABEL.TACTICAL_ADVANTAGE} — {counterDesc.TACTICAL_ADVANTAGE}
+                {COUNTER_LABEL.TACTICAL_ADVANTAGE} — {COUNTER_DESC.TACTICAL_ADVANTAGE}
               </div>
               {tacticalCards.map(counterBtn)}
             </>
@@ -157,7 +149,7 @@ export const CounterOpportunityOverlay: React.FC = () => {
         {/* Separator */}
         <div style={{ borderBottom: '1px solid #ff336622', marginBottom: '1rem' }} />
 
-        {/* Allow / Take the hit */}
+        {/* Allow */}
         <button
           onClick={() => resolve(null)}
           style={{
@@ -174,7 +166,7 @@ export const CounterOpportunityOverlay: React.FC = () => {
           onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.2)'}
           onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.08)'}
         >
-          {isWar ? 'TAKE THE HIT' : 'ALLOW ATTACK'}
+          TAKE THE HIT
         </button>
       </div>
     </div>

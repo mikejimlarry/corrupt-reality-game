@@ -22,7 +22,7 @@ export interface PlayerState {
   hand: Card[];
   daemons: DaemonType[];
   eliminated: boolean;
-  /** Set by Quarantine — blocks the next incoming targeted EVENT_NEGATIVE, then clears. */
+  /** Legacy flag — reserved for future use. */
   quarantined: boolean;
   /** Set by Overclock — doubles the gain on the player's next Stability Roll, then clears. */
   overclocked: boolean;
@@ -67,7 +67,7 @@ export interface GameState {
   pendingOverclockCard: import('./cards').Card | null;
   /** When true, all AI timers are suspended and no AI actions fire. */
   paused: boolean;
-  /** Number of extra card plays remaining for the current player (from Multitasking). 0 = none. */
+  /** Number of extra card plays remaining for the current player (from Multithread). 0 = none. */
   extraPlayPending: number;
   /** Accumulated per-game statistics — reset each new game. */
   gameStats: {
@@ -83,12 +83,12 @@ export interface GameState {
   /** When set, the next advanceTurn call routes to this player index (first turn after Corruption card). */
   postCorruptionTargetIndex: number | null;
   /**
-   * Non-null when an AI played a targeted EVENT_NEGATIVE or WAR at the human and they
-   * have a reactive counter card in hand — pauses the AI turn so the human can respond.
+   * Non-null when an AI declared WAR on the human and they have a counter card in hand
+   * — pauses the AI turn so the human can respond before the war roll.
    */
   counterPending: {
-    /** Whether the incoming threat is a hack-protocol attack or a WAR card. */
-    type: 'ATTACK' | 'WAR';
+    /** Counter cards are WAR-only — this is always 'WAR'. */
+    type: 'WAR';
     attackerIndex: number;
     /** ID of the attacker's card (still in their hand until resolved). */
     cardId: string;
