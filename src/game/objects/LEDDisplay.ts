@@ -15,9 +15,10 @@ const DIGIT_TOP_Y  = -PANEL_H / 2 + 36;          // top of digit area
 const DIGIT_CY     = DIGIT_TOP_Y + DIGIT_H / 2;  // vertical centre of digits
 const BELOW_DIGITS = DIGIT_TOP_Y + DIGIT_H + 10; // first row below digits
 
-const COLOR_DIM   = 0x001508;
-const COLOR_GREEN = 0x00ff55;
-const COLOR_AMBER = 0xffaa00;
+const COLOR_DIM    = 0x001508;
+const COLOR_GREEN  = 0x00ff55;
+const COLOR_AMBER  = 0xffaa00;
+const COLOR_ORANGE = 0xff8800;
 
 // 7 segments: [top, topRight, botRight, bottom, botLeft, topLeft, middle]
 const SEG_MAP: Record<string | number, boolean[]> = {
@@ -345,9 +346,10 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     this.digit2Gfx.setAlpha(1);
 
     const total    = r1 + r2;
-    // Colour logic only used for normal stability rolls (not WAR).
-    const finalColor  = warMode ? COLOR_GREEN : (total <= 3 ? COLOR_AMBER : COLOR_GREEN);
-    const finalHex    = warMode ? '#00ff55'   : (total <= 3 ? '#ffaa00'   : '#00ff55');
+    // War rolls use orange; stability rolls use green/amber based on total.
+    const finalColor  = warMode ? COLOR_ORANGE : (total <= 3 ? COLOR_AMBER : COLOR_GREEN);
+    const finalHex    = warMode ? '#ff8800'    : (total <= 3 ? '#ffaa00'   : '#00ff55');
+    const spinColor   = warMode ? COLOR_ORANGE : COLOR_GREEN;
     const statusLabel = warMode
       ? '◆  CONFLICT RESOLVED'
       : (total <= 3  ? '◆  NO GAIN'         :
@@ -355,7 +357,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
          total <= 8  ? '◆  STABLE SEQUENCE' :
          total <= 11 ? '◆  STABILITY BONUS' : '◆  PEAK STABILITY');
 
-    this.statusTxt.setText(`GENERATING · ${playerName.toUpperCase()}`).setColor('#00ffcc66');
+    this.statusTxt.setText(`GENERATING · ${playerName.toUpperCase()}`).setColor(warMode ? '#ff880066' : '#00ffcc66');
     this.totalTxt.setText('').setColor('#334455');
     this.toastTxt.setText('').setAlpha(0);
     this.toastBg.setAlpha(0);
@@ -385,12 +387,12 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
         this.operatorTxt.setColor(finalHex + 'aa');
       } else if (!d1Locked) {
         const shown = ((tick - 1) % 6) + 1;
-        this.drawDigit(this.digit1Gfx, this.glow1, shown, COLOR_GREEN, -D_CX);
+        this.drawDigit(this.digit1Gfx, this.glow1, shown, spinColor, -D_CX);
       }
 
       if (tick < TOTAL_TICKS) {
         const shown2 = (tick % 6) + 1;
-        this.drawDigit(this.digit2Gfx, this.glow2, shown2, COLOR_GREEN, D_CX);
+        this.drawDigit(this.digit2Gfx, this.glow2, shown2, spinColor, D_CX);
         this.scene.time.delayedCall(delay, doTick);
       } else {
         // ── Land digit 2 ──────────────────────────────────────────────────
@@ -413,8 +415,8 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
           if (customToast) {
             toastLabel   = customToast;
-            toastHex     = '#00ccff';
-            toastBgColor = 0x00080f;
+            toastHex     = warMode ? '#ff8800' : '#00ccff';
+            toastBgColor = warMode ? 0x1a0800  : 0x00080f;
           } else if (creditDelta === 0) {
             toastLabel  = '◆  NO CYCLES';
             toastHex    = '#446655';
