@@ -1,6 +1,6 @@
 // src/ui/HUD.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { useGameStore } from '../state/useGameStore';
+import { useGameStore, mustPlayCorruptionFirst } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
 import { sfxCardPlay, getMusicEnabled, setMusicEnabled, sfxToggleOn, sfxToggleOff, getMusicTrack, nextMusicTrack } from '../lib/audio';
 
@@ -108,6 +108,7 @@ export function HUD() {
   const paused              = useGameStore(s => s.paused);
   const extraPlayPending         = useGameStore(s => s.extraPlayPending);
   const corruptionPendingTarget  = useGameStore(s => s.corruptionPendingTarget);
+  const gameStats                = useGameStore(s => s.gameStats);
 
   const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
 
@@ -147,7 +148,9 @@ export function HUD() {
   const logTail = log.slice(-3);
 
   // Whether the selected card is a forced play (The Corruption) — no discard allowed
-  const isForced = (selectedCard as any)?.effect === 'CORRUPTION' || corruptionPendingTarget;
+  const humanPlayer = players.find(p => p.isHuman);
+  const corruptionFirstActive = isHuman && !!humanPlayer && mustPlayCorruptionFirst(humanPlayer, gameStats);
+  const isForced = (selectedCard as any)?.effect === 'CORRUPTION' || corruptionPendingTarget || corruptionFirstActive;
 
   const handleMusicToggle = () => {
     const next = !musicOn;
@@ -506,9 +509,17 @@ export function HUD() {
           }}
           onMouseDown={e => e.nativeEvent.stopImmediatePropagation()}
         >
+          {corruptionFirstActive && (
+            <div style={{
+              fontSize: 9, color: '#ff1e3caa', letterSpacing: 2,
+              fontFamily: 'monospace', textAlign: 'center', marginBottom: 2,
+            }}>
+              ⚠ THE CORRUPTION MUST BE PLAYED FIRST
+            </div>
+          )}
           {!selectedCard && (
             <div style={{ fontSize: 10, color: `${ACCENT}33`, letterSpacing: 3, fontFamily: 'monospace' }}>
-              SELECT A CARD
+              {corruptionFirstActive ? 'SELECT THE CORRUPTION' : 'SELECT A CARD'}
             </div>
           )}
           {selectedCard && (

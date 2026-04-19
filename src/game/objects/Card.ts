@@ -1,7 +1,7 @@
 // src/game/objects/Card.ts
 import Phaser from 'phaser';
 import type { Card as CardData, CardCategory, CardRarity } from '../../types/cards';
-import { useGameStore } from '../../state/useGameStore';
+import { useGameStore, mustPlayCorruptionFirst } from '../../state/useGameStore';
 import { sfxCardSelect } from '../../lib/audio';
 
 // ── Dimensions ───────────────────────────────────────────────────────────────
@@ -286,6 +286,14 @@ export class Card extends Phaser.GameObjects.Container {
     if (store.phase !== 'MAIN') return;
     const current = store.players[store.currentPlayerIndex];
     if (!current?.isHuman) return;
+
+    // Corruption-first: if the player must play The Corruption as their first card,
+    // block selection of every other card.
+    if (mustPlayCorruptionFirst(current, store.gameStats)) {
+      const isCorruptionCard = this.cardData.category === 'EVENT_NEGATIVE' &&
+        (this.cardData as import('../../types/cards').NegativeEventCard).effect === 'CORRUPTION';
+      if (!isCorruptionCard) return;
+    }
 
     // Daemon cards: block selection if the player already has this type active
     if (this.cardData.category === 'DAEMON') {

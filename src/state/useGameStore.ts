@@ -5,6 +5,19 @@ import type { Card, CreditsCard, PositiveEventCard, NegativeEventCard, WarCard, 
 import { initRNG, random } from '../lib/rng';
 import { generateDeck } from '../data/deck';
 
+// ── Corruption-first constraint ───────────────────────────────────────────────
+// If a player has The Corruption card in their starting hand (cardsPlayed === 0),
+// they must play it as their very first card — all other cards are locked.
+export function mustPlayCorruptionFirst(
+  player: PlayerState,
+  gameStats: GameState['gameStats'],
+): boolean {
+  if ((gameStats.cardsPlayed[player.id] ?? 0) !== 0) return false;
+  return player.hand.some(
+    c => c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).effect === 'CORRUPTION',
+  );
+}
+
 // ── Elimination helper ────────────────────────────────────────────────────────
 
 function markEliminations(players: PlayerState[], keepHumanAlive = false): PlayerState[] {
@@ -275,8 +288,16 @@ function pickAiCard(
   allPlayers: PlayerState[],
   actorIndex: number,
   startingPop: number,
+  gameStats: GameState['gameStats'],
 ): Card | null {
   if (ai.hand.length === 0) return null;
+
+  // Corruption-first constraint: if AI has The Corruption and hasn't played yet, must play it.
+  if (mustPlayCorruptionFirst(ai, gameStats)) {
+    return ai.hand.find(
+      c => c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).effect === 'CORRUPTION',
+    ) ?? null;
+  }
 
   const liveOpponents = allPlayers.filter((p, i) => i !== actorIndex && !p.eliminated);
 
@@ -616,7 +637,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               : actor.hand;
             const card = s.extraPlayPending > 0
               ? (eligibles[Math.floor(random() * eligibles.length)] ?? null)
-              : pickAiCard(actor, s.players, s.currentPlayerIndex, s.startingPop);
+              : pickAiCard(actor, s.players, s.currentPlayerIndex, s.startingPop, s.gameStats);
             if (!card) {
               set({ extraPlayPending: 0, phase: 'END_TURN' });
               setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
@@ -1826,7 +1847,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (get().paused) return; // ← guard: paused between draw and card pick
       const currentState = get();
       const currentActor = currentState.players[currentState.currentPlayerIndex];
-      const card = pickAiCard(currentActor, currentState.players, currentState.currentPlayerIndex, currentState.startingPop);
+      const card = pickAiCard(currentActor, currentState.players, currentState.currentPlayerIndex, currentState.startingPop, currentState.gameStats);
       if (!card) {
         if (!get().paused) get().advanceTurn();
         return;
