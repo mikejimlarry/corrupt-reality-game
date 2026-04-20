@@ -177,6 +177,7 @@ export class GameScene extends Phaser.Scene {
             prevHandStr = newHandStr;
             if (human) {
               this.updateHumanHand(human.hand, w, h);
+              this.applyCardApplicability();
               handUpdated = true;
             }
           }
