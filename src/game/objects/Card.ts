@@ -308,81 +308,89 @@ export class Card extends Phaser.GameObjects.Container {
 
   // ── Animated art layers ─────────────────────────────────────────────────
   private animateArt(artX: number, artY: number, artW: number, artH: number, catColor: number) {
-    const seed = this.cardData.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    const rnd  = (n: number) => { const v = Math.sin(seed + n * 127.1) * 43758.5453; return v - Math.floor(v); };
+    const seed    = this.cardData.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const rnd     = (n: number) => { const v = Math.sin(seed + n * 127.1) * 43758.5453; return v - Math.floor(v); };
+    const reduced = useGameStore.getState().reducedMotion;
 
-    // ── Glow pulse over the whole art area ──────────────────────────────
+    // ── Glow (static when reduced, pulsing otherwise) ────────────────────
     const glow = this.scene.add.graphics();
     glow.fillStyle(catColor, 0.07);
     glow.fillRoundedRect(artX, artY, artW, artH, 4);
     this.add(glow);
-    this.scene.tweens.add({
-      targets: glow,
-      alpha: { from: 0.3, to: 1.0 },
-      duration: 1600 + rnd(seed * 3) * 1400,
-      repeat: -1, yoyo: true,
-      ease: 'Sine.easeInOut',
-      delay: rnd(seed * 11) * 800,
-    });
+    if (!reduced) {
+      this.scene.tweens.add({
+        targets: glow,
+        alpha: { from: 0.3, to: 1.0 },
+        duration: 1600 + rnd(seed * 3) * 1400,
+        repeat: -1, yoyo: true,
+        ease: 'Sine.easeInOut',
+        delay: rnd(seed * 11) * 800,
+      });
+    }
 
-    // ── Scan line sweeping top → bottom ─────────────────────────────────
-    const scanDurations: Partial<Record<CardCategory, number>> = {
-      WAR: 650, EVENT_NEGATIVE: 580, CREDITS: 1100,
-      EVENT_POSITIVE: 1000, COUNTER: 1300, DAEMON: 1900,
-    };
-    const scanDuration = scanDurations[this.cardData.category] ?? 1100;
+    if (!reduced) {
+      // ── Scan line sweeping top → bottom ───────────────────────────────
+      const scanDurations: Partial<Record<CardCategory, number>> = {
+        WAR: 650, EVENT_NEGATIVE: 580, CREDITS: 1100,
+        EVENT_POSITIVE: 1000, COUNTER: 1300, DAEMON: 1900,
+      };
+      const scanDuration = scanDurations[this.cardData.category] ?? 1100;
+      const scanLine = this.scene.add.graphics();
+      scanLine.lineStyle(1, catColor, 0.22);
+      scanLine.beginPath();
+      scanLine.moveTo(artX, 0);
+      scanLine.lineTo(artX + artW, 0);
+      scanLine.strokePath();
+      scanLine.y = artY;
+      this.add(scanLine);
+      this.scene.tweens.add({
+        targets: scanLine,
+        y: artY + artH,
+        duration: scanDuration,
+        repeat: -1,
+        ease: 'Linear',
+        delay: rnd(seed * 5) * scanDuration,
+      });
+    }
 
-    const scanLine = this.scene.add.graphics();
-    scanLine.lineStyle(1, catColor, 0.22);
-    scanLine.beginPath();
-    scanLine.moveTo(artX, 0);
-    scanLine.lineTo(artX + artW, 0);
-    scanLine.strokePath();
-    scanLine.y = artY;
-    this.add(scanLine);
-    this.scene.tweens.add({
-      targets: scanLine,
-      y: artY + artH,
-      duration: scanDuration,
-      repeat: -1,
-      ease: 'Linear',
-      delay: rnd(seed * 5) * scanDuration, // stagger start so cards don't sync
-    });
-
-    // ── Circuit node flicker ─────────────────────────────────────────────
+    // ── Circuit nodes (static when reduced, flickering otherwise) ────────
     for (let i = 0; i < 7; i++) {
       const nx   = artX + 6 + rnd(i * 3)     * (artW - 12);
       const ny   = artY + 6 + rnd(i * 3 + 1) * (artH - 12);
       const size = rnd(i * 11 + 4) > 0.7 ? 3 : 2;
       const dot  = this.scene.add.graphics();
-      dot.fillStyle(catColor, 1);
+      dot.fillStyle(catColor, reduced ? 0.4 : 1);
       dot.fillCircle(nx, ny, size);
       this.add(dot);
+      if (!reduced) {
+        this.scene.tweens.add({
+          targets: dot,
+          alpha: { from: 0.07, to: 0.9 },
+          duration: 450 + rnd(i * 13 + 6) * 950,
+          repeat: -1, yoyo: true,
+          delay: rnd(i * 7 + 1) * 800,
+          ease: 'Sine.easeInOut',
+        });
+      }
+    }
+
+    if (!reduced) {
+      // ── Data bead sliding across the art area ─────────────────────────
+      const beadY = artY + artH * (0.2 + rnd(seed * 7) * 0.6);
+      const bead  = this.scene.add.graphics();
+      bead.fillStyle(catColor, 1);
+      bead.fillCircle(0, 0, 1.5);
+      bead.x = artX;
+      bead.y = beadY;
+      this.add(bead);
       this.scene.tweens.add({
-        targets: dot,
-        alpha: { from: 0.07, to: 0.9 },
-        duration: 450 + rnd(i * 13 + 6) * 950,
+        targets: bead,
+        x: artX + artW,
+        duration: 700 + rnd(seed * 9) * 700,
         repeat: -1, yoyo: true,
-        delay: rnd(i * 7 + 1) * 800,
         ease: 'Sine.easeInOut',
       });
     }
-
-    // ── Data bead sliding across the art area ────────────────────────────
-    const beadY = artY + artH * (0.2 + rnd(seed * 7) * 0.6);
-    const bead  = this.scene.add.graphics();
-    bead.fillStyle(catColor, 1);
-    bead.fillCircle(0, 0, 1.5);
-    bead.x = artX;
-    bead.y = beadY;
-    this.add(bead);
-    this.scene.tweens.add({
-      targets: bead,
-      x: artX + artW,
-      duration: 700 + rnd(seed * 9) * 700,
-      repeat: -1, yoyo: true,
-      ease: 'Sine.easeInOut',
-    });
   }
 
   // ── Cleanup ─────────────────────────────────────────────────────────────

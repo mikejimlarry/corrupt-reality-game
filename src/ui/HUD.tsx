@@ -109,6 +109,8 @@ export function HUD() {
   const extraPlayPending         = useGameStore(s => s.extraPlayPending);
   const corruptionPendingTarget  = useGameStore(s => s.corruptionPendingTarget);
   const gameStats                = useGameStore(s => s.gameStats);
+  const reducedMotion            = useGameStore(s => s.reducedMotion);
+  const setReducedMotion         = useGameStore(s => s.setReducedMotion);
 
   const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
 
@@ -286,6 +288,33 @@ export function HUD() {
             }}
           >
             {paused ? '▶' : 'Ⅱ'}
+          </button>
+
+          {/* Reduced motion toggle */}
+          <button
+            onClick={() => setReducedMotion(!reducedMotion)}
+            title={reducedMotion ? 'Reduced motion ON — click to restore' : 'Reduce animations'}
+            style={{
+              ...BTN_BASE,
+              width: 'auto',
+              padding: '6px 10px',
+              background: reducedMotion ? `${ACCENT}18` : 'transparent',
+              border: `1px solid ${reducedMotion ? ACCENT + '44' : ACCENT + '18'}`,
+              color: reducedMotion ? ACCENT : `${ACCENT}33`,
+              fontSize: 11,
+              letterSpacing: 0,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = ACCENT;
+              (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}66`;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = reducedMotion ? ACCENT : `${ACCENT}33`;
+              (e.currentTarget as HTMLElement).style.borderColor = reducedMotion ? `${ACCENT}44` : `${ACCENT}18`;
+            }}
+          >
+            ✦
           </button>
         </div>
 

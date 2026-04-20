@@ -478,6 +478,7 @@ interface GameStore extends GameState {
   validTargetIds: string[];
   clearWarRollDisplay(): void;
   togglePause(): void;
+  setReducedMotion(v: boolean): void;
   startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean): void;
   resetToSetup(): void;
   setHoveredCard(id: string | null): void;
@@ -554,6 +555,8 @@ const AI_PERSONALITIES: AIPersonality[] = ['AGGRESSIVE', 'CAUTIOUS', 'TACTICAL']
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...defaultState,
+  // Persisted UI preference — intentionally NOT in defaultState so startGame never resets it.
+  reducedMotion: localStorage.getItem('crg-reduced-motion') === 'true',
 
   startGame: (playerCount: number, playerName = 'You', startingPop = 50, hidePpCounts = false, deadMansSwitch = false) => {
     _eliminationOrder = [];
@@ -612,6 +615,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   resetToSetup: () => set({ ...defaultState, selectedCardId: null, hoveredCardId: null, turnNumber: 1 }),
+
+  setReducedMotion: (v: boolean) => {
+    localStorage.setItem('crg-reduced-motion', String(v));
+    set({ reducedMotion: v });
+  },
 
   togglePause: () => {
     const nowPaused = !get().paused;

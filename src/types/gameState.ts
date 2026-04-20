@@ -67,6 +67,8 @@ export interface GameState {
   pendingOverclockCard: import('./cards').Card | null;
   /** When true, all AI timers are suspended and no AI actions fire. */
   paused: boolean;
+  /** When true, card art tweens, scanlines, and panel unfold animations are skipped. */
+  reducedMotion: boolean;
   /** Number of extra card plays remaining for the current player (from Multithread). 0 = none. */
   extraPlayPending: number;
   /** Accumulated per-game statistics — reset each new game. */

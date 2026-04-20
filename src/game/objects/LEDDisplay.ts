@@ -1,6 +1,7 @@
 // src/game/objects/LEDDisplay.ts
 import Phaser from 'phaser';
 import { sfxDiceTick, sfxShowDiceRoll, sfxToast } from '../../lib/audio';
+import { useGameStore } from '../../state/useGameStore';
 
 const PANEL_W  = 340;
 const PANEL_H  = 230;
@@ -144,14 +145,16 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     (this as any)._toastW = TOAST_W;
     (this as any)._toastH = TOAST_H;
 
-    // ── Scanlines ─────────────────────────────────────────────────────────
-    const scan = this.scene.add.graphics();
-    scan.lineStyle(1, 0x000000, 0.08);
-    for (let ry = -PANEL_H / 2 + 6; ry < PANEL_H / 2 - 6; ry += 3) {
-      scan.beginPath(); scan.moveTo(-PANEL_W / 2 + 6, ry);
-      scan.lineTo(PANEL_W / 2 - 6, ry); scan.strokePath();
+    // ── Scanlines (skipped in reduced-motion mode) ────────────────────────
+    if (!useGameStore.getState().reducedMotion) {
+      const scan = this.scene.add.graphics();
+      scan.lineStyle(1, 0x000000, 0.08);
+      for (let ry = -PANEL_H / 2 + 6; ry < PANEL_H / 2 - 6; ry += 3) {
+        scan.beginPath(); scan.moveTo(-PANEL_W / 2 + 6, ry);
+        scan.lineTo(PANEL_W / 2 - 6, ry); scan.strokePath();
+      }
+      this.add(scan);
     }
-    this.add(scan);
   }
 
   // ── Draw a single hex-bevelled segment ───────────────────────────────────
@@ -219,6 +222,12 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     this.setVisible(true);
     if (playSound) sfxShowDiceRoll();
 
+    // Reduced motion: skip the wipe animation entirely, signal immediately.
+    if (useGameStore.getState().reducedMotion) {
+      window.dispatchEvent(new CustomEvent('crg:led-open'));
+      return;
+    }
+
     const W = PANEL_W + 4, H = PANEL_H + 4;
     // Use the constructor directly (NOT scene.add.graphics) so the mask graphics
     // is NOT added to the scene display list — avoids rendering a visible white
@@ -268,6 +277,13 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   private foldClose(onComplete: () => void) {
     if (this.maskGfx) { this.maskGfx.destroy(); this.maskGfx = undefined; }
     this.clearMask();
+
+    // Reduced motion: hide instantly.
+    if (useGameStore.getState().reducedMotion) {
+      this.setVisible(false);
+      onComplete();
+      return;
+    }
 
     const W = PANEL_W + 4, H = PANEL_H + 4;
     // Same as unfoldOpen: avoid scene.add.graphics() to prevent visible white rect.
@@ -323,12 +339,14 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
     this.unfoldOpen();
 
-    // Slow pulse on both digit graphics to indicate "waiting"
-    this.standbyTween = this.scene.tweens.add({
-      targets: [this.digit1Gfx, this.digit2Gfx],
-      alpha: { from: 0.3, to: 0.9 },
-      duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-    });
+    // Slow pulse on both digit graphics to indicate "waiting" (skipped when reduced)
+    if (!useGameStore.getState().reducedMotion) {
+      this.standbyTween = this.scene.tweens.add({
+        targets: [this.digit1Gfx, this.digit2Gfx],
+        alpha: { from: 0.3, to: 0.9 },
+        duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      });
+    }
   }
 
   // ── Run slot-machine animation then call onComplete ────────────────────────

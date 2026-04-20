@@ -87,12 +87,15 @@ interface OptionsModalProps {
   setHidePpCounts: (v: boolean) => void;
   deadMansSwitch: boolean;
   setDeadMansSwitch: (v: boolean) => void;
+  reducedMotion: boolean;
+  setReducedMotion: (v: boolean) => void;
 }
 
 function OptionsModal({
   onClose,
   hidePpCounts, setHidePpCounts,
   deadMansSwitch, setDeadMansSwitch,
+  reducedMotion, setReducedMotion,
 }: OptionsModalProps) {
   return (
     <div
@@ -138,6 +141,12 @@ function OptionsModal({
           label="HIDE CYCLES"
           description="Exact cycle totals are hidden — judge your rivals by the bar alone."
         />
+        <Toggle
+          checked={reducedMotion}
+          onChange={v => setReducedMotion(v)}
+          label="REDUCE ANIMATIONS"
+          description="Disables card art tweens, scanlines, and panel wipe animations."
+        />
 
         <button
           onClick={onClose}
@@ -180,6 +189,8 @@ export const SetupScreen: React.FC = () => {
   const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
   const [musicOn, setMusicOn]               = useState(() => getMusicEnabled());
   const [musicTrack, setMusicTrack]         = useState(() => getMusicTrack());
+  const reducedMotion    = useGameStore(s => s.reducedMotion);
+  const setReducedMotion = useGameStore(s => s.setReducedMotion);
   const prevCredits = useRef(startingPop);
 
   const [showHelp, setShowHelp]       = useState(false);
@@ -290,8 +301,9 @@ export const SetupScreen: React.FC = () => {
       {showOptions && (
         <OptionsModal
           onClose={() => setShowOptions(false)}
-          hidePpCounts={hidePpCounts}   setHidePpCounts={setHidePpCounts}
+          hidePpCounts={hidePpCounts}     setHidePpCounts={setHidePpCounts}
           deadMansSwitch={deadMansSwitch} setDeadMansSwitch={setDeadMansSwitch}
+          reducedMotion={reducedMotion}   setReducedMotion={setReducedMotion}
         />
       )}
 
