@@ -168,6 +168,25 @@ export function HUD() {
     }
   }, [phase, endTurn]);
 
+  // Auto-play The Corruption when it's in the starting hand.
+  // Fires as soon as MAIN phase begins with the card still unplayed.
+  // A short delay lets the deal-in animation settle before the reveal triggers.
+  useEffect(() => {
+    if (phase !== 'MAIN') return;
+    const human = useGameStore.getState().players.find(p => p.isHuman);
+    if (!human) return;
+    const corruptionCard = human.hand.find(
+      c => c.category === 'EVENT_NEGATIVE' && (c as any).effect === 'CORRUPTION',
+    );
+    if (!corruptionCard) return;
+    if ((useGameStore.getState().gameStats.cardsPlayed[human.id] ?? 0) !== 0) return;
+    const t = setTimeout(() => {
+      sfxCardPlay();
+      useGameStore.getState().playCard(corruptionCard.id);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [phase]);
+
   if (phase === 'SETUP') return null;
 
   const currentPlayer = players[currentPlayerIndex];
