@@ -373,11 +373,12 @@ export class GameScene extends Phaser.Scene {
             : `◆  ${current.targetName.toUpperCase()} WINS`;
           this.ledDisplay?.roll(
             rollData.r1, rollData.r2,
-            `${rollData.actorName} vs ${rollData.targetName}`,
+            rollData.actorName,
             0, false,
             () => { useGameStore.getState().clearWarRollDisplay(); },
             customToast,
-            true, // warMode — no summed total, "vs" operator
+            true,               // warMode — no summed total, "vs" operator
+            rollData.targetName, // p2Name — shown below right die
           );
         });
       }

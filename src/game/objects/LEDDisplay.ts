@@ -40,6 +40,8 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   private glow2!:         Phaser.GameObjects.Graphics;
   private operatorTxt!:   Phaser.GameObjects.Text;
   private totalTxt!:      Phaser.GameObjects.Text;
+  private name1Txt!:      Phaser.GameObjects.Text;
+  private name2Txt!:      Phaser.GameObjects.Text;
   private statusTxt!:     Phaser.GameObjects.Text;
   private toastBg!:       Phaser.GameObjects.Graphics;
   private toastTxt!:      Phaser.GameObjects.Text;
@@ -118,6 +120,17 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
       fontFamily: 'monospace', fontSize: '27px', color: '#334455', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.add(this.totalTxt);
+
+    // ── Player name labels (war mode only — shown below each die) ─────────
+    this.name1Txt = this.txt(-D_CX, BELOW_DIGITS + 8, '', {
+      fontFamily: 'monospace', fontSize: '8px', color: '#ff8800cc', letterSpacing: 2,
+    }).setOrigin(0.5).setAlpha(0);
+    this.add(this.name1Txt);
+
+    this.name2Txt = this.txt(D_CX, BELOW_DIGITS + 8, '', {
+      fontFamily: 'monospace', fontSize: '8px', color: '#ff8800cc', letterSpacing: 2,
+    }).setOrigin(0.5).setAlpha(0);
+    this.add(this.name2Txt);
 
     // ── Status / result lines (pinned to bottom of panel) ─────────────────
     this.statusTxt = this.txt(0, PANEL_H / 2 - 24, 'AWAITING INPUT', {
@@ -330,6 +343,8 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   showStandby(playerName: string) {
     this.standbyTween?.stop();
     this.totalTxt.setText('').setColor('#334455');
+    this.name1Txt.setText('').setAlpha(0);
+    this.name2Txt.setText('').setAlpha(0);
     this.toastTxt.setText('').setAlpha(0);
     this.toastBg.clear().setAlpha(0);
     this.operatorTxt.setText('+').setColor('#334455');
@@ -352,7 +367,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   // ── Run slot-machine animation then call onComplete ────────────────────────
   // warMode: true when showing a WAR conflict roll — omits the summed total and
   // uses "vs" between the dice instead of "+" since r1/r2 belong to different players.
-  roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string, warMode?: boolean) {
+  roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string, warMode?: boolean, p2Name?: string) {
     // WAR rolls skip showStandby so the panel may be hidden; check before forcing visible.
     const needsOpen = !this.visible;
     // Kill any in-progress tweens on this container.
@@ -375,12 +390,22 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
          total <= 8  ? '◆  STABLE SEQUENCE' :
          total <= 11 ? '◆  STABILITY BONUS' : '◆  PEAK STABILITY');
 
-    this.statusTxt.setText(`GENERATING · ${playerName.toUpperCase()}`).setColor(warMode ? '#ff880066' : '#00ffcc66');
+    this.statusTxt.setText(warMode ? 'CONFLICT PROTOCOL · EXECUTING' : `GENERATING · ${playerName.toUpperCase()}`).setColor(warMode ? '#ff880066' : '#00ffcc66');
     this.totalTxt.setText('').setColor('#334455');
     this.toastTxt.setText('').setAlpha(0);
     this.toastBg.setAlpha(0);
     // War mode uses "vs" between the two dice; normal rolls use "+"
     this.operatorTxt.setText(warMode ? 'vs' : '+').setColor('#334455');
+
+    // ── War player name labels ─────────────────────────────────────────────
+    const trim = (s: string) => s.length > 9 ? s.slice(0, 8) + '…' : s;
+    if (warMode && p2Name) {
+      this.name1Txt.setText(trim(playerName.toUpperCase())).setAlpha(0.75);
+      this.name2Txt.setText(trim(p2Name.toUpperCase())).setAlpha(0.75);
+    } else {
+      this.name1Txt.setText('').setAlpha(0);
+      this.name2Txt.setText('').setAlpha(0);
+    }
 
     if (needsOpen) {
       // WAR roll — panel was hidden, play the unfold before the dice start
