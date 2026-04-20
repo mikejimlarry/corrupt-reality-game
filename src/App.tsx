@@ -14,6 +14,7 @@ import { GameOverScreen } from './ui/GameOverScreen';
 import { CardPreview } from './ui/CardPreview';
 import { useGameAudio } from './hooks/useGameAudio';
 import { resumeAudio, stopMusic } from './lib/audio';
+import { trackEvent } from './lib/analytics';
 
 const AMBIENT_STYLE = `
 @keyframes game-scan {
@@ -26,6 +27,9 @@ function App() {
   const phase      = useGameStore(s => s.phase);
   const corruption = useGameStore(s => s.globalCorruptionMode);
   const active     = phase !== 'SETUP' && phase !== 'GAME_OVER';
+  const winnerId   = useGameStore(s => s.winnerId);
+  const players    = useGameStore(s => s.players);
+  const turnNumber = useGameStore(s => s.turnNumber);
 
   useGameAudio();
 
@@ -49,12 +53,27 @@ function App() {
     return () => window.removeEventListener('pointerdown', handler);
   }, []);
 
-  // Stop music when the game ends or returns to setup
+  // Stop music when the game ends or returns to setup; fire game_over event
   useEffect(() => {
-    if (phase === 'GAME_OVER' || phase === 'SETUP') {
+    if (phase === 'GAME_OVER') {
+      stopMusic();
+      const winner = players.find(p => p.id === winnerId);
+      trackEvent('game_over', {
+        outcome: winner?.isHuman ? 'human_wins' : 'ai_wins',
+        winner_name: winner?.name ?? 'unknown',
+        turns: turnNumber,
+      });
+    } else if (phase === 'SETUP') {
       stopMusic();
     }
-  }, [phase]);
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Track PWA install
+  useEffect(() => {
+    const handler = () => trackEvent('pwa_installed');
+    window.addEventListener('appinstalled', handler);
+    return () => window.removeEventListener('appinstalled', handler);
+  }, []);
 
 
   const scanColor = corruption ? 'rgba(255,30,60,0.07)' : 'rgba(0,255,204,0.045)';

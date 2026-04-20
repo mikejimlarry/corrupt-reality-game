@@ -1,5 +1,5 @@
 // src/ui/SetupScreen.tsx
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useGameStore } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
 import { AboutModal } from './AboutModal';
@@ -9,6 +9,7 @@ import {
   sfxToggleOn, sfxToggleOff, sfxShowModal, sfxConnect,
   getMusicEnabled, setMusicEnabled, getMusicTrack, nextMusicTrack,
 } from '../lib/audio';
+import { trackEvent } from '../lib/analytics';
 
 const TRACK_NAMES = ['NEURAL DRIFT', 'AMBIENT BG'] as const;
 
@@ -197,12 +198,17 @@ export const SetupScreen: React.FC = () => {
   const [showAbout, setShowAbout]     = useState(false);
   const [showOptions, setShowOptions] = useState(false);
 
+  useEffect(() => {
+    trackEvent('game_setup_started');
+  }, []);
+
   const handleStart = () => {
     localStorage.setItem('crg-handle', name.trim() || 'Ghost');
     localStorage.setItem('crg-count', String(count));
     localStorage.setItem('crg-credits', String(startingPop));
     localStorage.setItem('crg-hide-credits', String(hidePpCounts));
     localStorage.setItem('crg-dead-mans-switch', String(deadMansSwitch));
+    trackEvent('game_start', { player_count: count + 1, starting_credits: startingPop });
     sfxConnect();
     startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch);
   };
@@ -264,7 +270,7 @@ export const SetupScreen: React.FC = () => {
         gridTemplateColumns: 'repeat(2, 1fr)',
         gridTemplateRows: 'repeat(2, 1fr)',
       }}>
-        {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowHelp(true); },    '? HELP')}
+        {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowHelp(true); trackEvent('help_opened', { source: 'setup' }); }, '? HELP')}
         {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowOptions(true); }, '⚙ OPTIONS')}
         {metaBtn(() => { resumeAudio(); sfxShowModal(); setShowAbout(true); },   'i ABOUT')}
         {metaBtn(() => {

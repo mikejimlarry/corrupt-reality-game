@@ -4,6 +4,7 @@ import type { GameState, PlayerState, LogEntry, AIPersonality } from '../types/g
 import type { Card, CreditsCard, PositiveEventCard, NegativeEventCard, WarCard, DaemonCard, CounterCard } from '../types/cards';
 import { initRNG, random } from '../lib/rng';
 import { generateDeck } from '../data/deck';
+import { trackEvent } from '../lib/analytics';
 
 // ── Corruption-first constraint ───────────────────────────────────────────────
 // If a player has The Corruption card in their starting hand (cardsPlayed === 0),
@@ -721,6 +722,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         .map((p, i) => ({ p, i }))
         .filter(({ p, i }) => i !== actorIndex && !p.eliminated);
 
+      trackEvent('corruption_triggered', { triggered_by: actorIsHuman ? 'human' : 'ai' });
+
       if (actorIsHuman && liveOps.length > 0) {
         // Human: show reveal first, then prompt for target selection
         set({ deck, discard, players, phase: 'MAIN', corruptionReveal: true, globalCorruptionMode: true, corruptionPendingTarget: true });
@@ -809,6 +812,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const card = actor.hand.find(c => c.id === cardId);
     if (!card) return;
 
+    trackEvent('card_played', { card_name: card.name, card_category: card.category, is_human: actor.isHuman });
+
     // Pre-compute updated card-play stats (used in every commit-path set() call below)
     const prevStats = state.gameStats;
     const newCardsPlayed = { ...prevStats.cardsPlayed, [actor.id]: (prevStats.cardsPlayed[actor.id] ?? 0) + 1 };
@@ -857,6 +862,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             c.category === 'COUNTER'
           ) as CounterCard[];
           if (eligibleCounters.length > 0) {
+            trackEvent('counter_opportunity_shown', { eligible_count: eligibleCounters.length });
             set({ counterPending: { type: 'WAR', attackerIndex: actorIndex, cardId, targetIndex: targetI, eligibleCounters } });
             return; // resume via resolveCounterOpportunity
           }
@@ -1414,6 +1420,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const counterCard = human?.hand.find(c => c.id === counterCardId) as CounterCard | undefined;
     if (!attackCard || !counterCard) { set({ counterPending: null }); return; }
 
+    trackEvent('counter_used', { counter_type: counterCard.counterType, attack_card: attackCard.name });
+
     if (counterCard.counterType === 'TACTICAL_ADVANTAGE') {
       // Firewall Surge in a WAR — boost human's roll but let the war proceed.
       const players = state.players.map(p =>
@@ -1615,6 +1623,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const wrappedAround = nextIndex <= currentPlayerIndex;
     const newTurnNumber = wrappedAround ? turnNumber + 1 : turnNumber;
+    if (wrappedAround) trackEvent('turn_played', { turn_number: newTurnNumber });
     const roll: [number, number] = [Math.ceil(random() * 6), Math.ceil(random() * 6)];
 
     set({
@@ -1809,6 +1818,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   clearWarRollDisplay: () => {
     const display = get().warRollDisplay;
+    trackEvent('war_resolved', { winner_name: display?.actorWins ? display.actorName : display?.targetName ?? 'unknown' });
     // Flush the deferred WAR log entry now that the animation has finished
     if (display?.logText) get().addLog(display.logText, 'card');
     set({ warRollDisplay: null });

@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useGameStore, mustPlayCorruptionFirst } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
 import { sfxCardPlay, getMusicEnabled, setMusicEnabled, sfxToggleOn, sfxToggleOff, getMusicTrack, nextMusicTrack } from '../lib/audio';
+import { trackEvent } from '../lib/analytics';
 
 const PULSE_STYLE = `
 @keyframes hud-pulse {
@@ -234,7 +235,7 @@ export function HUD() {
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
           {/* Help — text on desktop, icon-only on mobile */}
           <button
-            onClick={() => setShowHelp(true)}
+            onClick={() => { setShowHelp(true); trackEvent('help_opened', { source: 'hud' }); }}
             style={{
               ...BTN_BASE,
               flex: isMobile ? 0 : 1,
