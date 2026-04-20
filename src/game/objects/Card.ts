@@ -300,10 +300,10 @@ export class Card extends Phaser.GameObjects.Container {
       this.selectionGlow.setVisible(false);
       this.scene.tweens.add({
         targets: this,
-        alpha: 0.22,
-        y: this.restY + 14,
-        scaleX: this.restScale,
-        scaleY: this.restScale,
+        alpha: 0.85,
+        y: this.restY,
+        scaleX: this.restScale * 0.9,
+        scaleY: this.restScale * 0.9,
         duration: 200, ease: 'Quad.easeOut',
       });
     } else {
