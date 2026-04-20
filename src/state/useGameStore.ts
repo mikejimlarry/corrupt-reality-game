@@ -544,6 +544,8 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {} },
   warRollDisplay: null,
   postCorruptionTargetIndex: null,
+  // Placeholder — real value initialised from localStorage in the store body below.
+  reducedMotion: false,
 };
 
 // ── Cyberpunk AI names & personalities ────────────────────────────────────────
@@ -594,6 +596,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const firstRoll: [number, number] = [Math.ceil(random() * 6), Math.ceil(random() * 6)];
     set({
       ...defaultState,
+      reducedMotion: get().reducedMotion, // preserve user preference across game resets
       phase: 'PHASE_ROLL',
       players,
       deck: remainingDeck,
@@ -614,7 +617,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().addLog(`${players[0].name}'s turn — Begin the sequence.`, 'turn');
   },
 
-  resetToSetup: () => set({ ...defaultState, selectedCardId: null, hoveredCardId: null, turnNumber: 1 }),
+  resetToSetup: () => set({ ...defaultState, reducedMotion: get().reducedMotion, selectedCardId: null, hoveredCardId: null, turnNumber: 1 }),
 
   setReducedMotion: (v: boolean) => {
     localStorage.setItem('crg-reduced-motion', String(v));

@@ -280,7 +280,6 @@ export const SetupScreen: React.FC = () => {
                 key={i}
                 active={musicTrack === i}
                 fontSize='0.6rem'
-                whiteSpace='nowrap'
                 onClick={() => {
                   if (musicTrack !== i) {
                     resumeAudio();
