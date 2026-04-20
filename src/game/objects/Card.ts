@@ -234,8 +234,11 @@ export class Card extends Phaser.GameObjects.Container {
     this.selectionGlow.setVisible(selected);
 
     if (selected) {
-      // Raise and lock in the lifted state (same treatment as hover)
-      this.restDepth = this.depth;
+      // Raise and lock in the lifted state (same treatment as hover).
+      // Only capture restDepth when not already hovered — onHover() already
+      // stored the correct fan depth before raising to 50, so overwriting here
+      // would snapshot the elevated depth and prevent proper restore on deselect.
+      if (!this.isHovered) this.restDepth = this.depth;
       this.scene.tweens.killTweensOf(this);
       this.scene.tweens.add({
         targets: this,
