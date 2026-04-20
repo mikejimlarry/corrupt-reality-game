@@ -198,8 +198,8 @@ export function HUD() {
           top: 12,
           left: 12,
           zIndex: 5,
-          width: isMobile ? 'auto' : 240,
-          maxWidth: isMobile ? 'calc(100vw - 24px)' : 240,
+          width: isMobile ? 'auto' : 290,
+          maxWidth: isMobile ? 'calc(100vw - 24px)' : 290,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -349,64 +349,6 @@ export function HUD() {
           </button>
         </div>
 
-        {/* Game log */}
-        {log.length > 0 && (
-          <div style={{ ...panelStyle, padding: 0, overflow: 'hidden' }}>
-
-            {/* Header row — always visible, click to expand/collapse */}
-            <button
-              onClick={() => setLogExpanded(e => !e)}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                width: '100%', padding: '8px 12px',
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontFamily: 'monospace', fontSize: 9,
-                color: `${ACCENT}55`, letterSpacing: 2,
-              }}
-            >
-              <span>ACTIVITY LOG</span>
-              <span style={{ color: `${ACCENT}44` }}>{logExpanded ? '▲ COLLAPSE' : `▼ ${log.length} ENTRIES`}</span>
-            </button>
-
-            {/* Collapsed — show last 3 entries */}
-            {!logExpanded && (
-              <div style={{ padding: '0 12px 8px' }}>
-                {logTail.map(entry => (
-                  <div key={entry.id}
-                    style={{ fontSize: 10, color: '#667788', lineHeight: 1.6, letterSpacing: 0.5 }}>
-                    {entry.text}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Expanded — full scrollable history, newest at bottom */}
-            {logExpanded && (
-              <div
-                className="log-scroll"
-                style={{
-                  maxHeight: isMobile ? 160 : 320, overflowY: 'auto',
-                  padding: '0 12px 10px',
-                  display: 'flex', flexDirection: 'column', gap: 2,
-                }}
-              >
-                {log.map((entry, i) => (
-                  <div key={entry.id} style={{
-                    fontSize: 10, lineHeight: 1.6, letterSpacing: 0.5,
-                    color: i === log.length - 1 ? '#aabbcc' : '#667788',
-                    borderLeft: entry.type === 'turn'   ? `2px solid ${ACCENT}33` :
-                                entry.type === 'card'   ? '2px solid #aa44ff55' :
-                                entry.type === 'effect' ? '2px solid #ff996655' :
-                                entry.type === 'combat' ? '2px solid #ff336655' : 'none',
-                    paddingLeft: entry.type !== 'roll' ? 6 : 0,
-                  }}>
-                    {entry.text}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ── TOP-RIGHT: Turn tracker + action buttons ── */}
@@ -416,7 +358,7 @@ export function HUD() {
           top: 12,
           right: 12,
           zIndex: 5,
-          width: isMobile ? 160 : 240,
+          width: isMobile ? 160 : 290,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'stretch',
@@ -624,6 +566,91 @@ export function HUD() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── BOTTOM: Activity Log strip ── */}
+      {log.length > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            zIndex: 5,
+            width: isMobile ? '100vw' : 340,
+            fontFamily: 'monospace',
+          }}
+        >
+          <div
+            style={{
+              background: 'rgba(5,5,15,0.92)',
+              border: `1px solid ${ACCENT}22`,
+              borderBottom: 'none',
+              borderRadius: '6px 6px 0 0',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Expanded history — grows upward */}
+            {logExpanded && (
+              <div
+                className="log-scroll"
+                style={{
+                  maxHeight: isMobile ? 180 : 300,
+                  overflowY: 'auto',
+                  padding: '8px 14px 6px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                }}
+              >
+                {log.map((entry, i) => (
+                  <div key={entry.id} style={{
+                    fontSize: 10, lineHeight: 1.65, letterSpacing: 0.5,
+                    color: i === log.length - 1 ? '#aabbcc' : '#667788',
+                    borderLeft: entry.type === 'turn'   ? `2px solid ${ACCENT}33` :
+                                entry.type === 'card'   ? '2px solid #aa44ff55' :
+                                entry.type === 'effect' ? '2px solid #ff996655' :
+                                entry.type === 'combat' ? '2px solid #ff336655' : 'none',
+                    paddingLeft: entry.type !== 'roll' ? 6 : 0,
+                  }}>
+                    {entry.text}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Header bar — always visible */}
+            <button
+              onClick={() => setLogExpanded(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                width: '100%', padding: '6px 14px',
+                background: logExpanded ? `${ACCENT}08` : 'none',
+                border: 'none',
+                borderTop: logExpanded ? `1px solid ${ACCENT}18` : 'none',
+                cursor: 'pointer',
+                fontFamily: 'monospace', fontSize: 9,
+                color: `${ACCENT}55`, letterSpacing: 2,
+                minHeight: 36,
+              }}
+            >
+              <span>ACTIVITY LOG</span>
+              {/* Collapsed: show the latest entry as a preview */}
+              {!logExpanded && logTail.length > 0 && (
+                <span style={{
+                  fontSize: 9, color: '#556677', letterSpacing: 0.3,
+                  maxWidth: isMobile ? 140 : 200,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  marginLeft: 8, flex: 1, textAlign: 'right',
+                }}>
+                  {logTail[logTail.length - 1].text}
+                </span>
+              )}
+              <span style={{ color: `${ACCENT}33`, marginLeft: 10, flexShrink: 0 }}>
+                {logExpanded ? '▼' : `▲ ${log.length}`}
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
