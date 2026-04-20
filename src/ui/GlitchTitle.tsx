@@ -6,9 +6,9 @@ const CSS = `
     position: relative;
     color: #00ffcc;
     font-family: 'Doto', monospace;
-    font-size: 3rem;
+    font-size: clamp(1.5rem, 7vw, 3rem);
     font-weight: 700;
-    letter-spacing: 4px;
+    letter-spacing: clamp(1px, 0.4vw, 4px);
     margin: 0;
     text-shadow:
       -2px 0 rgba(255, 0, 80, 0.8),
@@ -185,9 +185,9 @@ export const GlitchTitle: React.FC = () => (
     <style>{CSS_ANIM}</style>
     <h1
       className="cr-glitch"
-      data-text="C0RRUpT_R3ALiTY"
+      data-text="C0RRUP7_R34Li7Y"
     >
-      C<L letter="O">0</L>RRUP<L letter="T">T</L>{' '}R<L letter="E">E</L><L letter="A">4</L>LI<L letter="T">T</L>Y
+      C<L letter="O">0</L>RRUP<L letter="T">T</L>{' '}R<L letter="E">E</L><L letter="A">A</L>LI<L letter="T">T</L>Y
     </h1>
   </>
 );

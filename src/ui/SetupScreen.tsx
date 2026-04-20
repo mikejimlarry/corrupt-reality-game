@@ -241,10 +241,18 @@ export const SetupScreen: React.FC = () => {
       fontFamily: 'monospace',
       color: '#00ffcc',
     }}>
-      <div style={{ textAlign: 'center', marginBottom: '0.25rem' }}>
+      <div style={{ textAlign: 'center', marginBottom: '0.25rem', maxWidth: '90vw' }}>
         <GlitchTitle />
       </div>
-      <p style={{ color: '#446655', letterSpacing: 4, fontSize: '0.75rem', margin: '0 0 0.75rem' }}>
+      <p style={{
+        color: '#446655',
+        letterSpacing: 4,
+        fontSize: '0.75rem',
+        margin: '0 0 0.75rem',
+        textAlign: 'center',
+        maxWidth: '90vw',
+        lineHeight: 1.8,
+      }}>
         A GAME OF SURVIVAL AND CORRUPTION
       </p>
 
