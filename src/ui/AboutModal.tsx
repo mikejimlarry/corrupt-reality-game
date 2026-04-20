@@ -64,30 +64,61 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => (
           <div style={{ fontSize: '0.55rem', color: '#557766', letterSpacing: 2, marginBottom: '0.2rem' }}>
             BACKGROUND MUSIC
           </div>
-          <div style={{ fontSize: '0.7rem', color: '#00ffcc99', letterSpacing: 1, marginBottom: '0.25rem' }}>
-            Suspense Cyberpunk
-          </div>
-          <div style={{ fontSize: '0.6rem', color: '#446655', letterSpacing: 0.5, lineHeight: 1.7 }}>
-            by{' '}
-            <a
-              href="https://pixabay.com/music/ambient-suspense-cyberpunk-375986/"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
-            >
-              The_Mountain
-            </a>
-            <br />
-            Licensed under the{' '}
-            <a
-              href="https://pixabay.com/service/license-summary/"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
-            >
-              Pixabay Content License
-            </a>
-            . Free for commercial and non-commercial use.
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div>
+              <div style={{ fontSize: '0.7rem', color: '#00ffcc99', letterSpacing: 1, marginBottom: '0.25rem' }}>
+                Suspense Cyberpunk
+              </div>
+              <div style={{ fontSize: '0.6rem', color: '#446655', letterSpacing: 0.5, lineHeight: 1.7 }}>
+                by{' '}
+                <a
+                  href="https://pixabay.com/music/ambient-suspense-cyberpunk-375986/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                >
+                  The_Mountain
+                </a>
+                <br />
+                Licensed under the{' '}
+                <a
+                  href="https://pixabay.com/service/license-summary/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                >
+                  Pixabay Content License
+                </a>
+                . Free for commercial and non-commercial use.
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.7rem', color: '#00ffcc99', letterSpacing: 1, marginBottom: '0.25rem' }}>
+                Dark Ambient - Futuristic - Dystopian (Vector Eleven)
+              </div>
+              <div style={{ fontSize: '0.6rem', color: '#446655', letterSpacing: 0.5, lineHeight: 1.7 }}>
+                by{' '}
+                <a
+                  href="https://pixabay.com/music/ambient-dark-ambient-futuristic-dystopian-vector-eleven-484657/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                >
+                  Ame_Atmos
+                </a>
+                <br />
+                Licensed under the{' '}
+                <a
+                  href="https://pixabay.com/service/license-summary/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                >
+                  Pixabay Content License
+                </a>
+                . Free for commercial and non-commercial use.
+              </div>
+            </div>
           </div>
         </div>
 

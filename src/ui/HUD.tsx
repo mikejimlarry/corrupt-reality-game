@@ -35,6 +35,11 @@ const PULSE_STYLE = `
   to   { opacity: 1; transform: translate(-50%, -50%); }
 }
 
+@keyframes protocol-slide-up {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 .log-scroll::-webkit-scrollbar { width: 3px; }
 .log-scroll::-webkit-scrollbar-track { background: transparent; }
 .log-scroll::-webkit-scrollbar-thumb { background: #00ffcc33; border-radius: 2px; }
@@ -292,61 +297,6 @@ export function HUD() {
             </button>
           )}
 
-          {/* Pause toggle */}
-          <button
-            onClick={togglePause}
-            title={paused ? 'SYSTEM HALTED — click to resume' : 'Pause game'}
-            style={{
-              ...BTN_BASE,
-              width: 44,
-              minWidth: 44,
-              padding: '6px 10px',
-              background: paused ? 'rgba(255,153,0,0.18)' : 'transparent',
-              border: `1px solid ${paused ? '#ff990066' : ACCENT + '18'}`,
-              color: paused ? '#ff9900' : `${ACCENT}33`,
-              fontSize: 13,
-              letterSpacing: 0,
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.color = paused ? '#ffbb44' : ACCENT;
-              (e.currentTarget as HTMLElement).style.borderColor = paused ? '#ff990088' : `${ACCENT}66`;
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.color = paused ? '#ff9900' : `${ACCENT}33`;
-              (e.currentTarget as HTMLElement).style.borderColor = paused ? '#ff990066' : `${ACCENT}18`;
-            }}
-          >
-            {paused ? '▶' : 'Ⅱ'}
-          </button>
-
-          {/* Reduced motion toggle */}
-          <button
-            onClick={() => setReducedMotion(!reducedMotion)}
-            title={reducedMotion ? 'Reduced motion ON — click to restore' : 'Reduce animations'}
-            style={{
-              ...BTN_BASE,
-              width: 44,
-              minWidth: 44,
-              padding: '6px 10px',
-              background: reducedMotion ? `${ACCENT}18` : 'transparent',
-              border: `1px solid ${reducedMotion ? ACCENT + '44' : ACCENT + '18'}`,
-              color: reducedMotion ? ACCENT : `${ACCENT}33`,
-              fontSize: 13,
-              letterSpacing: 0,
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.color = ACCENT;
-              (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}66`;
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.color = reducedMotion ? ACCENT : `${ACCENT}33`;
-              (e.currentTarget as HTMLElement).style.borderColor = reducedMotion ? `${ACCENT}44` : `${ACCENT}18`;
-            }}
-          >
-            ✦
-          </button>
         </div>
 
       </div>
@@ -365,6 +315,56 @@ export function HUD() {
           gap: 8,
         }}
       >
+        {/* System controls row — pause + reduce-motion */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={togglePause}
+            title={paused ? 'SYSTEM HALTED — click to resume' : 'Pause game'}
+            style={{
+              ...BTN_BASE,
+              flex: 1,
+              background: paused ? 'rgba(255,153,0,0.18)' : 'transparent',
+              border: `1px solid ${paused ? '#ff990066' : ACCENT + '18'}`,
+              color: paused ? '#ff9900' : `${ACCENT}33`,
+              fontSize: 10, letterSpacing: paused ? 1 : 0,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = paused ? '#ffbb44' : ACCENT;
+              (e.currentTarget as HTMLElement).style.borderColor = paused ? '#ff990088' : `${ACCENT}66`;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = paused ? '#ff9900' : `${ACCENT}33`;
+              (e.currentTarget as HTMLElement).style.borderColor = paused ? '#ff990066' : `${ACCENT}18`;
+            }}
+          >
+            {paused ? '▶ RESUME' : 'Ⅱ PAUSE'}
+          </button>
+          <button
+            onClick={() => setReducedMotion(!reducedMotion)}
+            title={reducedMotion ? 'Reduced motion ON — click to restore' : 'Reduce animations'}
+            style={{
+              ...BTN_BASE,
+              width: 44, minWidth: 44,
+              background: reducedMotion ? `${ACCENT}18` : 'transparent',
+              border: `1px solid ${reducedMotion ? ACCENT + '44' : ACCENT + '18'}`,
+              color: reducedMotion ? ACCENT : `${ACCENT}33`,
+              fontSize: 13, letterSpacing: 0,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = ACCENT;
+              (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}66`;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = reducedMotion ? ACCENT : `${ACCENT}33`;
+              (e.currentTarget as HTMLElement).style.borderColor = reducedMotion ? `${ACCENT}44` : `${ACCENT}18`;
+            }}
+          >
+            ✦
+          </button>
+        </div>
+
         {/* Corruption banner */}
         {corruption && (
           <div
@@ -390,13 +390,62 @@ export function HUD() {
           </div>
         )}
 
-        {/* Status panel */}
+        {/* Status panel + scoreboard */}
         <div style={panelStyle}>
           <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 4 }}>
             TURN {turnNumber} · {phase}
           </div>
-          <div style={{ fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold' }}>
+          <div style={{ fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold', marginBottom: 10 }}>
             {isHuman ? '▶ YOUR TURN' : `⏳ ${currentPlayer?.name ?? '...'}`}
+          </div>
+
+          {/* Mini scoreboard */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {players.map(p => {
+              const pct = Math.max(0, Math.min(100, (p.credits / gameStats.startingPop) * 100));
+              const isCurrent = p.id === currentPlayer?.id;
+              const nameColor = p.eliminated ? '#334455'
+                : p.isHuman ? ACCENT
+                : isCurrent ? '#ff9955'
+                : '#7788aa';
+              const barColor = p.eliminated ? '#223344'
+                : p.isHuman ? ACCENT
+                : '#ff9955';
+              return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: p.eliminated ? 0.4 : 1 }}>
+                  {/* Turn indicator dot */}
+                  <span style={{ width: 5, flexShrink: 0, fontSize: 8, color: isCurrent ? nameColor : 'transparent' }}>▶</span>
+                  {/* Name */}
+                  <span style={{
+                    fontSize: 9, letterSpacing: 1, color: nameColor,
+                    width: 68, flexShrink: 0,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    textDecoration: p.eliminated ? 'line-through' : 'none',
+                  }}>
+                    {p.name}
+                  </span>
+                  {/* Bar */}
+                  <div style={{
+                    flex: 1, height: 4,
+                    background: `${barColor}18`,
+                    borderRadius: 2, overflow: 'hidden',
+                  }}>
+                    <div style={{
+                      width: `${pct}%`, height: '100%',
+                      background: barColor,
+                      borderRadius: 2,
+                      transition: 'width 0.4s ease',
+                    }} />
+                  </div>
+                  {/* Count */}
+                  {!gameStats.hidePpCounts && (
+                    <span style={{ fontSize: 9, color: nameColor, letterSpacing: 0, width: 22, textAlign: 'right', flexShrink: 0 }}>
+                      {p.credits}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -500,21 +549,21 @@ export function HUD() {
         </div>
       )}
 
-      {/* ── MAIN phase — play / discard centered over the protocol zone ── */}
+      {/* ── MAIN phase — play / discard anchored to bottom-centre ── */}
       {phase === 'MAIN' && isHuman && (
         <div
           style={{
             position: 'fixed',
-            top: '46%',
+            bottom: 72,
             left: '50%',
-            transform: 'translate(-50%, -50%)',
+            transform: 'translateX(-50%)',
             zIndex: 10,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: 8,
             pointerEvents: 'auto',
-            animation: 'protocol-fade-in 0.18s ease-out forwards',
+            animation: 'protocol-slide-up 0.18s ease-out forwards',
           }}
           onMouseDown={stopPhaser}
           onTouchStart={stopPhaser}
@@ -654,17 +703,17 @@ export function HUD() {
         </div>
       )}
 
-      {/* ── DRAW CARD — centered over the protocol zone ── */}
+      {/* ── DRAW CARD — anchored to bottom-centre ── */}
       {phase === 'DRAW' && isHuman && (
         <div
           style={{
             position: 'fixed',
-            top: '46%',
+            bottom: 72,
             left: '50%',
-            transform: 'translate(-50%, -50%)',
+            transform: 'translateX(-50%)',
             zIndex: 10,
             pointerEvents: 'auto',
-            animation: 'protocol-fade-in 0.18s ease-out forwards',
+            animation: 'protocol-slide-up 0.18s ease-out forwards',
           }}
           onMouseDown={stopPhaser}
           onTouchStart={stopPhaser}
