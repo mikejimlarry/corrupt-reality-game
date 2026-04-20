@@ -50,6 +50,21 @@ function useInjectStyle(css: string) {
   }, [css]);
 }
 
+function useWindowSize() {
+  const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
+  useEffect(() => {
+    const handler = () => setSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return size;
+}
+
+/** Stop both mouse AND touch events from falling through to Phaser. */
+function stopPhaser(e: React.MouseEvent | React.TouchEvent) {
+  e.nativeEvent.stopImmediatePropagation();
+}
+
 const BTN_BASE: React.CSSProperties = {
   fontFamily: 'monospace',
   fontSize: 12,
@@ -60,6 +75,8 @@ const BTN_BASE: React.CSSProperties = {
   letterSpacing: 1,
   fontWeight: 'bold',
   width: '100%',
+  minHeight: 44,   // touch-friendly tap target
+  touchAction: 'manipulation',
 };
 
 function panel(accent: string): React.CSSProperties {
@@ -118,6 +135,10 @@ export function HUD() {
   const primaryBtnStyle = useMemo(() => btnPrimary(ACCENT), [ACCENT]);
   const dimBtnStyle     = useMemo(() => btnDim(ACCENT), [ACCENT]);
 
+  const { w: winW } = useWindowSize();
+  // Landscape mobile: short dimension < 500 px, or total width < 700 px
+  const isMobile = winW < 700;
+
   const [logExpanded, setLogExpanded] = useState(false);
   const [showHelp, setShowHelp]       = useState(false);
   const [musicOn, setMusicOn]         = useState(() => getMusicEnabled());
@@ -174,25 +195,31 @@ export function HUD() {
       <div
         style={{
           position: 'fixed',
-          top: 16,
-          left: 16,
+          top: 12,
+          left: 12,
           zIndex: 5,
-          width: 240,
+          width: isMobile ? 'auto' : 240,
+          maxWidth: isMobile ? 'calc(100vw - 24px)' : 240,
           display: 'flex',
           flexDirection: 'column',
         }}
       >
-        {/* Top row: Help button + Music toggle */}
+        {/* Top row: Help button + icon buttons */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          {/* Help — text on desktop, icon-only on mobile */}
           <button
             onClick={() => setShowHelp(true)}
             style={{
               ...BTN_BASE,
-              flex: 1,
+              flex: isMobile ? 0 : 1,
+              width: isMobile ? 44 : 'auto',
+              minWidth: 44,
               background: 'transparent',
               border: `1px solid ${ACCENT}22`,
               color: `${ACCENT}44`,
-              fontSize: 10, letterSpacing: 2,
+              fontSize: isMobile ? 14 : 10,
+              letterSpacing: isMobile ? 0 : 2,
+              padding: '6px 10px',
               transition: 'all 0.15s',
             }}
             onMouseEnter={e => {
@@ -204,7 +231,7 @@ export function HUD() {
               (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}22`;
             }}
           >
-            ? FIELD MANUAL
+            {isMobile ? '?' : '? FIELD MANUAL'}
           </button>
 
           {/* Music toggle */}
@@ -213,12 +240,13 @@ export function HUD() {
             title={musicOn ? 'Music ON — click to mute' : 'Music OFF — click to unmute'}
             style={{
               ...BTN_BASE,
-              width: 'auto',
+              width: 44,
+              minWidth: 44,
               padding: '6px 10px',
               background: musicOn ? `${ACCENT}18` : 'transparent',
               border: `1px solid ${musicOn ? ACCENT + '44' : ACCENT + '18'}`,
               color: musicOn ? ACCENT : `${ACCENT}33`,
-              fontSize: 13,
+              fontSize: 14,
               letterSpacing: 0,
               transition: 'all 0.15s',
             }}
@@ -241,12 +269,13 @@ export function HUD() {
               title={`Track ${musicTrack + 1} — click to switch`}
               style={{
                 ...BTN_BASE,
-                width: 'auto',
+                width: 44,
+                minWidth: 44,
                 padding: '6px 10px',
                 background: `${ACCENT}18`,
                 border: `1px solid ${ACCENT}33`,
                 color: `${ACCENT}88`,
-                fontSize: 10,
+                fontSize: 12,
                 letterSpacing: 0,
                 transition: 'all 0.15s',
               }}
@@ -269,12 +298,13 @@ export function HUD() {
             title={paused ? 'SYSTEM HALTED — click to resume' : 'Pause game'}
             style={{
               ...BTN_BASE,
-              width: 'auto',
+              width: 44,
+              minWidth: 44,
               padding: '6px 10px',
               background: paused ? 'rgba(255,153,0,0.18)' : 'transparent',
               border: `1px solid ${paused ? '#ff990066' : ACCENT + '18'}`,
               color: paused ? '#ff9900' : `${ACCENT}33`,
-              fontSize: 12,
+              fontSize: 13,
               letterSpacing: 0,
               transition: 'all 0.15s',
             }}
@@ -296,12 +326,13 @@ export function HUD() {
             title={reducedMotion ? 'Reduced motion ON — click to restore' : 'Reduce animations'}
             style={{
               ...BTN_BASE,
-              width: 'auto',
+              width: 44,
+              minWidth: 44,
               padding: '6px 10px',
               background: reducedMotion ? `${ACCENT}18` : 'transparent',
               border: `1px solid ${reducedMotion ? ACCENT + '44' : ACCENT + '18'}`,
               color: reducedMotion ? ACCENT : `${ACCENT}33`,
-              fontSize: 11,
+              fontSize: 13,
               letterSpacing: 0,
               transition: 'all 0.15s',
             }}
@@ -354,7 +385,7 @@ export function HUD() {
               <div
                 className="log-scroll"
                 style={{
-                  maxHeight: 320, overflowY: 'auto',
+                  maxHeight: isMobile ? 160 : 320, overflowY: 'auto',
                   padding: '0 12px 10px',
                   display: 'flex', flexDirection: 'column', gap: 2,
                 }}
@@ -382,10 +413,10 @@ export function HUD() {
       <div
         style={{
           position: 'fixed',
-          top: 16,
-          right: 16,
+          top: 12,
+          right: 12,
           zIndex: 5,
-          width: 240,
+          width: isMobile ? 160 : 240,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'stretch',
@@ -505,14 +536,21 @@ export function HUD() {
             pointerEvents: 'auto',
             animation: 'hud-fade-in 0.2s ease-out forwards',
           }}
-          onMouseDown={e => e.nativeEvent.stopImmediatePropagation()}
+          onMouseDown={stopPhaser}
+          onTouchStart={stopPhaser}
         >
           <div style={{ fontSize: 9, color: `${ACCENT}66`, letterSpacing: 4, fontFamily: 'monospace' }}>
             SEQUENCE READY
           </div>
           <button
             className={corruption ? 'corruption-pulse' : 'hud-pulse'}
-            style={{ ...primaryBtnStyle, width: 200, fontSize: 13, letterSpacing: 2 }}
+            style={{
+              ...primaryBtnStyle,
+              width: isMobile ? 180 : 200,
+              fontSize: isMobile ? 15 : 13,
+              letterSpacing: 2,
+              minHeight: 48,
+            }}
             onClick={() => triggerRoll()}
           >
             ▶ BEGIN SEQUENCE
@@ -536,7 +574,8 @@ export function HUD() {
             pointerEvents: 'auto',
             animation: 'protocol-fade-in 0.18s ease-out forwards',
           }}
-          onMouseDown={e => e.nativeEvent.stopImmediatePropagation()}
+          onMouseDown={stopPhaser}
+          onTouchStart={stopPhaser}
         >
           {corruptionFirstActive && (
             <div style={{
@@ -559,14 +598,24 @@ export function HUD() {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   className={corruption ? 'corruption-pulse' : 'hud-pulse'}
-                  style={{ ...primaryBtnStyle, width: 100, fontSize: 12 }}
+                  style={{
+                    ...primaryBtnStyle,
+                    width: isMobile ? 120 : 100,
+                    fontSize: isMobile ? 14 : 12,
+                    minHeight: 48,
+                  }}
                   onClick={() => { sfxCardPlay(); playCard(selectedCard.id); }}
                 >
                   PLAY
                 </button>
                 {!isForced && extraPlayPending === 0 && (
                   <button
-                    style={{ ...dimBtnStyle, width: 100, fontSize: 12 }}
+                    style={{
+                      ...dimBtnStyle,
+                      width: isMobile ? 120 : 100,
+                      fontSize: isMobile ? 14 : 12,
+                      minHeight: 48,
+                    }}
                     onClick={() => discardCard(selectedCard.id)}
                   >
                     DISCARD
@@ -590,18 +639,20 @@ export function HUD() {
             pointerEvents: 'auto',
             animation: 'protocol-fade-in 0.18s ease-out forwards',
           }}
-          onMouseDown={e => e.nativeEvent.stopImmediatePropagation()}
+          onMouseDown={stopPhaser}
+          onTouchStart={stopPhaser}
         >
           <button
             className={corruption ? 'corruption-pulse' : 'hud-pulse'}
             style={{
               ...BTN_BASE,
-              width: 120,
+              width: isMobile ? 150 : 120,
               background: `${ACCENT}18`,
               color: ACCENT,
               border: `1px solid ${ACCENT}88`,
-              fontSize: 11,
+              fontSize: isMobile ? 14 : 11,
               letterSpacing: 2,
+              minHeight: 48,
             }}
             onClick={() => drawCard()}
           >
