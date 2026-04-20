@@ -26,21 +26,21 @@ const UNFOLD_CSS = `
 
 // ── Colour palette matching Phaser card categories ────────────────────────────
 const CAT_COLOR: Record<string, string> = {
-  CREDITS:        '#00ff88',
+  CYCLES:         '#00ff88',
   EVENT_POSITIVE: '#00ccff',
   EVENT_NEGATIVE: '#ff3355',
   WAR:            '#ff8800',
   COUNTER:        '#bb44ff',
-  DAEMON:    '#00ffcc',
+  DAEMON:         '#00ffcc',
 };
 
 const CAT_LABEL: Record<string, string> = {
-  CREDITS:        'CREDIT CARD',
+  CYCLES:         'CYCLES CARD',
   EVENT_POSITIVE: 'SYSTEM EVENT',
   EVENT_NEGATIVE: 'HACK PROTOCOL',
   WAR:            'WARFARE',
   COUNTER:        'COUNTERMEASURE',
-  DAEMON:    'DAEMON',
+  DAEMON:         'DAEMON',
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -272,7 +272,7 @@ function TabHowToPlay() {
 function TabCards() {
   const categories = ['CYCLES', 'EVENT_POSITIVE', 'EVENT_NEGATIVE', 'WAR', 'COUNTER', 'DAEMON'];
   const sectionTitle: Record<string, string> = {
-    CREDITS:        'CREDIT CARDS',
+    CYCLES:         'CYCLES CARDS',
     EVENT_POSITIVE: 'SYSTEM EVENTS',
     EVENT_NEGATIVE: 'HACK PROTOCOLS',
     WAR:            'WARFARE',
