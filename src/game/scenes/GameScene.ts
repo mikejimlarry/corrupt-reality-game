@@ -6,7 +6,7 @@ import { PlayerZone } from '../objects/PlayerZone';
 import { CentreZone, DISCARD_LOCAL_CX, DISCARD_LOCAL_CY } from '../objects/CentreZone';
 import { LEDDisplay } from '../objects/LEDDisplay';
 import { DaemonBoard } from '../objects/DaemonBoard';
-import { useGameStore } from '../../state/useGameStore';
+import { useGameStore, mustPlayCorruptionFirst } from '../../state/useGameStore';
 import { sfxCorruptionReveal } from '../../lib/audio';
 import type { Card as CardData } from '../../types/cards';
 import type { PlayerState } from '../../types/gameState';
@@ -237,6 +237,7 @@ export class GameScene extends Phaser.Scene {
         this.centreZone?.setPhase(state.phase);
         if (!handUpdated) {
           this.applyHandDim();
+          this.applyCardApplicability();
         }
 
         // ── Targeting — highlight valid target zones and make them clickable ──
@@ -541,6 +542,45 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  // ── Card applicability — dim/lower unplayable cards during MAIN phase ──────
+  private applyCardApplicability() {
+    const { phase, players, currentPlayerIndex, gameStats } = useGameStore.getState();
+    const isHumanTurn = players[currentPlayerIndex]?.isHuman;
+
+    if (phase !== 'MAIN' || !isHumanTurn) {
+      // Outside human MAIN phase — lift all inapplicability so the hand resets cleanly
+      this.humanCardObjects.forEach(c => c.setInapplicable(false));
+      return;
+    }
+
+    const human = players.find(p => p.isHuman);
+    if (!human) return;
+
+    const corruptionFirst = mustPlayCorruptionFirst(human, gameStats);
+
+    this.humanCardObjects.forEach(card => {
+      const d = card.cardData;
+      let bad = false;
+
+      if (corruptionFirst) {
+        // Every card except The Corruption itself is blocked
+        const isCorruption = d.category === 'EVENT_NEGATIVE' &&
+          (d as import('../../types/cards').NegativeEventCard).effect === 'CORRUPTION';
+        bad = !isCorruption;
+      } else {
+        // COUNTER cards are reactive (WAR only) — never playable from hand
+        if (d.category === 'COUNTER') bad = true;
+        // Daemon already installed
+        if (d.category === 'DAEMON') {
+          const dt = (d as import('../../types/cards').DaemonCard).daemonType;
+          if (dt && human.daemons.includes(dt)) bad = true;
+        }
+      }
+
+      card.setInapplicable(bad);
+    });
+  }
+
   // ── Human hand (fan layout) — larger cards, clearly visible ──────────────
   private updateHumanHand(hand: CardData[], width: number, height: number) {
     if (hand.length === 0) {
@@ -693,6 +733,7 @@ export class GameScene extends Phaser.Scene {
       this.handArrowRight.setX(width - 30).setY(arrowY);
     }
     this.updatePanArrows();
+    this.applyCardApplicability();
   }
 
   /** Instantly reposition hand cards to reflect the current handPanX offset. */

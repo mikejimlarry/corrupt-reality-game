@@ -47,9 +47,10 @@ const RARITY_TEXT_COLOR: Record<CardRarity, string> = {
 // ── Card class ───────────────────────────────────────────────────────────────
 export class Card extends Phaser.GameObjects.Container {
   readonly cardData: CardData;
-  private isHovered  = false;
-  private isSelected = false;
-  private isDealt    = false;
+  private isHovered      = false;
+  private isSelected     = false;
+  private isDealt        = false;
+  private isInapplicable = false;
   private restY      = 0;
   private restScale  = 1;   // set from whatever scale was applied before dealIn
   private restDepth  = 0;
@@ -283,7 +284,42 @@ export class Card extends Phaser.GameObjects.Container {
     this.selectionGlow.setVisible(false);
   }
 
+  /**
+   * Mark this card as inapplicable (unplayable in the current context).
+   * Inapplicable cards are dimmed and pushed slightly below the fan baseline.
+   * Hover and click are both suppressed while inapplicable.
+   */
+  setInapplicable(v: boolean) {
+    if (this.isInapplicable === v) return;
+    this.isInapplicable = v;
+    this.scene.tweens.killTweensOf(this);
+    if (v) {
+      // Force out of any hover / selection state visually
+      this.isHovered = false;
+      this.isSelected = false;
+      this.selectionGlow.setVisible(false);
+      this.scene.tweens.add({
+        targets: this,
+        alpha: 0.22,
+        y: this.restY + 14,
+        scaleX: this.restScale,
+        scaleY: this.restScale,
+        duration: 200, ease: 'Quad.easeOut',
+      });
+    } else {
+      this.scene.tweens.add({
+        targets: this,
+        alpha: 1,
+        y: this.restY,
+        scaleX: this.restScale,
+        scaleY: this.restScale,
+        duration: 200, ease: 'Quad.easeOut',
+      });
+    }
+  }
+
   private onClick() {
+    if (this.isInapplicable) return;
     // No isDealt guard here — selection should work immediately even during deal-in animation
     const store = useGameStore.getState();
     if (store.phase !== 'MAIN') return;
@@ -471,7 +507,7 @@ export class Card extends Phaser.GameObjects.Container {
   private tooltipTimer: ReturnType<typeof setTimeout> | null = null;
 
   private onHover() {
-    if (this.isHovered || !this.isDealt) return;
+    if (this.isHovered || !this.isDealt || this.isInapplicable) return;
     const { phase, players, currentPlayerIndex, selectedCardId } = useGameStore.getState();
     // Cards are inactive until the dice roll and draw are both done
     const isHuman = players[currentPlayerIndex]?.isHuman;
