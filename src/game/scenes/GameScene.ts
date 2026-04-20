@@ -719,7 +719,6 @@ export class GameScene extends Phaser.Scene {
     if (!this.handArrowLeft) {
       this.handArrowLeft = this.add.text(18, arrowY, '‹', {
         fontFamily: 'monospace', fontSize: '28px', color: '#00ffcc',
-        alpha: 0,
       }).setDepth(30).setAlpha(0);
     } else {
       this.handArrowLeft.setY(arrowY);
@@ -727,7 +726,6 @@ export class GameScene extends Phaser.Scene {
     if (!this.handArrowRight) {
       this.handArrowRight = this.add.text(width - 30, arrowY, '›', {
         fontFamily: 'monospace', fontSize: '28px', color: '#00ffcc',
-        alpha: 0,
       }).setDepth(30).setAlpha(0);
     } else {
       this.handArrowRight.setX(width - 30).setY(arrowY);

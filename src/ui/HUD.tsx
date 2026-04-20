@@ -131,6 +131,8 @@ export function HUD() {
   const extraPlayPending         = useGameStore(s => s.extraPlayPending);
   const corruptionPendingTarget  = useGameStore(s => s.corruptionPendingTarget);
   const gameStats                = useGameStore(s => s.gameStats);
+  const startingPop              = useGameStore(s => s.startingPop);
+  const hidePpCounts             = useGameStore(s => s.hidePpCounts);
   const reducedMotion            = useGameStore(s => s.reducedMotion);
   const setReducedMotion         = useGameStore(s => s.setReducedMotion);
 
@@ -402,7 +404,7 @@ export function HUD() {
           {/* Mini scoreboard */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {players.map(p => {
-              const pct = Math.max(0, Math.min(100, (p.credits / gameStats.startingPop) * 100));
+              const pct = Math.max(0, Math.min(100, (p.credits / startingPop) * 100));
               const isCurrent = p.id === currentPlayer?.id;
               const nameColor = p.eliminated ? '#334455'
                 : p.isHuman ? ACCENT
@@ -438,7 +440,7 @@ export function HUD() {
                     }} />
                   </div>
                   {/* Count */}
-                  {!gameStats.hidePpCounts && (
+                  {!hidePpCounts && (
                     <span style={{ fontSize: 9, color: nameColor, letterSpacing: 0, width: 22, textAlign: 'right', flexShrink: 0 }}>
                       {p.credits}
                     </span>
