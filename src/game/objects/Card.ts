@@ -488,7 +488,7 @@ export class Card extends Phaser.GameObjects.Container {
     this.setDepth(50);
     // Delay the tooltip so quick mouse passes don't trigger it
     this.tooltipTimer = setTimeout(() => {
-      useGameStore.getState().setHoveredCard(this.cardData.id);
+      // useGameStore.getState().setHoveredCard(this.cardData.id); // tooltip disabled
     }, 450);
   }
 
@@ -499,7 +499,7 @@ export class Card extends Phaser.GameObjects.Container {
       clearTimeout(this.tooltipTimer);
       this.tooltipTimer = null;
     }
-    useGameStore.getState().setHoveredCard(null);
+    // useGameStore.getState().setHoveredCard(null); // tooltip disabled
     this.scene.tweens.killTweensOf(this);
     this.scene.tweens.add({
       targets: this,
