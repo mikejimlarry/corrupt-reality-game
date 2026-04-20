@@ -4,6 +4,19 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    chunkSizeWarningLimit: 1500,   // Phaser is ~1.2 MB minified — expected
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('node_modules/phaser'))    return 'phaser';
+          if (id.includes('node_modules/react') ||
+              id.includes('node_modules/react-dom') ||
+              id.includes('node_modules/zustand'))   return 'vendor';
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
