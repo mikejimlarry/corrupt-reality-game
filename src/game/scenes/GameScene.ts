@@ -25,6 +25,24 @@ export class GameScene extends Phaser.Scene {
   // seat index: 0=top, 1=left, 2=right — set during buildTable
   private aiPlayerSeat = new Map<string, number>();
 
+  // ── Hand pan state (mobile swipe-to-scroll) ───────────────────────────────
+  /** Current horizontal pan offset applied to the hand fan. */
+  private handPanX        = 0;
+  /** Half the overflow width — max absolute value of handPanX. 0 = no overflow. */
+  private handPanMax      = 0;
+  /** Y coordinate above which pointer events are NOT treated as hand drags. */
+  private handZoneTopY    = 0;
+  /** Whether the current pointer-down gesture has exceeded the drag threshold. */
+  private handDragActive  = false;
+  private handDragStartX  = 0;
+  private handDragStartPan = 0;
+  /** Cached layout values so applyHandPan() can reposition cards without re-layout. */
+  private handBaseStartX  = 0;
+  private handOverlapPx   = 0;
+  /** Scroll-hint arrows — created lazily, reset on scene rebuild. */
+  private handArrowLeft?:  Phaser.GameObjects.Text;
+  private handArrowRight?: Phaser.GameObjects.Text;
+
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -38,6 +56,11 @@ export class GameScene extends Phaser.Scene {
     this.aiCardBackObjects.clear();
     this.aiPlayerSeat.clear();
     this.overclockVisual = undefined;
+    // Reset hand-pan state — arrows are destroyed by removeAll below
+    this.handPanX        = 0;
+    this.handPanMax      = 0;
+    this.handArrowLeft   = undefined;
+    this.handArrowRight  = undefined;
     this.children.removeAll(true);  // destroys everything including old ledDisplay
     this.buildTable(width, height);
     // Recreate LED display on top of the fresh scene
@@ -47,6 +70,41 @@ export class GameScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     this.rebuildScene(width, height);
+
+    // ── Hand swipe-to-pan (mobile) ────────────────────────────────────────────
+    // pointerdown in the hand zone starts a potential drag; pointermove beyond
+    // the 8px threshold activates panning; pointerup resets the flag.
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (p.y >= this.handZoneTopY) {
+        this.handDragStartX   = p.x;
+        this.handDragStartPan = this.handPanX;
+        this.handDragActive   = false;
+      }
+    });
+
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (!p.isDown || this.handPanMax === 0) return;
+      if (p.y < this.handZoneTopY) return;
+      const dx = p.x - this.handDragStartX;
+      if (!this.handDragActive && Math.abs(dx) > 8) {
+        this.handDragActive = true;
+        // Clear any card accidentally selected on the initial pointerdown
+        const s = useGameStore.getState();
+        if (s.selectedCardId) s.selectCard(null);
+      }
+      if (this.handDragActive) {
+        this.handPanX = Math.max(
+          -this.handPanMax,
+          Math.min(this.handPanMax, this.handDragStartPan + dx),
+        );
+        this.applyHandPan();
+      }
+    });
+
+    this.input.on('pointerup', () => {
+      // Small delay so Card's own pointerup handler can read the flag first
+      this.time.delayedCall(50, () => { this.handDragActive = false; });
+    });
 
     // Rebuild on window resize — ignore the spurious resize Phaser fires immediately
     // after scene creation, then debounce subsequent resizes so rapid drags don't
@@ -497,16 +555,31 @@ export class GameScene extends Phaser.Scene {
     const shouldDim = !isHuman || phase === 'PHASE_ROLL' || phase === 'DRAW';
     const targetAlpha = shouldDim ? 0.55 : 1;
 
-    // Fan layout constants
-    const SCALE    = 1.25;
-    const OVERLAP  = CARD_W * SCALE * 0.62;
-    const FAN_DEG  = 32;
-    const ARC_DROP = 28;
+    // Fan layout constants — scale down on narrow viewports so all cards fit
+    const isMobile = width < 768;
+    const SCALE    = isMobile ? 0.85 : 1.25;
+    const OVERLAP  = CARD_W * SCALE * (isMobile ? 0.50 : 0.62);
+    const FAN_DEG  = isMobile ? 22 : 32;
+    const ARC_DROP = isMobile ? 16 : 28;
     const count    = hand.length;
     const totalW   = (count - 1) * OVERLAP;
-    const startX   = width / 2 - totalW / 2;
+
+    // Pan / overflow — clamp existing pan and compute scroll limits
+    const usableW        = width * 0.92;
+    const overflow       = Math.max(0, totalW - usableW);
+    this.handPanMax      = overflow / 2;
+    this.handPanX        = Math.max(-this.handPanMax, Math.min(this.handPanMax, this.handPanX));
+
+    const baseStartX     = width / 2 - totalW / 2;
+    this.handBaseStartX  = baseStartX;
+    this.handOverlapPx   = OVERLAP;
+    const startX         = baseStartX + this.handPanX;
+
     const zoneTop  = height - 58 - 70;
     const baseY    = zoneTop - 10 - (CARD_H * SCALE) / 2;
+
+    // Hand zone top — pointer events below this y are treated as hand drags
+    this.handZoneTopY = height * 0.60;
 
     // Determine whether this is a full deal (game start) or a partial draw.
     // Full deal: none of the incoming cards match an existing card object.
@@ -600,6 +673,45 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.humanCardObjects = nextCardObjects;
+
+    // ── Pan-hint arrows — created once per scene build, updated each layout ──
+    const arrowY = baseY + 30;
+    if (!this.handArrowLeft) {
+      this.handArrowLeft = this.add.text(18, arrowY, '‹', {
+        fontFamily: 'monospace', fontSize: '28px', color: '#00ffcc',
+        alpha: 0,
+      }).setDepth(30).setAlpha(0);
+    } else {
+      this.handArrowLeft.setY(arrowY);
+    }
+    if (!this.handArrowRight) {
+      this.handArrowRight = this.add.text(width - 30, arrowY, '›', {
+        fontFamily: 'monospace', fontSize: '28px', color: '#00ffcc',
+        alpha: 0,
+      }).setDepth(30).setAlpha(0);
+    } else {
+      this.handArrowRight.setX(width - 30).setY(arrowY);
+    }
+    this.updatePanArrows();
+  }
+
+  /** Instantly reposition hand cards to reflect the current handPanX offset. */
+  private applyHandPan() {
+    const startX = this.handBaseStartX + this.handPanX;
+    this.humanCardObjects.forEach((card, i) => {
+      card.x = startX + this.handOverlapPx * i;
+    });
+    this.updatePanArrows();
+  }
+
+  /** Show or hide the ‹ / › hint arrows based on available scroll in each direction. */
+  private updatePanArrows() {
+    if (!this.handArrowLeft || !this.handArrowRight) return;
+    const eps = 2;
+    const canLeft  = this.handPanMax > 0 && this.handPanX < this.handPanMax  - eps;
+    const canRight = this.handPanMax > 0 && this.handPanX > -this.handPanMax + eps;
+    this.handArrowLeft.setAlpha(canLeft  ? 0.55 : 0);
+    this.handArrowRight.setAlpha(canRight ? 0.55 : 0);
   }
 
   // ── Corruption card reveal — shown centre-screen when drawn ──────────────
