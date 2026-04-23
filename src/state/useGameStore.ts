@@ -1100,6 +1100,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       warRollDisplay: capturedWarRoll ? {
         r1: capturedWarRoll.actorBase,
         r2: capturedWarRoll.targetBase,
+        actorBonus: capturedWarRoll.actorBonus,
+        targetBonus: capturedWarRoll.targetBonus,
         actorName: actor.name,
         targetName: capturedWarRoll.targetName,
         actorWins: capturedWarRoll.actorWins,
@@ -1501,6 +1503,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const warDisplayPayload = capturedWarRoll ? {
       r1: capturedWarRoll.actorBase,
       r2: capturedWarRoll.targetBase,
+      actorBonus: capturedWarRoll.actorBonus,
+      targetBonus: capturedWarRoll.targetBonus,
       actorName: state.players[actorIndex].name,
       targetName: capturedWarRoll.targetName,
       actorWins: capturedWarRoll.actorWins,

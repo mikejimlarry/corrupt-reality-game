@@ -33,18 +33,18 @@ export const WarPreOverlay: React.FC = () => {
   const siCards    = eligibleCards.filter(c => c.counterType === 'NEGOTIATE');
   const currentBonus = combatant.tacticalBonus;
 
-  const renderPlayer = (player: typeof players[0], isActive: boolean) => (
+  const renderPlayer = (player: typeof players[0], _isActive: boolean) => (
     <div style={{
       padding: '0.4rem 0.75rem',
-      background: isActive ? 'rgba(255,51,102,0.14)' : 'rgba(255,51,102,0.05)',
-      border: isActive ? '1px solid #ff336666' : '1px solid #ff336622',
+      background: 'rgba(255,51,102,0.14)',
+      border: '1px solid #ff336666',
       fontSize: '0.7rem', letterSpacing: 2,
       minWidth: 120,
     }}>
-      <div style={{ color: isActive ? '#ff5577' : '#664455', fontWeight: 'bold', marginBottom: 3 }}>
+      <div style={{ color: '#ff5577', fontWeight: 'bold', marginBottom: 3 }}>
         {player.name}
       </div>
-      <div style={{ fontSize: '0.55rem', color: isActive ? '#ff336688' : '#443344', marginBottom: 3 }}>
+      <div style={{ fontSize: '0.55rem', color: '#ff336688', marginBottom: 3 }}>
         {player.credits}⟳
         {player.tacticalBonus > 0 && (
           <span style={{ color: '#ff9955', marginLeft: 6 }}>+{player.tacticalBonus} roll</span>

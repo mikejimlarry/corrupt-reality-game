@@ -10,8 +10,7 @@ const DAEMON_LABEL: Record<string, string> = {
 
 function CombatantCard({ playerIndex, label, active }: { playerIndex: number; label: string; active: boolean }) {
   const players = useGameStore(s => s.players);
-  const player  = players[playerIndex];
-  if (!player) return null;
+  const player  = active ? players[playerIndex] : null;
 
   return (
     <div style={{
@@ -20,31 +19,32 @@ function CombatantCard({ playerIndex, label, active }: { playerIndex: number; la
       border: active ? '1px solid #ff336655' : '1px solid #ff336622',
       color: active ? '#ff4466' : '#553344',
       fontSize: '0.65rem', letterSpacing: 1,
+      // Fixed height so layout never shifts when a player is selected
+      minHeight: 72, boxSizing: 'border-box',
     }}>
-      <div style={{ fontSize: '0.5rem', letterSpacing: 2, marginBottom: 3, color: '#663344' }}>{label}</div>
-      <div style={{ fontWeight: 'bold', marginBottom: active ? 4 : 0 }}>{active ? player.name : '— select below —'}</div>
-      {active && (
-        <>
-          <div style={{ fontSize: '0.55rem', color: '#ff336677', marginBottom: 2 }}>
-            {player.credits}⟳
-          </div>
-          {player.daemons.length > 0 ? (
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {player.daemons.map((d, i) => (
-                <span key={i} style={{
-                  fontSize: '0.48rem', letterSpacing: 1, padding: '1px 4px',
-                  background: 'rgba(0,255,204,0.08)', border: '1px solid #00ffcc22',
-                  color: '#00ffcc66', borderRadius: 2,
-                }}>
-                  {DAEMON_LABEL[d] ?? d}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <div style={{ fontSize: '0.48rem', color: '#442233' }}>no daemons</div>
-          )}
-        </>
-      )}
+      <div style={{ fontSize: '0.5rem', letterSpacing: 2, marginBottom: 3, color: active ? '#aa3355' : '#442233' }}>{label}</div>
+      <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+        {player ? player.name : '— select —'}
+      </div>
+      <div style={{ fontSize: '0.55rem', color: active ? '#ff336677' : '#331122', marginBottom: 2 }}>
+        {player ? `${player.credits}⟳` : '—'}
+      </div>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', minHeight: 14 }}>
+        {player && player.daemons.length > 0
+          ? player.daemons.map((d, i) => (
+            <span key={i} style={{
+              fontSize: '0.48rem', letterSpacing: 1, padding: '1px 4px',
+              background: 'rgba(0,255,204,0.08)', border: '1px solid #00ffcc22',
+              color: '#00ffcc66', borderRadius: 2,
+            }}>
+              {DAEMON_LABEL[d] ?? d}
+            </span>
+          ))
+          : <span style={{ fontSize: '0.48rem', color: active ? '#442233' : '#221122' }}>
+              {player ? 'no daemons' : '—'}
+            </span>
+        }
+      </div>
     </div>
   );
 }

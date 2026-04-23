@@ -36,6 +36,9 @@ export class PlayerZone extends Phaser.GameObjects.Container {
   // AI card count label — updated on refresh
   private cardCountText?: Phaser.GameObjects.Text;
   private statusDotTween?: Phaser.Tweens.Tween;
+  // Animated credit display — tracks the currently rendered value mid-tween
+  private displayedCredits = 0;
+  private creditTween?: Phaser.Tweens.Tween;
 
   constructor(scene: Phaser.Scene, x: number, y: number, player: PlayerState, hidePop = false) {
     super(scene, x, y);
@@ -143,6 +146,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     }
 
     this.buildDaemonRow(p.daemons);
+    this.displayedCredits = p.credits;
     this.setSize(W, H);
   }
 
@@ -210,8 +214,6 @@ export class PlayerZone extends Phaser.GameObjects.Container {
   refresh(player: PlayerState) {
     const prevCredits = this.player.credits;
     this.player = player;
-    this.drawBar(player.credits);
-    this.popLabel.setText(this.hidePop ? '???' : `${player.credits}`);
     this.buildDaemonRow(player.daemons);
     if (this.cardCountText) {
       this.cardCountText.setText(`[${player.hand.length}] CARDS`);
@@ -223,17 +225,15 @@ export class PlayerZone extends Phaser.GameObjects.Container {
       this.statusDot.setAlpha(0.25);
     }
 
-    // Flash credit change
     const delta = player.credits - prevCredits;
-    if (delta !== 0) this.flashCreditDelta(delta);
+    if (delta !== 0) this.animateCreditChange(player.credits, delta);
   }
 
-  /** Flash a floating +/- delta number and briefly colour the credit label. */
-  flashCreditDelta(delta: number) {
-    const isGain  = delta > 0;
-    const color   = isGain ? '#00ff88' : '#ff3355';
-    const colorN  = isGain ? 0x00ff88  : 0xff3355;
-    const label   = `${isGain ? '+' : ''}${delta}`;
+  /** Animate the bar and counter from the current displayed value to the new target. */
+  private animateCreditChange(target: number, delta: number) {
+    const isGain = delta > 0;
+    const color  = isGain ? '#00ff88' : '#ff3355';
+    const colorN = isGain ? 0x00ff88  : 0xff3355;
 
     // Zone flash overlay
     const left = -W / 2, top = -H / 2;
@@ -247,29 +247,32 @@ export class PlayerZone extends Phaser.GameObjects.Container {
       onComplete: () => { this.remove(flash, true); },
     });
 
-    // Floating delta text (world-space so rotation doesn't affect it)
-    const wx = this.x + (W / 2 - PAD - 10) * Math.cos(Phaser.Math.DegToRad(this.angle))
-                      - (-H / 2 + 46)       * Math.sin(Phaser.Math.DegToRad(this.angle));
-    const wy = this.y + (W / 2 - PAD - 10) * Math.sin(Phaser.Math.DegToRad(this.angle))
-                      + (-H / 2 + 46)       * Math.cos(Phaser.Math.DegToRad(this.angle));
+    // Credit label colour — restored after animation
+    if (!this.hidePop) this.popLabel.setStyle({ color });
 
-    const floatTxt = this.scene.add.text(wx, wy, label, {
-      fontFamily: 'monospace', fontSize: '16px', color,
-      fontStyle: 'bold', resolution: window.devicePixelRatio,
-    }).setOrigin(0.5).setDepth(100);
+    // Kill any in-progress credit tween so we animate from wherever the bar is now
+    this.creditTween?.stop();
 
-    this.scene.tweens.add({
-      targets: floatTxt,
-      y: floatTxt.y - 32,
-      alpha: 0,
-      duration: 750, ease: 'Quad.easeOut',
-      onComplete: () => floatTxt.destroy(),
-    });
-
-    // Credit label colour flash
-    this.popLabel.setStyle({ color });
-    this.scene.time.delayedCall(400, () => {
-      if (this.popLabel?.active) this.popLabel.setStyle({ color: '#ffffff' });
+    const proxy = { value: this.displayedCredits };
+    this.creditTween = this.scene.tweens.add({
+      targets: proxy,
+      value: target,
+      duration: 600,
+      ease: 'Quad.easeOut',
+      onUpdate: () => {
+        const v = Math.round(proxy.value);
+        this.displayedCredits = v;
+        this.drawBar(v);
+        if (!this.hidePop) this.popLabel.setText(`${v}`);
+      },
+      onComplete: () => {
+        this.displayedCredits = target;
+        this.drawBar(target);
+        if (!this.hidePop) {
+          this.popLabel.setText(`${target}`);
+          this.popLabel.setStyle({ color: '#ffffff' });
+        }
+      },
     });
   }
 

@@ -44,6 +44,8 @@ const RARITY_TEXT_COLOR: Record<CardRarity, string> = {
   LEGENDARY: '#ffaa00',
 };
 
+const GLITCH_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*></?[]{}\\|';
+
 // ── Card class ───────────────────────────────────────────────────────────────
 export class Card extends Phaser.GameObjects.Container {
   readonly cardData: CardData;
@@ -55,6 +57,20 @@ export class Card extends Phaser.GameObjects.Container {
   private restScale  = 1;   // set from whatever scale was applied before dealIn
   private restDepth  = 0;
   private selectionGlow!: Phaser.GameObjects.Graphics;
+
+  // Animated text refs
+  private nameText!: Phaser.GameObjects.Text;
+  private descText!: Phaser.GameObjects.Text;
+  private statLabel: Phaser.GameObjects.Text | null = null;
+  private statRawValue = 0;
+  private statPrefix   = '';
+  private artAreaY     = 0;
+
+  // Timers
+  private dropoutTimer?: Phaser.Time.TimerEvent;
+
+  // Corruption overlay
+  private corruptLayer?: Phaser.GameObjects.Container;
 
   constructor(scene: Phaser.Scene, x: number, y: number, data: CardData) {
     super(scene, x, y);
@@ -135,6 +151,7 @@ export class Card extends Phaser.GameObjects.Container {
     const nameRowCY  = nameRowTop + NAME_ROW_H / 2;
 
     const statText = this.getStatText(d);
+    const animData = this.getStatAnimData();
     const pillW = 36, pillH = 16;
     const pillX = left + CARD_W - PAD - pillW;
 
@@ -145,28 +162,37 @@ export class Card extends Phaser.GameObjects.Container {
       pill.lineStyle(1, catColor, 0.7);
       pill.strokeRoundedRect(pillX, nameRowCY - pillH / 2, pillW, pillH, 3);
       this.add(pill);
+
+      const initialStat = animData ? `${animData.prefix}0` : statText;
       const stat = this.txt(
         pillX + pillW / 2, nameRowCY,
-        statText,
+        initialStat,
         { fontFamily: 'monospace', fontSize: '9px', color: catHex, fontStyle: 'bold' }
       ).setOrigin(0.5);
       this.add(stat);
+
+      if (animData) {
+        this.statLabel     = stat;
+        this.statRawValue  = animData.value;
+        this.statPrefix    = animData.prefix;
+      }
     }
 
     const nameWrap = statText
       ? CARD_W - PAD * 2 - pillW - 5
       : CARD_W - PAD * 2;
-    const name = this.txt(
+    this.nameText = this.txt(
       left + PAD, nameRowCY,
-      d.name.toUpperCase(),
+      '',
       { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff',
         fontStyle: 'bold', wordWrap: { width: nameWrap } }
     ).setOrigin(0, 0.5);
-    this.add(name);
+    this.add(this.nameText);
 
     // ── Art area ──────────────────────────────────────────────────────────
     const artX = left + PAD;
     const artY = nameRowTop + NAME_ROW_H + GAP;
+    this.artAreaY = artY;
     const artW = CARD_W - PAD * 2;
     const art  = this.scene.add.graphics();
     art.fillStyle(0x061420, 1);
@@ -189,15 +215,16 @@ export class Card extends Phaser.GameObjects.Container {
     effectBg.strokeRoundedRect(left + PAD, effectY, CARD_W - PAD * 2, effectH, 4);
     this.add(effectBg);
 
-    const desc = this.txt(
+    // Description starts empty — filled by typewriter after deal-in
+    this.descText = this.txt(
       left + PAD + 4, effectY + 5,
-      d.description,
+      '',
       {
         fontFamily: 'monospace', fontSize: '8.5px', color: '#c8d8e8',
         wordWrap: { width: CARD_W - PAD * 2 - 8 }, lineSpacing: 1,
       }
     ).setOrigin(0, 0);
-    this.add(desc);
+    this.add(this.descText);
 
     // ── Flavour text ──────────────────────────────────────────────────────
     if (d.flavourText) {
@@ -318,6 +345,52 @@ export class Card extends Phaser.GameObjects.Container {
     }
   }
 
+  /** Apply or remove the corruption visual variant. */
+  setCorrupted(v: boolean) {
+    if (v && !this.corruptLayer) {
+      const con = this.scene.add.container(0, 0);
+      this.add(con);
+      this.corruptLayer = con as unknown as Phaser.GameObjects.Graphics;
+
+      // Offset red border — slightly inside the normal border
+      const borderGfx = this.scene.add.graphics();
+      borderGfx.lineStyle(1.5, 0xff1133, 0.7);
+      borderGfx.strokeRoundedRect(-CARD_W / 2 + 3, -CARD_H / 2 + 3, CARD_W - 6, CARD_H - 6, RADIUS - 2);
+      // Second border slightly outside, creating a doubled-frame glitch
+      borderGfx.lineStyle(1, 0xff3355, 0.35);
+      borderGfx.strokeRoundedRect(-CARD_W / 2 - 2, -CARD_H / 2 - 2, CARD_W + 4, CARD_H + 4, RADIUS + 2);
+      // Subtle red tint fill
+      borderGfx.fillStyle(0xff0000, 0.04);
+      borderGfx.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, RADIUS);
+      con.add(borderGfx);
+
+      // Garbled text fragment in the art area
+      const chars = '!@#$%^&*<>/?\\|{}[]01';
+      const garble = Array.from({ length: 10 }, () =>
+        chars[Math.floor(Math.random() * chars.length)]
+      ).join('');
+      const glitchText = this.scene.add.text(
+        -CARD_W / 2 + 10, this.artAreaY + 6,
+        garble,
+        { fontFamily: 'monospace', fontSize: '7px', color: '#ff335555',
+          resolution: window.devicePixelRatio }
+      );
+      con.add(glitchText);
+
+      // Pulse the corruption layer
+      this.scene.tweens.add({
+        targets: con,
+        alpha: { from: 0.5, to: 1 },
+        duration: 900, repeat: -1, yoyo: true, ease: 'Sine.easeInOut',
+      });
+
+    } else if (!v && this.corruptLayer) {
+      this.scene.tweens.killTweensOf(this.corruptLayer);
+      (this.corruptLayer as unknown as Phaser.GameObjects.Container).destroy(true);
+      this.corruptLayer = undefined;
+    }
+  }
+
   private onClick() {
     if (this.isInapplicable) return;
     // No isDealt guard here — selection should work immediately even during deal-in animation
@@ -434,6 +507,8 @@ export class Card extends Phaser.GameObjects.Container {
 
   // ── Cleanup ─────────────────────────────────────────────────────────────
   destroy(fromScene?: boolean) {
+    this.dropoutTimer?.remove(false);
+    this.dropoutTimer = undefined;
     // Kill tweens on all children (animated graphics) before they're destroyed
     this.scene?.tweens.killTweensOf(this);
     this.each((child: Phaser.GameObjects.GameObject) => {
@@ -503,6 +578,16 @@ export class Card extends Phaser.GameObjects.Container {
     }
   }
 
+  private getStatAnimData(): { prefix: string; value: number } | null {
+    const d = this.cardData;
+    switch (d.category) {
+      case 'CREDITS':        return { prefix: '+', value: d.amount };
+      case 'EVENT_POSITIVE': return d.amount > 0 ? { prefix: '+', value: d.amount } : null;
+      case 'EVENT_NEGATIVE': return d.amount > 0 ? { prefix: '-', value: d.amount } : null;
+      default:               return null;
+    }
+  }
+
   // ── Hover effects ───────────────────────────────────────────────────────
   private tooltipTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -560,22 +645,48 @@ export class Card extends Phaser.GameObjects.Container {
     });
   }
 
-  /** Animate the card flying to the discard pile, then call onComplete. */
+  /** Animate the card flying to the discard pile with a glitch burst, then call onComplete. */
   playOut(targetX: number, targetY: number, onComplete?: () => void) {
     this.setDepth(100);
     this.scene.tweens.killTweensOf(this);
-    // Spin slightly toward centre for a natural "thrown" feel
+    this.dropoutTimer?.remove(false);
+    this.dropoutTimer = undefined;
+
     const spinDir = this.x < targetX ? 1 : -1;
-    this.scene.tweens.add({
-      targets: this,
-      x: targetX, y: targetY,
-      scaleX: this.restScale * 0.55,
-      scaleY: this.restScale * 0.55,
-      alpha: 0,
-      angle: this.angle + spinDir * 20,
-      duration: 380,
-      ease: 'Quad.easeIn',
-      onComplete,
+    const startX  = this.x;
+
+    // Chromatic aberration layers — red ghost left, cyan ghost right
+    const redLayer = this.scene.add.graphics();
+    redLayer.fillStyle(0xff2244, 0.28);
+    redLayer.fillRoundedRect(-CARD_W / 2 - 5, -CARD_H / 2, CARD_W, CARD_H, RADIUS);
+
+    const cyanLayer = this.scene.add.graphics();
+    cyanLayer.fillStyle(0x00eeff, 0.28);
+    cyanLayer.fillRoundedRect(-CARD_W / 2 + 5, -CARD_H / 2, CARD_W, CARD_H, RADIUS);
+
+    this.addAt(cyanLayer, 0);
+    this.addAt(redLayer, 0);
+
+    // Horizontal jitter sequence, then fly
+    this.x = startX + 7;
+    this.scene.time.delayedCall(40,  () => { if (this.active) this.x = startX - 6; });
+    this.scene.time.delayedCall(80,  () => { if (this.active) this.x = startX + 3; });
+    this.scene.time.delayedCall(120, () => {
+      if (!this.active) return;
+      this.x = startX;
+      redLayer.destroy();
+      cyanLayer.destroy();
+      this.scene.tweens.add({
+        targets: this,
+        x: targetX, y: targetY,
+        scaleX: this.restScale * 0.55,
+        scaleY: this.restScale * 0.55,
+        alpha: 0,
+        angle: this.angle + spinDir * 20,
+        duration: 380,
+        ease: 'Quad.easeIn',
+        onComplete,
+      });
     });
   }
 
@@ -591,8 +702,114 @@ export class Card extends Phaser.GameObjects.Container {
       duration: 300, delay, ease: 'Quad.easeOut',
       onComplete: () => {
         this.isDealt = true;
+        if (!useGameStore.getState().reducedMotion) {
+          this.startNameScramble();
+          this.startTypewriter();
+          this.startStatCountUp();
+          this.startDropout();
+        } else {
+          // Reduced motion: populate text instantly
+          this.descText.setText(this.cardData.description);
+          if (this.statLabel) {
+            this.statLabel.setText(`${this.statPrefix}${this.statRawValue}`);
+          }
+        }
         onComplete?.();
       },
     });
+  }
+
+  // ── Name scramble → resolve ─────────────────────────────────────────────
+  private startNameScramble() {
+    if (!this.scene || !this.active) return;
+    const realName   = this.cardData.name.toUpperCase();
+    const steps      = 14;
+    let   iteration  = 0;
+
+    this.scene.time.addEvent({
+      delay: 38,
+      repeat: steps - 1,
+      callback: () => {
+        if (!this.active) return;
+        iteration++;
+        const revealed = Math.floor((iteration / steps) * realName.length);
+        const scrambled = realName.split('').map((ch, i) => {
+          if (i < revealed || ch === ' ') return ch;
+          return GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
+        }).join('');
+        this.nameText.setText(scrambled);
+        if (iteration >= steps) this.nameText.setText(realName);
+      },
+    });
+  }
+
+  // ── Description typewriter ──────────────────────────────────────────────
+  private startTypewriter() {
+    if (!this.scene || !this.active) return;
+    const full = this.cardData.description;
+    let   i    = 0;
+
+    this.scene.time.addEvent({
+      delay: 14,
+      repeat: full.length - 1,
+      callback: () => {
+        if (!this.active) return;
+        i++;
+        this.descText.setText(full.slice(0, i));
+      },
+    });
+  }
+
+  // ── Stat count-up from 0 ────────────────────────────────────────────────
+  private startStatCountUp() {
+    if (!this.statLabel || !this.scene || !this.active) return;
+    const target  = this.statRawValue;
+    const prefix  = this.statPrefix;
+    const steps   = 10;
+    let   current = 0;
+
+    this.scene.time.addEvent({
+      delay: 30,
+      repeat: steps - 1,
+      callback: () => {
+        if (!this.active || !this.statLabel) return;
+        current++;
+        const val = Math.round((current / steps) * target);
+        this.statLabel.setText(`${prefix}${val}`);
+        if (current >= steps) this.statLabel.setText(`${prefix}${target}`);
+      },
+    });
+  }
+
+  // ── Occasional signal dropout ───────────────────────────────────────────
+  private startDropout() {
+    if (!this.scene || !this.active) return;
+
+    // Overlay that covers the card and briefly flashes opaque
+    const overlay = this.scene.add.graphics();
+    overlay.fillStyle(0x000000, 1);
+    overlay.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, RADIUS);
+    overlay.setAlpha(0);
+    this.add(overlay);
+
+    const flash = () => {
+      if (!this.active || !this.scene) return;
+      overlay.setAlpha(0.88);
+      this.scene.tweens.add({
+        targets: overlay,
+        alpha: 0,
+        duration: 90,
+        ease: 'Linear',
+        onComplete: scheduleNext,
+      });
+    };
+
+    const scheduleNext = () => {
+      if (!this.active || !this.scene) return;
+      const delay = 5000 + Math.random() * 14000;
+      this.dropoutTimer = this.scene.time.addEvent({ delay, callback: flash });
+    };
+
+    scheduleNext();
   }
 }

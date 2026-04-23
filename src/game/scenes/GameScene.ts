@@ -39,6 +39,11 @@ export class GameScene extends Phaser.Scene {
   /** Cached layout values so applyHandPan() can reposition cards without re-layout. */
   private handBaseStartX  = 0;
   private handOverlapPx   = 0;
+  /** Cached for lift/lower animation on DRAW phase. */
+  private handBaseY       = 0;
+  private handScale       = 1.25;
+  private handArcDrop     = 28;
+  private handIsLifted    = false;
   /** Scroll-hint arrows — created lazily, reset on scene rebuild. */
   private handArrowLeft?:  Phaser.GameObjects.Text;
   private handArrowRight?: Phaser.GameObjects.Text;
@@ -61,10 +66,16 @@ export class GameScene extends Phaser.Scene {
     this.handPanMax      = 0;
     this.handArrowLeft   = undefined;
     this.handArrowRight  = undefined;
+    this.handIsLifted    = false;
     this.children.removeAll(true);  // destroys everything including old ledDisplay
     this.buildTable(width, height);
     // Recreate LED display on top of the fresh scene
     this.ledDisplay = new LEDDisplay(this, width / 2, height / 2);
+    // Re-apply hand lift if we rebuilt mid-turn (e.g. window resize during DRAW/MAIN)
+    const rebuildPhase = useGameStore.getState().phase;
+    if (rebuildPhase === 'DRAW' || rebuildPhase === 'MAIN' || rebuildPhase === 'TARGETING') {
+      this.applyHandLift(true);
+    }
   }
 
   create() {
@@ -151,6 +162,7 @@ export class GameScene extends Phaser.Scene {
         prevCorruption = state.globalCorruptionMode;
         const targetColor = state.globalCorruptionMode ? 0x0d0003 : 0x050510;
         this.cameras.main.setBackgroundColor(targetColor);
+        this.humanCardObjects.forEach(c => c.setCorrupted(state.globalCorruptionMode));
       }
       const { width: w, height: h } = this.scale;
       let handUpdated = false;
@@ -240,6 +252,10 @@ export class GameScene extends Phaser.Scene {
           this.applyHandDim();
           this.applyCardApplicability();
         }
+
+        // ── Lift hand during DRAW + MAIN, lower at turn start (PHASE_ROLL) ──
+        if (state.phase === 'DRAW') this.applyHandLift(true);
+        else if (state.phase === 'PHASE_ROLL') this.applyHandLift(false);
 
         // ── Targeting — highlight valid target zones and make them clickable ──
         if (state.phase === 'TARGETING') {
@@ -377,8 +393,10 @@ export class GameScene extends Phaser.Scene {
             0, false,
             () => { useGameStore.getState().clearWarRollDisplay(); },
             customToast,
-            true,               // warMode — no summed total, "vs" operator
-            rollData.targetName, // p2Name — shown below right die
+            true,                  // warMode — no summed total, "vs" operator
+            rollData.targetName,   // p2Name — shown below right die
+            rollData.actorBonus,   // tactical bonus for actor
+            rollData.targetBonus,  // tactical bonus for target
           );
         });
       }
@@ -617,11 +635,16 @@ export class GameScene extends Phaser.Scene {
     this.handOverlapPx   = OVERLAP;
     const startX         = baseStartX + this.handPanX;
 
-    const zoneTop  = height - 58 - 70;
-    const baseY    = zoneTop - 10 - (CARD_H * SCALE) / 2;
+    // Peek from bottom: keep ~70% of each card visible above the screen edge
+    const restingBaseY = height - CARD_H * SCALE * 0.20;
+    this.handBaseY   = restingBaseY;  // always the true resting position
+    this.handScale   = SCALE;
+    this.handArcDrop = ARC_DROP;
+    const liftOffset = this.handIsLifted ? CARD_H * SCALE * 0.28 : 0;
+    const baseY      = restingBaseY - liftOffset;
 
     // Hand zone top — pointer events below this y are treated as hand drags
-    this.handZoneTopY = height * 0.60;
+    this.handZoneTopY = height - CARD_H * SCALE * 0.75;
 
     // Determine whether this is a full deal (game start) or a partial draw.
     // Full deal: none of the incoming cards match an existing card object.
@@ -678,7 +701,8 @@ export class GameScene extends Phaser.Scene {
       const t       = count > 1 ? i / (count - 1) : 0.5;
       const c       = t - 0.5;
       const targetX = startX + OVERLAP * i;
-      const targetY = baseY + c * c * ARC_DROP * 4;
+      // Flat arc when lifted — no valley shape; full arc when resting
+      const targetY = baseY + (this.handIsLifted ? 0 : c * c * ARC_DROP * 4);
       const targetAngle = c * FAN_DEG;
       const targetDepth = 10 + i;
 
@@ -709,6 +733,7 @@ export class GameScene extends Phaser.Scene {
         // Stagger only on a full initial deal; single drawn cards arrive immediately
         const delay = isFullDeal ? newCardDealIndex * 70 : 0;
         card.dealIn(width / 2, height * 0.46, delay, targetAlpha);
+        if (useGameStore.getState().globalCorruptionMode) card.setCorrupted(true);
         newCardDealIndex++;
         nextCardObjects.push(card);
       }
@@ -717,7 +742,7 @@ export class GameScene extends Phaser.Scene {
     this.humanCardObjects = nextCardObjects;
 
     // ── Pan-hint arrows — created once per scene build, updated each layout ──
-    const arrowY = baseY + 30;
+    const arrowY = baseY - CARD_H * SCALE * 0.45;
     if (!this.handArrowLeft) {
       this.handArrowLeft = this.add.text(18, arrowY, '‹', {
         fontFamily: 'monospace', fontSize: '28px', color: '#00ffcc',
@@ -743,6 +768,25 @@ export class GameScene extends Phaser.Scene {
       card.x = startX + this.handOverlapPx * i;
     });
     this.updatePanArrows();
+  }
+
+  /** Raise the hand fan into view during DRAW/MAIN, or restore to resting position on turn end. */
+  private applyHandLift(lifted: boolean) {
+    if (this.handIsLifted === lifted) return;
+    this.handIsLifted = lifted;
+    const liftDelta = CARD_H * this.handScale * 0.28;
+    const count = this.humanCardObjects.length;
+    this.humanCardObjects.forEach((card, i) => {
+      const t = count > 1 ? i / (count - 1) : 0.5;
+      const c = t - 0.5;
+      const restY  = this.handBaseY + c * c * this.handArcDrop * 4;
+      // Lifted state uses a flat arc (no valley) so all cards sit at the same height
+      const targetY = lifted ? (this.handBaseY - liftDelta) : restY;
+      card.updateRestY(targetY);
+      // Kill any competing position tweens from updateHumanHand before adding ours
+      this.tweens.killTweensOf(card);
+      this.tweens.add({ targets: card, y: targetY, duration: 300, ease: 'Quad.easeOut' });
+    });
   }
 
   /** Show or hide the ‹ / › hint arrows based on available scroll in each direction. */

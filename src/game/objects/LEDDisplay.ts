@@ -12,9 +12,12 @@ const GAP      = 2;
 const D_CX     = 76;   // horizontal distance from panel centre to each digit centre
 
 // Derived vertical anchors — keep all layout relative to these
-const DIGIT_TOP_Y  = -PANEL_H / 2 + 36;          // top of digit area
-const DIGIT_CY     = DIGIT_TOP_Y + DIGIT_H / 2;  // vertical centre of digits
-const BELOW_DIGITS = DIGIT_TOP_Y + DIGIT_H + 10; // first row below digits
+const DIGIT_TOP_Y   = -PANEL_H / 2 + 36;                  // top of digit area
+const DIGIT_CY      = DIGIT_TOP_Y + DIGIT_H / 2;          // vertical centre of digits
+const BELOW_DIGITS  = DIGIT_TOP_Y + DIGIT_H + 10;         // first row below digits
+const SCREEN_BOTTOM = DIGIT_TOP_Y + DIGIT_H + 16;         // bottom edge of screen recess rect
+const NAME_Y        = SCREEN_BOTTOM + 12;                  // war: player name labels (clear of border)
+const BONUS_Y       = SCREEN_BOTTOM + 24;                  // war: tactical modifier labels
 
 const COLOR_DIM    = 0x001508;
 const COLOR_GREEN  = 0x00ff55;
@@ -122,12 +125,12 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     this.add(this.totalTxt);
 
     // ── Player name labels (war mode only — shown below each die) ─────────
-    this.name1Txt = this.txt(-D_CX, BELOW_DIGITS + 8, '', {
+    this.name1Txt = this.txt(-D_CX, NAME_Y, '', {
       fontFamily: 'monospace', fontSize: '8px', color: '#ff8800cc', letterSpacing: 2,
     }).setOrigin(0.5).setAlpha(0);
     this.add(this.name1Txt);
 
-    this.name2Txt = this.txt(D_CX, BELOW_DIGITS + 8, '', {
+    this.name2Txt = this.txt(D_CX, NAME_Y, '', {
       fontFamily: 'monospace', fontSize: '8px', color: '#ff8800cc', letterSpacing: 2,
     }).setOrigin(0.5).setAlpha(0);
     this.add(this.name2Txt);
@@ -367,7 +370,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   // ── Run slot-machine animation then call onComplete ────────────────────────
   // warMode: true when showing a WAR conflict roll — omits the summed total and
   // uses "vs" between the dice instead of "+" since r1/r2 belong to different players.
-  roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string, warMode?: boolean, p2Name?: string) {
+  roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string, warMode?: boolean, p2Name?: string, actorBonus?: number, targetBonus?: number) {
     // WAR rolls skip showStandby so the panel may be hidden; check before forcing visible.
     const needsOpen = !this.visible;
     // Kill any in-progress tweens on this container.
@@ -397,11 +400,12 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     // War mode uses "vs" between the two dice; normal rolls use "+"
     this.operatorTxt.setText(warMode ? 'vs' : '+').setColor('#334455');
 
-    // ── War player name labels ─────────────────────────────────────────────
+    // ── War player name labels (with optional tactical bonus suffix) ──────
     const trim = (s: string) => s.length > 9 ? s.slice(0, 8) + '…' : s;
+    const bonusSuffix = (b: number | undefined) => b && b !== 0 ? ` ${b > 0 ? '+' : ''}${b}` : '';
     if (warMode && p2Name) {
-      this.name1Txt.setText(trim(playerName.toUpperCase())).setAlpha(0.75);
-      this.name2Txt.setText(trim(p2Name.toUpperCase())).setAlpha(0.75);
+      this.name1Txt.setText(trim(playerName.toUpperCase()) + bonusSuffix(actorBonus)).setAlpha(0.75);
+      this.name2Txt.setText(trim(p2Name.toUpperCase()) + bonusSuffix(targetBonus)).setAlpha(0.75);
     } else {
       this.name1Txt.setText('').setAlpha(0);
       this.name2Txt.setText('').setAlpha(0);
