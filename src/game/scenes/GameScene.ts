@@ -22,6 +22,10 @@ export class GameScene extends Phaser.Scene {
   private aiDaemonBoards = new Map<string, DaemonBoard>();
   private aiCardBackObjects = new Map<string, CardBack[]>();
   private overclockVisual?: Phaser.GameObjects.Container;
+  private staticGfx?:     Phaser.GameObjects.Graphics;
+  private staticTimer?:   Phaser.Time.TimerEvent;
+  private humanZoneBaseY  = 0;
+  private humanZoneShifted = false;
   // seat index: 0=top, 1=left, 2=right — set during buildTable
   private aiPlayerSeat = new Map<string, number>();
 
@@ -60,7 +64,12 @@ export class GameScene extends Phaser.Scene {
     this.aiDaemonBoards.clear();
     this.aiCardBackObjects.clear();
     this.aiPlayerSeat.clear();
+    this.humanZoneShifted = false;
     this.overclockVisual = undefined;
+    // Static overlay is destroyed by removeAll; clear references so rebuildScene can recreate it
+    this.staticTimer?.remove(false);
+    this.staticTimer = undefined;
+    this.staticGfx   = undefined;
     // Reset hand-pan state — arrows are destroyed by removeAll below
     this.handPanX        = 0;
     this.handPanMax      = 0;
@@ -71,6 +80,8 @@ export class GameScene extends Phaser.Scene {
     this.buildTable(width, height);
     // Recreate LED display on top of the fresh scene
     this.ledDisplay = new LEDDisplay(this, width / 2, height / 2);
+    // Re-apply static overlay if corruption was already active before the rebuild
+    if (useGameStore.getState().globalCorruptionMode) this.buildStaticNoise(width, height);
     // Re-apply hand lift if we rebuilt mid-turn (e.g. window resize during DRAW/MAIN)
     const rebuildPhase = useGameStore.getState().phase;
     if (rebuildPhase === 'DRAW' || rebuildPhase === 'MAIN' || rebuildPhase === 'TARGETING') {
@@ -158,13 +169,14 @@ export class GameScene extends Phaser.Scene {
       const humanCreditsBefore = prevCreditsMap.get(humanSnap?.id ?? '') ?? (humanSnap?.credits ?? 0);
 
       // ── Corruption mode — shift background from near-black to dark red ──
+      const { width: w, height: h } = this.scale;
       if (state.globalCorruptionMode !== prevCorruption) {
         prevCorruption = state.globalCorruptionMode;
         const targetColor = state.globalCorruptionMode ? 0x0d0003 : 0x050510;
         this.cameras.main.setBackgroundColor(targetColor);
         this.humanCardObjects.forEach(c => c.setCorrupted(state.globalCorruptionMode));
+        if (state.globalCorruptionMode) this.buildStaticNoise(w, h);
       }
-      const { width: w, height: h } = this.scale;
       let handUpdated = false;
       let rebuilt = false;
 
@@ -234,8 +246,12 @@ export class GameScene extends Phaser.Scene {
         this.humanCardObjects.forEach(card => {
           card.setSelected(card.cardData.id === selectedCardId);
         });
+        this.shiftHumanZone(selectedCardId !== null);
       }
-      if (handUpdated) prevSelectedCardId = selectedCardId;
+      if (handUpdated) {
+        prevSelectedCardId = selectedCardId;
+        this.shiftHumanZone(false);
+      }
 
       // ── Active player changed — dim inactive players ────────────────────
       if (state.currentPlayerIndex !== prevCurrentPlayerIndex || rebuilt) {
@@ -476,7 +492,8 @@ export class GameScene extends Phaser.Scene {
 
     // ── 5. Human player zone (bottom) — larger than AI zones ──────────────
     const { hidePpCounts } = useGameStore.getState();
-    const humanZone = new PlayerZone(this, width / 2, height - 58, human, hidePpCounts);
+    this.humanZoneBaseY = height - 58;
+    const humanZone = new PlayerZone(this, width / 2, this.humanZoneBaseY, human, hidePpCounts);
     humanZone.setScale(1.3);
     humanZone.setDepth(25);
     this.playerZoneMap.set(human.id, humanZone);
@@ -713,12 +730,13 @@ export class GameScene extends Phaser.Scene {
         // clearSelectionState() intentionally does NOT kill tweens so the reposition
         // tween below is not cancelled by a simultaneous selectedCardId → null change.
         existing.clearSelectionState();
-        existing.updateRestY(targetY);
+        existing.updateRestPosition(targetX, targetY);
         existing.setDepth(targetDepth);
         this.tweens.killTweensOf(existing);
         this.tweens.add({
           targets: existing,
           x: targetX, y: targetY,
+          scaleX: SCALE, scaleY: SCALE,
           angle: targetAngle,
           alpha: targetAlpha,
           duration: 350, ease: 'Quad.easeOut',
@@ -787,6 +805,19 @@ export class GameScene extends Phaser.Scene {
       this.tweens.killTweensOf(card);
       this.tweens.add({ targets: card, y: targetY, duration: 300, ease: 'Quad.easeOut' });
     });
+  }
+
+  /** Slide the human player zone down when a card is selected, back up otherwise. */
+  private shiftHumanZone(down: boolean) {
+    if (this.humanZoneShifted === down) return;
+    this.humanZoneShifted = down;
+    const human = useGameStore.getState().players.find(p => p.isHuman);
+    if (!human) return;
+    const zone = this.playerZoneMap.get(human.id);
+    if (!zone) return;
+    const targetY = this.humanZoneBaseY + (down ? 52 : 0);
+    this.tweens.killTweensOf(zone);
+    this.tweens.add({ targets: zone, y: targetY, duration: 220, ease: 'Quad.easeOut' });
   }
 
   /** Show or hide the ‹ / › hint arrows based on available scroll in each direction. */
@@ -974,6 +1005,51 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => con.destroy(),
       });
     }
+  }
+
+  // ── Corruption static overlay — white noise that fades in and slowly intensifies ──
+  private buildStaticNoise(width: number, height: number) {
+    if (this.staticGfx) return; // already running
+
+    const gfx = this.add.graphics().setDepth(188).setAlpha(0);
+    this.staticGfx = gfx;
+
+    let frame = 0;
+    const redraw = () => {
+      if (!gfx.active) return;
+      frame++;
+      gfx.clear();
+      gfx.fillStyle(0xffffff, 0.9);
+
+      // Scattered dot noise
+      const count = 280 + Math.floor(Math.random() * 180);
+      for (let i = 0; i < count; i++) {
+        const x = Math.random() * width;
+        const y = Math.random() * height;
+        gfx.fillRect(x, y, Math.random() > 0.82 ? 2 : 1, 1);
+      }
+
+      // Occasional faint horizontal band (~1 in 8 frames)
+      if (Math.random() < 0.13) {
+        gfx.fillStyle(0xffffff, 0.18);
+        const bandY = Math.random() * height;
+        gfx.fillRect(0, bandY, width, 1 + Math.floor(Math.random() * 2));
+      }
+    };
+
+    this.staticTimer = this.time.addEvent({ delay: 80, repeat: -1, callback: redraw });
+
+    // Fade in over 2.5s, then slowly intensify to max over the next 30s
+    this.tweens.add({
+      targets: gfx, alpha: 0.04,
+      duration: 2500, ease: 'Quad.easeIn',
+      onComplete: () => {
+        this.tweens.add({
+          targets: gfx, alpha: 0.072,
+          duration: 30000, ease: 'Linear',
+        });
+      },
+    });
   }
 
   // ── Background + grid ─────────────────────────────────────────────────────

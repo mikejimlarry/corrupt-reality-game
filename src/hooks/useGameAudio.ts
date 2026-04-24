@@ -5,7 +5,8 @@ import { useGameStore } from '../state/useGameStore';
 import {
   sfxDraw, sfxGain, sfxLoss, sfxAttack,
   sfxDaemon, sfxTurnStart, sfxWar, sfxRollStart,
-  sfxCorruption, sfxWin, sfxGameOver, sfxWarWin, sfxWarLoss,
+  sfxWin, sfxGameOver, sfxWarWin, sfxWarLoss,
+  sfxCorruptionActivate, sfxDaemonTerminated,
 } from '../lib/audio';
 
 export function useGameAudio() {
@@ -67,7 +68,7 @@ export function useGameAudio() {
 
   // ── Corruption activated ─────────────────────────────────────────────────
   useEffect(() => {
-    if (corruption && !prevCorruption.current) sfxCorruption();
+    if (corruption && !prevCorruption.current) sfxCorruptionActivate();
     prevCorruption.current = corruption;
   }, [corruption]);
 
@@ -119,6 +120,8 @@ export function useGameAudio() {
       if (p.daemons.length > prevD && !playedDaemon) {
         sfxDaemon();
         playedDaemon = true;
+      } else if (p.daemons.length < prevD) {
+        sfxDaemonTerminated();
       }
 
       prevCredits.current.set(p.id, p.credits);

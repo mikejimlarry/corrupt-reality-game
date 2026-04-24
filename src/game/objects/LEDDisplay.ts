@@ -19,10 +19,12 @@ const SCREEN_BOTTOM = DIGIT_TOP_Y + DIGIT_H + 16;         // bottom edge of scre
 const NAME_Y        = SCREEN_BOTTOM + 12;                  // war: player name labels (clear of border)
 const BONUS_Y       = SCREEN_BOTTOM + 24;                  // war: tactical modifier labels
 
-const COLOR_DIM    = 0x001508;
-const COLOR_GREEN  = 0x00ff55;
-const COLOR_AMBER  = 0xffaa00;
-const COLOR_ORANGE = 0xff8800;
+const COLOR_DIM         = 0x001508;
+const COLOR_GREEN       = 0x00ff55;
+const COLOR_AMBER       = 0xffaa00;
+const COLOR_ORANGE      = 0xff8800;
+const COLOR_CORRUPT     = 0xff1133;
+const COLOR_CORRUPT_DIM = 0x150003;
 
 // 7 segments: [top, topRight, botRight, bottom, botLeft, topLeft, middle]
 const SEG_MAP: Record<string | number, boolean[]> = {
@@ -37,6 +39,8 @@ const SEG_MAP: Record<string | number, boolean[]> = {
 
 export class LEDDisplay extends Phaser.GameObjects.Container {
   private bezel!:         Phaser.GameObjects.Graphics;
+  private screenBgs:      Phaser.GameObjects.Graphics[] = [];
+  private headerTxt!:     Phaser.GameObjects.Text;
   private digit1Gfx!:    Phaser.GameObjects.Graphics;
   private digit2Gfx!:    Phaser.GameObjects.Graphics;
   private glow1!:         Phaser.GameObjects.Graphics;
@@ -94,12 +98,14 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
       bg.lineStyle(1, 0x003322, 1);
       bg.strokeRoundedRect(cx - DIGIT_W / 2 - 16, DIGIT_TOP_Y - 8, DIGIT_W + 32, screenH, 6);
       this.add(bg);
+      this.screenBgs.push(bg);
     });
 
     // ── Header ────────────────────────────────────────────────────────────
-    this.add(this.txt(0, -PANEL_H / 2 + 16, 'RNG · SEQUENCE · GENERATOR', {
+    this.headerTxt = this.txt(0, -PANEL_H / 2 + 16, 'RNG · SEQUENCE · GENERATOR', {
       fontFamily: 'monospace', fontSize: '8px', color: '#00ffcc77', letterSpacing: 5,
-    }).setOrigin(0.5));
+    }).setOrigin(0.5);
+    this.add(this.headerTxt);
 
     // ── Glow layers (behind digits) ───────────────────────────────────────
     this.glow1 = this.scene.add.graphics(); this.add(this.glow1);
@@ -342,8 +348,42 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     });
   }
 
+  // ── Swap teal ↔ red theme based on corruption mode ───────────────────────
+  private applyTheme(isCorruption: boolean) {
+    const accent       = isCorruption ? 0xff1133  : 0x00ffcc;
+    const accentDim    = isCorruption ? '#ff113377' : '#00ffcc77';
+    const screenFill   = isCorruption ? 0x0a0003  : 0x000a05;
+    const screenBorder = isCorruption ? 0x330011  : 0x003322;
+
+    this.bezel.clear();
+    this.bezel.fillStyle(0x070b0d, 1);
+    this.bezel.fillRoundedRect(-PANEL_W / 2, -PANEL_H / 2, PANEL_W, PANEL_H, 12);
+    this.bezel.lineStyle(1.5, accent, 0.35);
+    this.bezel.strokeRoundedRect(-PANEL_W / 2, -PANEL_H / 2, PANEL_W, PANEL_H, 12);
+    this.bezel.lineStyle(0.5, accent, 0.07);
+    this.bezel.strokeRoundedRect(-PANEL_W / 2 + 5, -PANEL_H / 2 + 5, PANEL_W - 10, PANEL_H - 10, 9);
+
+    this.screenBgs.forEach((bg, i) => {
+      const cx = i === 0 ? -D_CX : D_CX;
+      bg.clear();
+      bg.fillStyle(screenFill, 1);
+      bg.fillRoundedRect(cx - DIGIT_W / 2 - 16, DIGIT_TOP_Y - 8, DIGIT_W + 32, DIGIT_H + 24, 6);
+      bg.lineStyle(1, screenBorder, 1);
+      bg.strokeRoundedRect(cx - DIGIT_W / 2 - 16, DIGIT_TOP_Y - 8, DIGIT_W + 32, DIGIT_H + 24, 6);
+    });
+
+    this.headerTxt.setColor(accentDim);
+
+    // Reset digit dim colour so unlit segments match the theme
+    const dimColor = isCorruption ? COLOR_CORRUPT_DIM : COLOR_DIM;
+    this.drawDigit(this.digit1Gfx, this.glow1, '-', dimColor, -D_CX);
+    this.drawDigit(this.digit2Gfx, this.glow2, '-', dimColor,  D_CX);
+  }
+
   // ── Fade panel in showing standby "- -" state ─────────────────────────────
   showStandby(playerName: string) {
+    const isCorruption = useGameStore.getState().globalCorruptionMode;
+    this.applyTheme(isCorruption);
     this.standbyTween?.stop();
     this.totalTxt.setText('').setColor('#334455');
     this.name1Txt.setText('').setAlpha(0);
@@ -351,9 +391,8 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     this.toastTxt.setText('').setAlpha(0);
     this.toastBg.clear().setAlpha(0);
     this.operatorTxt.setText('+').setColor('#334455');
-    this.statusTxt.setText(`SCANNING · ${playerName.toUpperCase()}`).setColor('#00ffcc55');
-    this.drawDigit(this.digit1Gfx, this.glow1, '-', COLOR_DIM, -D_CX);
-    this.drawDigit(this.digit2Gfx, this.glow2, '-', COLOR_DIM,  D_CX);
+    const scanColor = isCorruption ? '#ff113355' : '#00ffcc55';
+    this.statusTxt.setText(`SCANNING · ${playerName.toUpperCase()}`).setColor(scanColor);
 
     this.unfoldOpen();
 
@@ -382,18 +421,26 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     this.digit2Gfx.setAlpha(1);
 
     const total    = r1 + r2;
-    // War rolls use orange; stability rolls use green/amber based on total.
-    const finalColor  = warMode ? COLOR_ORANGE : (total <= 3 ? COLOR_AMBER : COLOR_GREEN);
-    const finalHex    = warMode ? '#ff8800'    : (total <= 3 ? '#ffaa00'   : '#00ff55');
-    const spinColor   = warMode ? COLOR_ORANGE : COLOR_GREEN;
+    // Apply theme before anything else so bezel/screens match
+    this.applyTheme(isCorruption);
+    // War rolls use orange; corruption uses red; stability rolls use green/amber.
+    const finalColor  = warMode ? COLOR_ORANGE : (isCorruption ? COLOR_CORRUPT      : (total <= 3 ? COLOR_AMBER : COLOR_GREEN));
+    const finalHex    = warMode ? '#ff8800'    : (isCorruption ? '#ff1133'           : (total <= 3 ? '#ffaa00'   : '#00ff55'));
+    const spinColor   = warMode ? COLOR_ORANGE : (isCorruption ? COLOR_CORRUPT       : COLOR_GREEN);
     const statusLabel = warMode
       ? '◆  CONFLICT RESOLVED'
-      : (total <= 3  ? '◆  NO GAIN'         :
-         total <= 5  ? '◆  LOW SEQUENCE'    :
-         total <= 8  ? '◆  STABLE SEQUENCE' :
-         total <= 11 ? '◆  STABILITY BONUS' : '◆  PEAK STABILITY');
+      : (isCorruption
+          ? (total <= 3  ? '◆  CORRUPTION MAX'    :
+             total <= 5  ? '◆  SEVERE CORRUPTION' :
+             total <= 8  ? '◆  CORRUPTION ACTIVE' :
+             total <= 11 ? '◆  MILD CORRUPTION'   : '◆  CORRUPTION MINIMAL')
+          : (total <= 3  ? '◆  NO GAIN'         :
+             total <= 5  ? '◆  LOW SEQUENCE'    :
+             total <= 8  ? '◆  STABLE SEQUENCE' :
+             total <= 11 ? '◆  STABILITY BONUS' : '◆  PEAK STABILITY'));
 
-    this.statusTxt.setText(warMode ? 'CONFLICT PROTOCOL · EXECUTING' : `GENERATING · ${playerName.toUpperCase()}`).setColor(warMode ? '#ff880066' : '#00ffcc66');
+    const genColor = warMode ? '#ff880066' : (isCorruption ? '#ff113366' : '#00ffcc66');
+    this.statusTxt.setText(warMode ? 'CONFLICT PROTOCOL · EXECUTING' : `GENERATING · ${playerName.toUpperCase()}`).setColor(genColor);
     this.totalTxt.setText('').setColor('#334455');
     this.toastTxt.setText('').setAlpha(0);
     this.toastBg.setAlpha(0);

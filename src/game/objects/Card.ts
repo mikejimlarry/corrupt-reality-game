@@ -2,7 +2,7 @@
 import Phaser from 'phaser';
 import type { Card as CardData, CardCategory, CardRarity } from '../../types/cards';
 import { useGameStore, mustPlayCorruptionFirst } from '../../state/useGameStore';
-import { sfxCardSelect } from '../../lib/audio';
+import { sfxCardSelect, sfxGlitch } from '../../lib/audio';
 
 // ── Dimensions ───────────────────────────────────────────────────────────────
 export const CARD_W = 150;
@@ -53,6 +53,7 @@ export class Card extends Phaser.GameObjects.Container {
   private isSelected     = false;
   private isDealt        = false;
   private isInapplicable = false;
+  private restX      = 0;
   private restY      = 0;
   private restScale  = 1;   // set from whatever scale was applied before dealIn
   private restDepth  = 0;
@@ -291,6 +292,12 @@ export class Card extends Phaser.GameObjects.Container {
     }
   }
 
+  /** Update the rest position so subsequent tweens (hover, inapplicable) land correctly. */
+  updateRestPosition(x: number, y: number) {
+    this.restX = x;
+    this.restY = y;
+  }
+
   /** Update the rest-Y so hover lift/restore uses the correct target after a reposition tween. */
   updateRestY(y: number) {
     this.restY = y;
@@ -327,8 +334,8 @@ export class Card extends Phaser.GameObjects.Container {
       this.selectionGlow.setVisible(false);
       this.scene.tweens.add({
         targets: this,
+        x: this.restX, y: this.restY,
         alpha: 0.85,
-        y: this.restY,
         scaleX: this.restScale * 0.9,
         scaleY: this.restScale * 0.9,
         duration: 200, ease: 'Quad.easeOut',
@@ -336,8 +343,8 @@ export class Card extends Phaser.GameObjects.Container {
     } else {
       this.scene.tweens.add({
         targets: this,
+        x: this.restX, y: this.restY,
         alpha: 1,
-        y: this.restY,
         scaleX: this.restScale,
         scaleY: this.restScale,
         duration: 200, ease: 'Quad.easeOut',
@@ -647,6 +654,7 @@ export class Card extends Phaser.GameObjects.Container {
 
   /** Animate the card flying to the discard pile with a glitch burst, then call onComplete. */
   playOut(targetX: number, targetY: number, onComplete?: () => void) {
+    sfxGlitch();
     this.setDepth(100);
     this.scene.tweens.killTweensOf(this);
     this.dropoutTimer?.remove(false);
@@ -695,6 +703,8 @@ export class Card extends Phaser.GameObjects.Container {
     const targetY = this.y;
     // Capture whatever scale was set externally (e.g. 1.25 for human cards)
     this.restScale = this.scaleX;
+    this.restX = targetX;
+    this.restY = targetY;
     this.setPosition(fromX, fromY).setAlpha(0).setScale(this.restScale * 0.5);
     this.scene.tweens.add({
       targets: this, x: targetX, y: targetY, alpha: targetAlpha,

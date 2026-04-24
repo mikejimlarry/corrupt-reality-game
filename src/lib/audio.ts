@@ -245,6 +245,96 @@ export function sfxGameOver() {
   play('deck_ui_side_menu_fly_out.wav', 0.9);
 }
 
+// ── Synthesized SFX (no WAV files) ────────────────────────────────────────────
+
+/** Chromatic-aberration glitch burst — played when a card is played out. */
+export function sfxGlitch() {
+  const c = ctx();
+  if (!c) return;
+  const t = c.currentTime;
+
+  const bufSize = Math.floor(c.sampleRate * 0.14);
+  const buf = c.createBuffer(1, bufSize, c.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+
+  const src = c.createBufferSource();
+  src.buffer = buf;
+
+  const hp = c.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 2400;
+
+  const gain = c.createGain();
+  gain.gain.setValueAtTime(0.35, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+
+  src.connect(hp); hp.connect(gain); gain.connect(c.destination);
+  src.start(t); src.stop(t + 0.14);
+}
+
+/** Descending harsh tone when a daemon is terminated. */
+export function sfxDaemonTerminated() {
+  const c = ctx();
+  if (!c) return;
+  const t = c.currentTime;
+
+  const osc = c.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(420, t);
+  osc.frequency.exponentialRampToValueAtTime(55, t + 0.45);
+
+  const distCurve = new Float32Array(256);
+  for (let i = 0; i < 256; i++) {
+    const x = (i * 2) / 256 - 1;
+    distCurve[i] = (Math.PI + 300) * x / (Math.PI + 300 * Math.abs(x));
+  }
+  const dist = c.createWaveShaper();
+  dist.curve = distCurve;
+
+  const gain = c.createGain();
+  gain.gain.setValueAtTime(0.28, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+
+  osc.connect(dist); dist.connect(gain); gain.connect(c.destination);
+  osc.start(t); osc.stop(t + 0.45);
+}
+
+/** Low drone swell + glitch hit when corruption mode activates. */
+export function sfxCorruptionActivate() {
+  const c = ctx();
+  if (!c) return;
+  const t = c.currentTime;
+
+  // Immediate glitch hit
+  const osc = c.createOscillator();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(960, t);
+  osc.frequency.exponentialRampToValueAtTime(120, t + 0.28);
+  const g0 = c.createGain();
+  g0.gain.setValueAtTime(0.22, t);
+  g0.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+  osc.connect(g0); g0.connect(c.destination);
+  osc.start(t); osc.stop(t + 0.28);
+
+  // Low drone swell (two slightly detuned saws for beating effect)
+  [55, 62].forEach(freq => {
+    const d = c.createOscillator();
+    d.type = 'sawtooth';
+    d.frequency.value = freq;
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 380;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t + 0.1);
+    g.gain.linearRampToValueAtTime(0.13, t + 0.9);
+    g.gain.linearRampToValueAtTime(0.07, t + 2.8);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 3.2);
+    d.connect(lp); lp.connect(g); g.connect(c.destination);
+    d.start(t + 0.1); d.stop(t + 3.2);
+  });
+}
+
 // ── Setup screen ──────────────────────────────────────────────────────────────
 
 /** Segment button / agent count click. */
