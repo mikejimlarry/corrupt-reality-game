@@ -52,6 +52,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   private statusTxt!:     Phaser.GameObjects.Text;
   private toastBg!:       Phaser.GameObjects.Graphics;
   private toastTxt!:      Phaser.GameObjects.Text;
+  private daemonBonusTxt!: Phaser.GameObjects.Text;
   private standbyTween?:  Phaser.Tweens.Tween;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
@@ -161,6 +162,11 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     }).setOrigin(0.5);
     this.toastTxt.setAlpha(0);
     this.add(this.toastTxt);
+
+    this.daemonBonusTxt = this.txt(0, TOAST_Y + 26, '', {
+      fontFamily: 'monospace', fontSize: '8px', color: '#00ffcc99', letterSpacing: 3,
+    }).setOrigin(0.5).setAlpha(0);
+    this.add(this.daemonBonusTxt);
 
     // store layout refs for reuse in roll()
     (this as any)._toastY = TOAST_Y;
@@ -409,7 +415,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   // ── Run slot-machine animation then call onComplete ────────────────────────
   // warMode: true when showing a WAR conflict roll — omits the summed total and
   // uses "vs" between the dice instead of "+" since r1/r2 belong to different players.
-  roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string, warMode?: boolean, p2Name?: string, actorBonus?: number, targetBonus?: number) {
+  roll(r1: number, r2: number, playerName: string, creditDelta: number, isCorruption: boolean, onComplete: () => void, customToast?: string, warMode?: boolean, p2Name?: string, actorBonus?: number, targetBonus?: number, daemonCount?: number) {
     // WAR rolls skip showStandby so the panel may be hidden; check before forcing visible.
     const needsOpen = !this.visible;
     // Kill any in-progress tweens on this container.
@@ -444,6 +450,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     this.totalTxt.setText('').setColor('#334455');
     this.toastTxt.setText('').setAlpha(0);
     this.toastBg.setAlpha(0);
+    this.daemonBonusTxt.setText('').setAlpha(0);
     // War mode uses "vs" between the two dice; normal rolls use "+"
     this.operatorTxt.setText(warMode ? 'vs' : '+').setColor('#334455');
 
@@ -533,6 +540,14 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
           this.toastTxt.setText(toastLabel).setColor(toastHex);
 
+          const showDaemonBonus = !warMode && !!daemonCount && daemonCount > 0;
+          if (showDaemonBonus) {
+            const label = isCorruption
+              ? `◈ ${daemonCount} DAEMON ABSORBED`
+              : `◈ +${daemonCount} DAEMON BOOST`;
+            this.daemonBonusTxt.setText(label);
+          }
+
           // Flash both digits 4× and play the toast sound
           sfxToast();
           this.scene.tweens.add({
@@ -540,9 +555,11 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
             alpha: { from: 1, to: 0.1 },
             duration: 65, yoyo: true, repeat: 3,
             onComplete: () => {
-              // Fade in the toast
+              // Fade in the toast (and daemon bonus if active)
+              const fadeTargets: Phaser.GameObjects.GameObject[] = [this.toastBg, this.toastTxt];
+              if (showDaemonBonus) fadeTargets.push(this.daemonBonusTxt);
               this.scene.tweens.add({
-                targets: [this.toastBg, this.toastTxt],
+                targets: fadeTargets,
                 alpha: 1, duration: 200, ease: 'Quad.easeOut',
               });
               // Hold result, fold closed

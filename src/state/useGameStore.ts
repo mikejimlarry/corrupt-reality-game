@@ -21,40 +21,44 @@ export function mustPlayCorruptionFirst(
 
 // ── Elimination helper ────────────────────────────────────────────────────────
 
-function markEliminations(players: PlayerState[], keepHumanAlive = false): PlayerState[] {
-  return players.map(p => {
+function markEliminations(
+  players: PlayerState[],
+  eliminationOrder: string[],
+  keepHumanAlive = false,
+): { players: PlayerState[]; eliminationOrder: string[] } {
+  let order = eliminationOrder;
+  const updated = players.map(p => {
     if (p.eliminated) return p;
     const shouldEliminate = p.credits <= 0 && (!keepHumanAlive || !p.isHuman);
     if (shouldEliminate) {
-      if (!_eliminationOrder.includes(p.id)) _eliminationOrder.push(p.id);
+      if (!order.includes(p.id)) order = [...order, p.id];
       return { ...p, eliminated: true, daemons: [] };
     }
     return p;
   });
+  return { players: updated, eliminationOrder: order };
 }
 
-// ── Module-level helpers ──────────────────────────────────────────────────────
+// ── AI timer scheduler ────────────────────────────────────────────────────────
 
-// When true, applyPlayCard skips the reactive-counter intercept (used when
-// resolveCounterOpportunity re-invokes applyPlayCard after the human allows).
-let _skipCounterCheck = false;
+const _aiTimers = new Set<ReturnType<typeof setTimeout>>();
+function scheduleAi(fn: () => void, delay: number): void {
+  const id = setTimeout(() => { _aiTimers.delete(id); fn(); }, delay);
+  _aiTimers.add(id);
+}
+function cancelAllAiTimers(): void { _aiTimers.forEach(clearTimeout); _aiTimers.clear(); }
 
-// Written by applyCardEffect when a Quarantine shield absorbs an attack.
-// Read (and cleared) by applyPlayCard so it can emit the right log entry.
-let _quarantineBlockedBy: string | null = null;
-// Written by applyCardEffect when a System Interrupt cancels a WAR or Digital Crusade.
-let _negotiateBlockedBy: string | null = null;
-// Written by applyCardEffect when a daemon immunity blocks a targeted attack.
-let _daemonImmunityBlockedBy: string | null = null;
-// Written by applyCardEffect when a WAR card resolves — captures both rolls and outcome.
-type WarRollSnapshot = { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; targetBase: number; targetBonus: number; actorWins: boolean; targetName: string };
-let _warRollResult: WarRollSnapshot | null = null;
-// Written by applyCardEffect when a targeted card resolves — captures the target's name.
-let _lastTargetName: string | null = null;
-// Tracks player ids in order of elimination; reset each game.
-let _eliminationOrder: string[] = [];
-// Guards against double-saving the game record when multiple set() paths fire.
-let _recordSaved = false;
+// ── Card effect result ────────────────────────────────────────────────────────
+
+type WarRollSnapshot = { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; targetBase: number; targetBonus: number; actorWins: boolean; isTie?: boolean; tieCycleLoss?: number; targetName: string };
+type CardEffectResult = {
+  players: PlayerState[];
+  quarantineBlockedBy: string | null;
+  negotiateBlockedBy: string | null;
+  daemonImmunityBlockedBy: string | null;
+  warRollResult: WarRollSnapshot | null;
+  lastTargetName: string | null;
+};
 
 // ── AI turn pacing (ms) ───────────────────────────────────────────────────────
 const AI_ROLL_DELAY    = 1600; // standby on PHASE_ROLL before triggering the roll
@@ -84,7 +88,16 @@ function saveGameRecord(humanWon: boolean, turns: number, playerCount: number, c
 
 // targetIndex — when provided (human targeting), use it directly.
 // When omitted (AI turn), fall back to a random live opponent.
-function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number, targetIndex?: number): PlayerState[] {
+function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number, targetIndex?: number, warTiePenalty?: boolean): CardEffectResult {
+  const noFx = (p: PlayerState[]): CardEffectResult => ({
+    players: p,
+    quarantineBlockedBy: null,
+    negotiateBlockedBy: null,
+    daemonImmunityBlockedBy: null,
+    warRollResult: null,
+    lastTargetName: null,
+  });
+
   const liveOpponents = players
     .map((p, i) => ({ p, i }))
     .filter(({ p, i }) => i !== actorIndex && !p.eliminated);
@@ -98,11 +111,11 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
 
   switch (card.category) {
     case 'CREDITS':
-      return players.map((p, i) =>
+      return noFx(players.map((p, i) =>
         i === actorIndex
           ? { ...p, credits: Math.min(200, p.credits + (card as CreditsCard).amount) }
           : p
-      );
+      ));
 
     case 'EVENT_POSITIVE': {
       const pos = card as PositiveEventCard;
@@ -112,17 +125,17 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         const drained = players.map((p, i) =>
           (i === actorIndex || p.eliminated) ? p : { ...p, credits: Math.max(0, p.credits - pos.amount) }
         );
-        return drained.map((p, i) =>
+        return noFx(drained.map((p, i) =>
           i === actorIndex ? { ...p, credits: Math.min(200, p.credits + pos.amount * liveCount) } : p
-        );
+        ));
       }
       // OVERCLOCK — mark actor so their next Stability Roll is doubled
       if (pos.effect === 'OVERCLOCK') {
-        return players.map((p, i) => i === actorIndex ? { ...p, overclocked: true } : p);
+        return noFx(players.map((p, i) => i === actorIndex ? { ...p, overclocked: true } : p));
       }
-      return players.map((p, i) =>
+      return noFx(players.map((p, i) =>
         i === actorIndex ? { ...p, credits: Math.min(200, p.credits + pos.amount) } : p
-      );
+      ));
     }
 
     case 'EVENT_NEGATIVE': {
@@ -130,18 +143,18 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
 
       // DAMAGE_ALL_DAEMON — hits every live opponent, no specific target (e.g. Network Storm)
       if (neg.effect === 'DAMAGE_ALL_DAEMON') {
-        return players.map((p, i) => {
+        return noFx(players.map((p, i) => {
           if (i === actorIndex || p.eliminated) return p;
           const imps = [...p.daemons];
           if (imps.length > 0) imps.splice(Math.floor(random() * imps.length), 1);
           return { ...p, credits: Math.max(0, p.credits - neg.amount), daemons: imps };
-        });
+        }));
       }
 
-      if (!neg.targetsOther || liveOpponents.length === 0) return players;
+      if (!neg.targetsOther || liveOpponents.length === 0) return noFx(players);
       const ti = resolveTarget();
-      if (ti === -1) return players;
-      _lastTargetName = players[ti].name;
+      if (ti === -1) return noFx(players);
+      const lastTargetName = players[ti].name;
 
       // Quarantine — the target's shield absorbs the attack and is consumed.
       // Does NOT block Digital Crusade or M.A.D. (those require Cease & Desist or nothing).
@@ -150,48 +163,63 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         neg.name !== 'Digital Crusade' &&
         neg.effect !== 'MUTUAL_DAMAGE'
       ) {
-        _quarantineBlockedBy = players[ti].name;
-        return players.map((p, i) => i === ti ? { ...p, quarantined: false } : p);
+        return {
+          ...noFx(players.map((p, i) => i === ti ? { ...p, quarantined: false } : p)),
+          quarantineBlockedBy: players[ti].name,
+          lastTargetName,
+        };
       }
       // Daemon immunity — target's daemon type blocks this specific card entirely
       if (neg.immuneDaemon && players[ti].daemons.includes(neg.immuneDaemon)) {
-        _daemonImmunityBlockedBy = `${players[ti].name}'s ${neg.immuneDaemon.replace('_', ' ')}`;
-        return players;
+        return {
+          ...noFx(players),
+          daemonImmunityBlockedBy: `${players[ti].name}'s ${neg.immuneDaemon.replace('_', ' ')}`,
+          lastTargetName,
+        };
       }
 
       // STEAL — actor gains amount, target loses amount (e.g. Signal Theft / Pied Piper)
       if (neg.effect === 'STEAL') {
-        return players.map((p, i) => {
-          if (i === actorIndex) return { ...p, credits: Math.min(200, p.credits + neg.amount) };
-          if (i === ti)         return { ...p, credits: Math.max(0, p.credits - neg.amount) };
-          return p;
-        });
+        return {
+          ...noFx(players.map((p, i) => {
+            if (i === actorIndex) return { ...p, credits: Math.min(200, p.credits + neg.amount) };
+            if (i === ti)         return { ...p, credits: Math.max(0, p.credits - neg.amount) };
+            return p;
+          })),
+          lastTargetName,
+        };
       }
 
       // MUTUAL_DAMAGE — both actor and target take the hit (e.g. M.A.D.)
       if (neg.effect === 'MUTUAL_DAMAGE') {
-        return players.map((p, i) => {
-          if (i === actorIndex || i === ti)
-            return { ...p, credits: Math.max(0, p.credits - neg.amount) };
-          return p;
-        });
+        return {
+          ...noFx(players.map((p, i) => {
+            if (i === actorIndex || i === ti)
+              return { ...p, credits: Math.max(0, p.credits - neg.amount) };
+            return p;
+          })),
+          lastTargetName,
+        };
       }
 
       // STEAL_DAEMON — take one random daemon from target, add to actor if not already held.
       // Prefer daemons the actor doesn't own yet; fall back to any if all are duplicates.
       if (neg.effect === 'STEAL_DAEMON') {
         const targetImps = players[ti].daemons;
-        if (targetImps.length === 0) return players; // nothing to steal
+        if (targetImps.length === 0) return { ...noFx(players), lastTargetName };
         const preferredImps = targetImps.filter(imp => !players[actorIndex].daemons.includes(imp));
         const stealPool = preferredImps.length > 0 ? preferredImps : targetImps;
         const stolen = stealPool[Math.floor(random() * stealPool.length)];
-        return players.map((p, i) => {
-          if (i === ti)
-            return { ...p, daemons: p.daemons.filter(imp => imp !== stolen) };
-          if (i === actorIndex && !p.daemons.includes(stolen))
-            return { ...p, daemons: [...p.daemons, stolen] };
-          return p;
-        });
+        return {
+          ...noFx(players.map((p, i) => {
+            if (i === ti)
+              return { ...p, daemons: p.daemons.filter(imp => imp !== stolen) };
+            if (i === actorIndex && !p.daemons.includes(stolen))
+              return { ...p, daemons: [...p.daemons, stolen] };
+            return p;
+          })),
+          lastTargetName,
+        };
       }
 
       // Standard single-target damage (with optional daemon removal)
@@ -203,61 +231,71 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         imps.splice(Math.floor(random() * imps.length), 1);
         next = next.map((p, i) => i === ti ? { ...p, daemons: imps } : p);
       }
-      return next;
+      return { ...noFx(next), lastTargetName };
     }
 
     case 'WAR': {
       const w = card as WarCard;
-      if (liveOpponents.length === 0) return players;
+      if (liveOpponents.length === 0) return noFx(players);
       const ti = resolveTarget();
-      if (ti === -1) return players;
-      _lastTargetName = players[ti].name;
+      if (ti === -1) return noFx(players);
+      const lastTargetName = players[ti].name;
       // Cease & Desist — target's diplomatic block cancels the war entirely
       if (players[ti].negotiating) {
-        _negotiateBlockedBy = players[ti].name;
-        return players.map((p, i) => i === ti ? { ...p, negotiating: false } : p);
+        return {
+          ...noFx(players.map((p, i) => i === ti ? { ...p, negotiating: false } : p)),
+          negotiateBlockedBy: players[ti].name,
+          lastTargetName,
+        };
       }
-      // Roll 1d6 for each side; Firewall Surge (tacticalBonus) adds +N to each player's roll
-      const actorBase   = Math.floor(random() * 6) + 1;
-      const targetBase  = Math.floor(random() * 6) + 1;
-      const actorBonus  = players[actorIndex].tacticalBonus;   // number of stacked Firewall Surges
+      // Roll 1d6 for each side; Firewall Surge (tacticalBonus) adds +N to each player's roll.
+      const actorBonus  = players[actorIndex].tacticalBonus;
       const targetBonus = players[ti].tacticalBonus;
-      const actorRoll   = actorBase + actorBonus;
-      const targetRoll  = targetBase + targetBonus;
-      const actorWins   = actorRoll >= targetRoll; // ties go to the attacker
-      _warRollResult = { actorRoll, actorBase, actorBonus, targetRoll, targetBase, targetBonus, actorWins, targetName: players[ti].name };
-      // Determine base credit losses based on who won
-      let actorLoss  = actorWins ? w.winnerLoses : w.loserLoses;
-      let targetLoss = actorWins ? w.loserLoses  : w.winnerLoses;
-      // Hardened Node — reduces the loser's credit loss by 5 (min 0)
-      if (!actorWins && players[actorIndex].daemons.includes('HARDENED_NODE'))
+      const actorBase  = Math.floor(random() * 6) + 1;
+      const targetBase = Math.floor(random() * 6) + 1;
+      const actorRoll  = actorBase + actorBonus;
+      const targetRoll = targetBase + targetBonus;
+      const isTie = actorRoll === targetRoll;
+      const actorWins = !isTie && actorRoll > targetRoll;
+      // Tie: both lose the winner's cycle amount when warTiePenalty is on, otherwise no loss.
+      const tieCycleLoss = isTie ? (warTiePenalty ? w.winnerLoses : 0) : undefined;
+      const warRollResult: WarRollSnapshot = { actorRoll, actorBase, actorBonus, targetRoll, targetBase, targetBonus, actorWins, isTie, tieCycleLoss, targetName: players[ti].name };
+      // Determine credit losses — ties use tieCycleLoss (0 if penalty off), wins use normal schedule
+      let actorLoss  = isTie ? (tieCycleLoss ?? 0) : (actorWins ? w.winnerLoses : w.loserLoses);
+      let targetLoss = isTie ? (tieCycleLoss ?? 0) : (actorWins ? w.loserLoses  : w.winnerLoses);
+      // Hardened Node — reduces the loser's credit loss by 5 (min 0); no effect on ties
+      if (!isTie && !actorWins && players[actorIndex].daemons.includes('HARDENED_NODE'))
         actorLoss = Math.max(0, actorLoss - 5);
-      if (actorWins && players[ti].daemons.includes('HARDENED_NODE'))
+      if (!isTie && actorWins && players[ti].daemons.includes('HARDENED_NODE'))
         targetLoss = Math.max(0, targetLoss - 5);
-      return players.map((p, i) => {
-        if (i === actorIndex) {
-          let daemons = [...p.daemons];
-          if (!actorWins && w.loserLosesImprovement && daemons.length > 0)
-            daemons.splice(Math.floor(random() * daemons.length), 1);
-          return { ...p, credits: Math.max(0, p.credits - actorLoss), tacticalBonus: 0, daemons }; // clear tacticalBonus after use
-        }
-        if (i === ti) {
-          let daemons = [...p.daemons];
-          if (actorWins && w.loserLosesImprovement && daemons.length > 0)
-            daemons.splice(Math.floor(random() * daemons.length), 1);
-          return { ...p, credits: Math.max(0, p.credits - targetLoss), tacticalBonus: 0, daemons };
-        }
-        return p;
-      });
+      return {
+        ...noFx(players.map((p, i) => {
+          if (i === actorIndex) {
+            let daemons = [...p.daemons];
+            if (!isTie && !actorWins && w.loserLosesImprovement && daemons.length > 0)
+              daemons.splice(Math.floor(random() * daemons.length), 1);
+            return { ...p, credits: Math.max(0, p.credits - actorLoss), tacticalBonus: 0, daemons };
+          }
+          if (i === ti) {
+            let daemons = [...p.daemons];
+            if (!isTie && actorWins && w.loserLosesImprovement && daemons.length > 0)
+              daemons.splice(Math.floor(random() * daemons.length), 1);
+            return { ...p, credits: Math.max(0, p.credits - targetLoss), tacticalBonus: 0, daemons };
+          }
+          return p;
+        })),
+        warRollResult,
+        lastTargetName,
+      };
     }
 
     case 'DAEMON': {
       const imp = card as DaemonCard;
       const actor = players[actorIndex];
-      if (actor.daemons.includes(imp.daemonType)) return players;
-      return players.map((p, i) =>
+      if (actor.daemons.includes(imp.daemonType)) return noFx(players);
+      return noFx(players.map((p, i) =>
         i === actorIndex ? { ...p, daemons: [...p.daemons, imp.daemonType] } : p
-      );
+      ));
     }
 
     case 'COUNTER': {
@@ -265,22 +303,22 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       // SHIELD (Quarantine) — played via resolveCounterOpportunity which cancels the war
       // directly; this applyCardEffect path is a no-op fallback.
       if (cnt.counterType === 'SHIELD') {
-        return players;
+        return noFx(players);
       }
       // TACTICAL_ADVANTAGE (Firewall Surge) — adds +1 to the next WAR roll (stackable)
       if (cnt.counterType === 'TACTICAL_ADVANTAGE') {
-        return players.map((p, i) => i === actorIndex ? { ...p, tacticalBonus: p.tacticalBonus + 1 } : p);
+        return noFx(players.map((p, i) => i === actorIndex ? { ...p, tacticalBonus: p.tacticalBonus + 1 } : p));
       }
       // NEGOTIATE (Cease & Desist) — block the next WAR or EVENT_NEGATIVE targeting this player
       // NEGOTIATE (System Interrupt) — block the next WAR or Digital Crusade targeting this player
       if (cnt.counterType === 'NEGOTIATE') {
-        return players.map((p, i) => i === actorIndex ? { ...p, negotiating: true } : p);
+        return noFx(players.map((p, i) => i === actorIndex ? { ...p, negotiating: true } : p));
       }
-      return players;
+      return noFx(players);
     }
 
     default:
-      return players;
+      return noFx(players);
   }
 }
 
@@ -402,7 +440,7 @@ function pickAiCard(
   }
 }
 
-function cardLogText(card: Card, actorName: string): string {
+function cardLogText(card: Card, actorName: string, lastTargetName: string | null, warRollResult: WarRollSnapshot | null): string {
   switch (card.category) {
     case 'CREDITS':
       return `${actorName} ran ${card.name} (+${(card as CreditsCard).amount} cycles)`;
@@ -418,7 +456,7 @@ function cardLogText(card: Card, actorName: string): string {
     }
     case 'EVENT_NEGATIVE': {
       const neg = card as NegativeEventCard;
-      const tgt = _lastTargetName ?? 'target';
+      const tgt = lastTargetName ?? 'target';
       if (neg.effect === 'STEAL')
         return `${actorName} deployed ${card.name} — stole ${neg.amount}¢ from ${tgt}`;
       if (neg.effect === 'MUTUAL_DAMAGE')
@@ -432,10 +470,14 @@ function cardLogText(card: Card, actorName: string): string {
       return `${actorName} deployed ${card.name} — ${tgt} loses ${neg.amount}¢`;
     }
     case 'WAR': {
-      if (_warRollResult) {
-        const { actorBase, actorBonus, actorRoll, targetBase, targetBonus, targetRoll, actorWins, targetName } = _warRollResult;
+      if (warRollResult) {
+        const { actorBase, actorBonus, actorRoll, targetBase, targetBonus, targetRoll, actorWins, isTie, tieCycleLoss, targetName } = warRollResult;
         const actorRollStr  = actorBonus  > 0 ? `${actorBase}+${actorBonus}=${actorRoll}`  : `${actorRoll}`;
         const targetRollStr = targetBonus > 0 ? `${targetBase}+${targetBonus}=${targetRoll}` : `${targetRoll}`;
+        if (isTie) {
+          const penalty = tieCycleLoss ? ` — both lose ${tieCycleLoss}¢` : ' — no losses';
+          return `${actorName} played ${card.name} — rolled ${actorRollStr} vs ${targetName} ${targetRollStr} — TIE${penalty}`;
+        }
         const winner = actorWins ? actorName : targetName;
         return `${actorName} played ${card.name} — rolled ${actorRollStr} vs ${targetName} ${targetRollStr} — ${winner} wins`;
       }
@@ -477,17 +519,21 @@ interface GameStore extends GameState {
   corruptionPendingTarget: boolean;
   pendingCardId: string | null;
   validTargetIds: string[];
+  /** Accumulated player ids in elimination order — reset each game, committed to gameStats at game-over. */
+  eliminationOrder: string[];
+  /** Guards against double-saving the game record when multiple set() paths can reach game-over. */
+  recordSaved: boolean;
   clearWarRollDisplay(): void;
   togglePause(): void;
   setReducedMotion(v: boolean): void;
-  startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean): void;
+  startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean, warTiePenalty: boolean): void;
   resetToSetup(): void;
   setHoveredCard(id: string | null): void;
   addLog(text: string, type: LogEntry['type']): void;
   drawCard(): void;
   selectCard(id: string | null): void;
   playCard(cardId: string): void;
-  applyPlayCard(cardId: string, targetIndex: number | undefined): void;
+  applyPlayCard(cardId: string, targetIndex: number | undefined, skipCounterCheck?: boolean): void;
   discardCard(cardId: string): void;
   /** Cancel remaining Multithread extra plays and end the human's turn. */
   cancelExtraPlays(): void;
@@ -531,9 +577,12 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   corruptionPendingTarget: false,
   pendingCardId: null,
   validTargetIds: [],
+  eliminationOrder: [],
+  recordSaved: false,
   startingPop: 50,
   hidePpCounts: false,
   deadMansSwitch: false,
+  warTiePenalty: false,
   deadMansSwitchPending: null,
   daemonStealPending: null,
   warPickPending: null,
@@ -561,9 +610,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Persisted UI preference — intentionally NOT in defaultState so startGame never resets it.
   reducedMotion: localStorage.getItem('crg-reduced-motion') === 'true',
 
-  startGame: (playerCount: number, playerName = 'You', startingPop = 50, hidePpCounts = false, deadMansSwitch = false) => {
-    _eliminationOrder = [];
-    _recordSaved = false;
+  startGame: (playerCount: number, playerName = 'You', startingPop = 50, hidePpCounts = false, deadMansSwitch = false, warTiePenalty = false) => {
+    cancelAllAiTimers();
     const seed = initRNG();
 
     // Deal initial hands
@@ -611,6 +659,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       startingPop,
       hidePpCounts,
       deadMansSwitch,
+      warTiePenalty,
+      eliminationOrder: [],
+      recordSaved: false,
       gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {} },
     });
 
@@ -618,7 +669,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().addLog(`${players[0].name}'s turn — Begin the sequence.`, 'turn');
   },
 
-  resetToSetup: () => set({ ...defaultState, reducedMotion: get().reducedMotion, selectedCardId: null, hoveredCardId: null, turnNumber: 1 }),
+  resetToSetup: () => { cancelAllAiTimers(); set({ ...defaultState, reducedMotion: get().reducedMotion, selectedCardId: null, hoveredCardId: null, turnNumber: 1 }); },
 
   setReducedMotion: (v: boolean) => {
     localStorage.setItem('crg-reduced-motion', String(v));
@@ -635,9 +686,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (!currentPlayer?.isHuman && state.phase !== 'GAME_OVER') {
         const phase = state.phase;
         if (phase === 'PHASE_ROLL') {
-          setTimeout(() => { if (!get().paused) get().triggerRoll(); }, AI_ROLL_DELAY);
+          scheduleAi(() => { if (!get().paused) get().triggerRoll(); }, AI_ROLL_DELAY);
         } else if (phase === 'MAIN') {
-          setTimeout(() => {
+          scheduleAi(() => {
             if (get().paused) return;
             const s = get();
             const actor = s.players[s.currentPlayerIndex];
@@ -652,13 +703,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
               : pickAiCard(actor, s.players, s.currentPlayerIndex, s.startingPop, s.gameStats);
             if (!card) {
               set({ extraPlayPending: 0, phase: 'END_TURN' });
-              setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
+              scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
               return;
             }
             get().applyPlayCard(card.id, undefined);
           }, AI_CARD_DELAY);
         } else if (phase === 'END_TURN') {
-          setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
+          scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
         }
       }
     }
@@ -778,6 +829,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         .map((p, i) => ({ id: p.id, name: p.name, playerIndex: i }))
         .filter((_, i) => !state.players[i].eliminated);
       if (livePlayers.length >= 2) {
+        // Only two live players — no pick needed, resolve immediately
+        if (livePlayers.length === 2) {
+          set({ warPickPending: { cardId, availablePlayers: livePlayers } });
+          get().resolveWarPick(livePlayers[0].playerIndex, livePlayers[1].playerIndex);
+          return;
+        }
         set({ warPickPending: { cardId, availablePlayers: livePlayers } });
         return;
       }
@@ -805,7 +862,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // Internal helper — applies a card with an optional resolved target index.
   // Called by both playCard (AI/non-targeting) and selectTarget (human).
-  applyPlayCard: (cardId: string, targetIndex: number | undefined) => {
+  applyPlayCard: (cardId: string, targetIndex: number | undefined, skipCounterCheck = false) => {
     const state = get();
     const actorIndex = state.currentPlayerIndex;
     const actor = state.players[actorIndex];
@@ -850,7 +907,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // All COUNTER card types are eligible: NEGOTIATE (cancel), TACTICAL_ADVANTAGE
     // (+1 roll), SHIELD (cancel — Quarantine blocks the war). Skip if human already
     // has the negotiating flag active (System Interrupt already armed).
-    if (!_skipCounterCheck && !actor.isHuman && card.category === 'WAR') {
+    if (!skipCounterCheck && !actor.isHuman && card.category === 'WAR') {
       const liveOpponents = state.players
         .map((p, i) => ({ p, i }))
         .filter(({ p, i }) => i !== actorIndex && !p.eliminated);
@@ -905,13 +962,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
           if (i === ti) return { ...p, credits: state.startingPop, daemons: [], hand: newHand };
           return p;
         });
-        players = markEliminations(players);
+        const elim0 = markEliminations(players, state.eliminationOrder);
+        players = elim0.players;
         const alive = players.filter(p => !p.eliminated);
         const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
         if (alive.length === 1) get().addLog(`${alive[0].name} wins the game!`, 'turn');
         get().addLog(`${actor.name} deployed Power Cycle — ${target.name} reset to ${state.startingPop}¢, daemons purged, hand replaced!`, 'card');
-        if (winnerId && !_recordSaved) {
-          _recordSaved = true;
+        if (winnerId && !state.recordSaved) {
           saveGameRecord(
             players.find(p => p.isHuman)?.id === winnerId,
             state.turnNumber,
@@ -921,26 +978,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
         set({
           players, deck, discard, winnerId, extraPlayPending: 0,
+          eliminationOrder: elim0.eliminationOrder,
+          recordSaved: winnerId ? true : state.recordSaved,
           phase: winnerId ? 'GAME_OVER' : (actor.isHuman ? 'END_TURN' : 'MAIN'),
           selectedCardId: null, pendingCardId: null, validTargetIds: [],
           gameStats: {
             cardsPlayed: newCardsPlayed,
-            eliminationOrder: winnerId ? [..._eliminationOrder] : prevStats.eliminationOrder,
+            eliminationOrder: winnerId ? elim0.eliminationOrder : prevStats.eliminationOrder,
             damageDealt: prevStats.damageDealt,
           },
         });
-        if (!winnerId && !actor.isHuman) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
+        if (!winnerId && !actor.isHuman) scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
       }
       return;
     }
 
-    _quarantineBlockedBy = null;
-    _negotiateBlockedBy = null;
-    _daemonImmunityBlockedBy = null;
-    _warRollResult = null;
-    _lastTargetName = null;
     const creditsBefore = players.map(p => p.credits);
-    players = applyCardEffect(card, players, actorIndex, targetIndex);
+    const fx = applyCardEffect(card, players, actorIndex, targetIndex);
+    players = fx.players;
     const damageByCard = creditsBefore.reduce((sum, before, i) => {
       if (i === actorIndex) return sum;
       return sum + Math.max(0, before - players[i].credits);
@@ -948,13 +1003,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const newDamageDealt = damageByCard > 0
       ? { ...prevStats.damageDealt, [actor.id]: (prevStats.damageDealt[actor.id] ?? 0) + damageByCard }
       : prevStats.damageDealt;
-    const capturedWarRoll = (card.category === 'WAR' ? _warRollResult : null) as WarRollSnapshot | null;
-    const blockedBy = _quarantineBlockedBy;
-    const negotiateBlockedBy = _negotiateBlockedBy;
-    const daemonBlockedBy = _daemonImmunityBlockedBy;
-    _quarantineBlockedBy = null;
-    _negotiateBlockedBy = null;
-    _daemonImmunityBlockedBy = null;
+    const capturedWarRoll = fx.warRollResult;
+    const blockedBy = fx.quarantineBlockedBy;
+    const negotiateBlockedBy = fx.negotiateBlockedBy;
+    const daemonBlockedBy = fx.daemonImmunityBlockedBy;
 
     const isCorruption = card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).effect === 'CORRUPTION';
     const globalCorruptionMode = isCorruption ? true : state.globalCorruptionMode;
@@ -987,16 +1039,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
           players = players.map((p, idx) =>
             idx === i ? { ...p, hand: p.hand.filter(c => c.id !== lastCard.id) } : p
           );
-          players = applyCardEffect(lastCard, players, i);
+          players = applyCardEffect(lastCard, players, i).players;
           discard = [...discard, lastCard];
           get().addLog(`💀 ${players[i].name} triggers Dead Man's Switch — plays ${lastCard.name}!`, 'effect');
         }
       }
     }
 
-    const cardLog = cardLogText(card, actor.name);
-    _warRollResult = null;
-    _lastTargetName = null;
+    const cardLog = cardLogText(card, actor.name, fx.lastTargetName, fx.warRollResult);
     if (blockedBy) get().addLog(`${blockedBy}'s Quarantine absorbed the attack!`, 'effect');
     if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s System Interrupt cancelled the attack!`, 'effect');
     if (daemonBlockedBy) get().addLog(`${daemonBlockedBy} blocked the attack!`, 'effect');
@@ -1006,7 +1056,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (humanDmsPending) {
       // Mark AI eliminations now; keep the human's eliminated flag clear until they resolve
-      players = markEliminations(players, true);
+      const elim1 = markEliminations(players, state.eliminationOrder, true);
+      players = elim1.players;
       set({
         players, discard, globalCorruptionMode,
         phase: 'MAIN',
@@ -1014,13 +1065,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingCardId: null,
         validTargetIds: [],
         deadMansSwitchPending: humanDmsPending,
+        eliminationOrder: elim1.eliminationOrder,
         warRollDisplay: null,
         gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: newDamageDealt },
       });
       return; // advanceTurn fires after overlay resolves
     }
 
-    players = markEliminations(players);
+    const elim2 = markEliminations(players, state.eliminationOrder);
+    players = elim2.players;
 
     const alive = players.filter(p => !p.eliminated);
     const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
@@ -1042,13 +1095,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         phase: 'MAIN',
         selectedCardId: null, pendingCardId: null, validTargetIds: [],
         deadMansSwitchPending: null,
+        eliminationOrder: elim2.eliminationOrder,
         pendingOverclockCard: state.pendingOverclockCard,
         gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: newDamageDealt },
       });
       get().addLog(`${actor.name} activated Multithread — ${extraCount} extra play${extraCount > 1 ? 's' : ''} granted!`, 'effect');
       // AI immediately picks a valid extra card (no redraw)
       if (!isHuman) {
-        setTimeout(() => {
+        scheduleAi(() => {
           if (get().paused) return;
           const s = get();
           const aiActor = s.players[s.currentPlayerIndex];
@@ -1061,7 +1115,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             : null;
           if (!card2) {
             set({ extraPlayPending: 0, phase: 'END_TURN' });
-            setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
+            scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
             return;
           }
           get().applyPlayCard(card2.id, undefined);
@@ -1078,8 +1132,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Whether the current actor still has more extra plays after this card
     const moreExtraPlays = newExtraPlays > 0 && !winnerId;
 
-    if (winnerId && !_recordSaved) {
-      _recordSaved = true;
+    if (winnerId && !state.recordSaved) {
       saveGameRecord(
         players.find(p => p.isHuman)?.id === winnerId,
         state.turnNumber,
@@ -1091,6 +1144,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       players, discard, globalCorruptionMode, winnerId,
       extraPlayPending: newExtraPlays,
+      eliminationOrder: elim2.eliminationOrder,
+      recordSaved: winnerId ? true : state.recordSaved,
       phase: alive.length <= 1 ? 'GAME_OVER' : (moreExtraPlays ? 'MAIN' : (isHuman ? 'END_TURN' : 'MAIN')),
       selectedCardId: null,
       pendingCardId: null,
@@ -1109,7 +1164,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       } : null,
       gameStats: {
         cardsPlayed: newCardsPlayed,
-        eliminationOrder: winnerId ? [..._eliminationOrder] : prevStats.eliminationOrder,
+        eliminationOrder: winnerId ? elim2.eliminationOrder : prevStats.eliminationOrder,
         damageDealt: newDamageDealt,
       },
     });
@@ -1120,7 +1175,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // calls advanceTurn(). Advancing here would race the animation.
     if (!winnerId && !isHuman) {
       if (moreExtraPlays) {
-        setTimeout(() => {
+        scheduleAi(() => {
           if (get().paused) return;
           const s = get();
           const aiActor = s.players[s.currentPlayerIndex];
@@ -1133,14 +1188,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
             : null;
           if (!card2) {
             set({ extraPlayPending: 0, phase: 'END_TURN' });
-            setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
+            scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
             return;
           }
           get().applyPlayCard(card2.id, undefined);
         }, AI_CARD_DELAY);
       } else if (!capturedWarRoll) {
         // Non-WAR card: advance after the card animation has had time to play out
-        setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
+        scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
       }
       // WAR card (capturedWarRoll set): clearWarRollDisplay() handles the advance
     }
@@ -1160,10 +1215,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
         i === targetIndex ? { ...p, credits: Math.max(0, p.credits - 10) } : p
       );
       get().addLog(`${state.players[actorIndex].name} unleashed The Corruption — ${targetName} loses 10¢`, 'effect');
-      players = markEliminations(players);
+      const elim = markEliminations(players, state.eliminationOrder);
+      players = elim.players;
       const alive = players.filter(p => !p.eliminated);
       const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
       if (alive.length === 1) get().addLog(`${alive[0].name} wins the game!`, 'turn');
+      if (winnerId && !state.recordSaved) {
+        saveGameRecord(
+          players.find(p => p.isHuman)?.id === winnerId,
+          state.turnNumber,
+          state.players.length,
+          state.globalCorruptionMode,
+        );
+      }
       set({
         players,
         phase: winnerId ? 'GAME_OVER' : 'END_TURN',
@@ -1172,7 +1236,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         validTargetIds: [],
         corruptionPendingTarget: false,
         winnerId,
+        eliminationOrder: elim.eliminationOrder,
+        recordSaved: winnerId ? true : state.recordSaved,
         postCorruptionTargetIndex: winnerId ? null : targetIndex,
+        gameStats: winnerId
+          ? { ...state.gameStats, eliminationOrder: elim.eliminationOrder }
+          : state.gameStats,
       });
       return;
     }
@@ -1201,7 +1270,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       players = players.map((p, i) =>
         i === playerIndex ? { ...p, hand: p.hand.filter(c => c.id !== card.id) } : p
       );
-      players = applyCardEffect(card, players, playerIndex);
+      players = applyCardEffect(card, players, playerIndex).players;
       discard = [...discard, card];
       get().addLog(`💀 ${state.players[playerIndex].name} triggers Dead Man's Switch — plays ${card.name}!`, 'effect');
     } else {
@@ -1209,15 +1278,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // Now mark all remaining eliminations (including the DMS player)
-    players = markEliminations(players);
+    const elim = markEliminations(players, state.eliminationOrder);
+    players = elim.players;
     const alive = players.filter(p => !p.eliminated);
     const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
     if (alive.length === 1) get().addLog(`${alive[0].name} wins the game!`, 'turn');
 
     const humanResolved = state.players[state.deadMansSwitchPending.playerIndex]?.isHuman ?? false;
 
-    if (winnerId && !_recordSaved) {
-      _recordSaved = true;
+    if (winnerId && !state.recordSaved) {
       saveGameRecord(
         players.find(p => p.isHuman)?.id === winnerId,
         state.turnNumber,
@@ -1230,12 +1299,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       players, discard, winnerId,
       phase: alive.length <= 1 ? 'GAME_OVER' : (humanResolved ? 'END_TURN' : 'MAIN'),
       deadMansSwitchPending: null,
+      eliminationOrder: elim.eliminationOrder,
+      recordSaved: winnerId ? true : state.recordSaved,
       gameStats: winnerId
-        ? { ...state.gameStats, eliminationOrder: [..._eliminationOrder] }
+        ? { ...state.gameStats, eliminationOrder: elim.eliminationOrder }
         : state.gameStats,
     });
 
-    if (!winnerId && !humanResolved) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
+    if (!winnerId && !humanResolved) scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
   },
 
   resolveDaemonSteal: (daemon) => {
@@ -1257,12 +1328,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       get().addLog(`${state.players[actorIndex].name} stole ${stolen} from ${state.players[targetIndex].name}.`, 'effect');
     }
 
-    players = markEliminations(players);
+    const elim = markEliminations(players, state.eliminationOrder);
+    players = elim.players;
     const alive = players.filter(p => !p.eliminated);
     const winnerId = alive.length === 1 ? alive[0].id : null;
 
-    if (winnerId && !_recordSaved) {
-      _recordSaved = true;
+    if (winnerId && !state.recordSaved) {
       saveGameRecord(
         players.find(p => p.isHuman)?.id === winnerId,
         state.turnNumber,
@@ -1276,8 +1347,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       winnerId,
       phase: winnerId ? 'GAME_OVER' : 'END_TURN',
       daemonStealPending: null,
+      eliminationOrder: elim.eliminationOrder,
+      recordSaved: winnerId ? true : state.recordSaved,
       gameStats: winnerId
-        ? { ...state.gameStats, eliminationOrder: [..._eliminationOrder] }
+        ? { ...state.gameStats, eliminationOrder: elim.eliminationOrder }
         : state.gameStats,
     });
   },
@@ -1410,9 +1483,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (counterCardId === null) {
       // Human chose to allow — proceed with the original WAR card at the pre-resolved target.
       set({ counterPending: null });
-      _skipCounterCheck = true;
-      get().applyPlayCard(cardId, targetIndex);
-      _skipCounterCheck = false;
+      get().applyPlayCard(cardId, targetIndex, true);
       return;
     }
 
@@ -1435,9 +1506,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ players, discard, counterPending: null });
       get().addLog(`${human!.name} plays ${counterCard.name} — +1 to their war roll!`, 'effect');
       // Let the WAR resolve at the pre-resolved target with the bonus now applied.
-      _skipCounterCheck = true;
-      get().applyPlayCard(cardId, targetIndex);
-      _skipCounterCheck = false;
+      get().applyPlayCard(cardId, targetIndex, true);
     } else {
       // NEGOTIATE or SHIELD — cancel the war entirely.
       const players = state.players.map((p, i) => {
@@ -1448,7 +1517,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const discard = [...state.discard, attackCard, counterCard];
       set({ players, discard, counterPending: null, phase: 'MAIN', selectedCardId: null, validTargetIds: [] });
       get().addLog(`${attacker.name} played ${attackCard.name} — blocked by ${human!.name}'s ${counterCard.name}!`, 'effect');
-      setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
+      scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
     }
   },
 
@@ -1459,20 +1528,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let discard = state.discard;
     const prevStatsWar = state.gameStats;
 
-    _warRollResult = null;
-    _negotiateBlockedBy = null;
     const warCreditsBefore = players.map(p => p.credits);
-    players = applyCardEffect(warCard, players, p1Index, p2Index);
+    const warFx = applyCardEffect(warCard, players, p1Index, p2Index, state.warTiePenalty);
+    players = warFx.players;
     const warDamageByCard = warCreditsBefore.reduce((sum, before, i) => {
       if (i === p1Index) return sum;
       return sum + Math.max(0, before - players[i].credits);
     }, 0);
-    const capturedWarRoll = _warRollResult as WarRollSnapshot | null;
-    const negotiateBlockedBy = _negotiateBlockedBy;
-    _negotiateBlockedBy = null;
+    const capturedWarRoll = warFx.warRollResult;
+    const negotiateBlockedBy = warFx.negotiateBlockedBy;
 
-    const warCardLog = cardLogText(warCard, state.players[actorIndex].name);
-    _warRollResult = null;
+    const warCardLog = cardLogText(warCard, state.players[actorIndex].name, warFx.lastTargetName, warFx.warRollResult);
     if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Cease & Desist cancelled the war!`, 'effect');
     if (!capturedWarRoll) get().addLog(warCardLog, 'card');
 
@@ -1493,7 +1559,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           players = players.map((p, idx) =>
             idx === i ? { ...p, hand: p.hand.filter(c => c.id !== lastCard.id) } : p
           );
-          players = applyCardEffect(lastCard, players, i);
+          players = applyCardEffect(lastCard, players, i).players;
           discard = [...discard, lastCard];
           get().addLog(`💀 ${players[i].name} triggers Dead Man's Switch — plays ${lastCard.name}!`, 'effect');
         }
@@ -1508,6 +1574,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       actorName: state.players[actorIndex].name,
       targetName: capturedWarRoll.targetName,
       actorWins: capturedWarRoll.actorWins,
+      isTie: capturedWarRoll.isTie,
+      tieCycleLoss: capturedWarRoll.tieCycleLoss,
       logText: warCardLog,
     } : null;
 
@@ -1520,7 +1588,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       : prevStatsWar.damageDealt;
 
     if (humanDmsPending) {
-      players = markEliminations(players, true);
+      const elim1 = markEliminations(players, state.eliminationOrder, true);
+      players = elim1.players;
       set({
         players, discard,
         phase: 'MAIN',
@@ -1528,19 +1597,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingCardId: null,
         validTargetIds: [],
         deadMansSwitchPending: humanDmsPending,
+        eliminationOrder: elim1.eliminationOrder,
         warRollDisplay: warDisplayPayload,
         gameStats: { cardsPlayed: warCardsPlayed, eliminationOrder: prevStatsWar.eliminationOrder, damageDealt: warDamageDealt },
       });
       return;
     }
 
-    players = markEliminations(players);
+    const elim2 = markEliminations(players, state.eliminationOrder);
+    players = elim2.players;
     const alive = players.filter(p => !p.eliminated);
     const winnerId = alive.length === 1 ? alive[0].id : null;
     if (winnerId) get().addLog(`${alive[0].name} wins the game!`, 'turn');
 
-    if (winnerId && !_recordSaved) {
-      _recordSaved = true;
+    if (winnerId && !state.recordSaved) {
       saveGameRecord(
         players.find(p => p.isHuman)?.id === winnerId,
         state.turnNumber,
@@ -1555,10 +1625,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       selectedCardId: null,
       pendingCardId: null,
       validTargetIds: [],
+      eliminationOrder: elim2.eliminationOrder,
+      recordSaved: winnerId ? true : state.recordSaved,
       warRollDisplay: warDisplayPayload,
       gameStats: {
         cardsPlayed: warCardsPlayed,
-        eliminationOrder: winnerId ? [..._eliminationOrder] : prevStatsWar.eliminationOrder,
+        eliminationOrder: winnerId ? elim2.eliminationOrder : prevStatsWar.eliminationOrder,
         damageDealt: warDamageDealt,
       },
     });
@@ -1645,7 +1717,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // AI auto-triggers the roll after the standby display has had time to appear
     if (!nextPlayer.isHuman) {
-      setTimeout(() => { if (!get().paused) get().triggerRoll(); }, AI_ROLL_DELAY);
+      scheduleAi(() => { if (!get().paused) get().triggerRoll(); }, AI_ROLL_DELAY);
     }
   },
 
@@ -1764,7 +1836,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             players = players.map((p, idx) =>
               idx === actorIndex ? { ...p, hand: p.hand.filter(c => c.id !== lastCard.id) } : p
             );
-            players = applyCardEffect(lastCard, players, actorIndex);
+            players = applyCardEffect(lastCard, players, actorIndex).players;
             discard = [...discard, lastCard];
             get().addLog(`💀 ${actor.name} triggers Dead Man's Switch — plays ${lastCard.name}!`, 'effect');
           }
@@ -1780,19 +1852,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return;
       }
 
-      players = players.map(p => {
-        if (!p.eliminated && p.credits <= 0) {
-          if (!_eliminationOrder.includes(p.id)) _eliminationOrder.push(p.id);
-          return { ...p, eliminated: true, daemons: [] };
-        }
-        return p;
-      });
+      const elim = markEliminations(players, state.eliminationOrder);
+      players = elim.players;
       const alive = players.filter(p => !p.eliminated);
       const winnerId = alive.length <= 1 ? (alive[0]?.id ?? null) : null;
       if (alive.length === 1) get().addLog(`${alive[0].name} wins the game!`, 'turn');
 
-      if (winnerId && !_recordSaved) {
-        _recordSaved = true;
+      if (winnerId && !state.recordSaved) {
         saveGameRecord(
           players.find(p => p.isHuman)?.id === winnerId,
           state.turnNumber,
@@ -1804,11 +1870,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({
         players, discard, rollTriggered: false, winnerId,
         phase: alive.length <= 1 ? 'GAME_OVER' : 'PHASE_ROLL',
+        eliminationOrder: elim.eliminationOrder,
+        recordSaved: winnerId ? true : state.recordSaved,
         gameStats: winnerId
-          ? { ...state.gameStats, eliminationOrder: [..._eliminationOrder] }
+          ? { ...state.gameStats, eliminationOrder: elim.eliminationOrder }
           : state.gameStats,
       });
-      if (alive.length > 1) setTimeout(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
+      if (alive.length > 1) scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
       return;
     }
 
@@ -1816,7 +1884,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (actor.isHuman) {
       set({ phase: 'DRAW' });
     } else {
-      setTimeout(() => { if (!get().paused) get().runAiTurn(); }, AI_DRAW_DELAY);
+      scheduleAi(() => { if (!get().paused) get().runAiTurn(); }, AI_DRAW_DELAY);
     }
   },
 
@@ -1828,7 +1896,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ warRollDisplay: null });
     // Advance the turn now that the war dice animation has completed
     if (get().phase !== 'GAME_OVER') {
-      setTimeout(() => { if (!get().paused) get().advanceTurn(); }, 300);
+      scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, 300);
     }
   },
 
@@ -1868,7 +1936,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     set({ deck, discard, players, phase: 'MAIN' });
 
-    setTimeout(() => {
+    scheduleAi(() => {
       if (get().paused) return; // ← guard: paused between draw and card pick
       const currentState = get();
       const currentActor = currentState.players[currentState.currentPlayerIndex];

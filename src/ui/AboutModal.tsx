@@ -150,7 +150,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => (
 
       {/* Version */}
       <div style={{ fontSize: '0.5rem', color: '#334455', letterSpacing: 2, marginBottom: '1.5rem' }}>
-        VERSION 0.4.0 &nbsp;·&nbsp; BUILT WITH REACT + PHASER 3
+        VERSION {__APP_VERSION__} &nbsp;·&nbsp; BUILT WITH REACT + PHASER 3
       </div>
 
       {/* Close */}

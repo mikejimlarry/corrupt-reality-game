@@ -28,6 +28,8 @@ export class GameScene extends Phaser.Scene {
   private humanZoneShifted = false;
   // seat index: 0=top, 1=left, 2=right — set during buildTable
   private aiPlayerSeat = new Map<string, number>();
+  private _incomingAttackEndsAt = 0;
+  private _handDealEndsAt = 0;
 
   // ── Hand pan state (mobile swipe-to-scroll) ───────────────────────────────
   /** Current horizontal pan offset applied to the hand fan. */
@@ -207,7 +209,7 @@ export class GameScene extends Phaser.Scene {
           }
 
           const newPopImpStr = players.map(p => `${p.id}:${p.credits}:${p.daemons.join('|')}`).join(';');
-          if (newPopImpStr !== prevPopImpStr) {
+          if (newPopImpStr !== prevPopImpStr && !state.warRollDisplay) {
             prevPopImpStr = newPopImpStr;
             players.forEach(player => {
               const zone = this.playerZoneMap.get(player.id);
@@ -327,8 +329,12 @@ export class GameScene extends Phaser.Scene {
         if (state.phase === 'PHASE_ROLL') {
           const currentPlayer = state.players[state.currentPlayerIndex];
           if (currentPlayer) {
-            this.time.delayedCall(280, () => {
-              // Only show if still in PHASE_ROLL (not already rolled)
+            const msRemaining = Math.max(
+              280,
+              this._incomingAttackEndsAt - Date.now() + 150,
+              this._handDealEndsAt - Date.now() + 150,
+            );
+            this.time.delayedCall(msRemaining, () => {
               if (useGameStore.getState().phase === 'PHASE_ROLL') {
                 this.ledDisplay?.showStandby(currentPlayer.name);
               }
@@ -362,6 +368,8 @@ export class GameScene extends Phaser.Scene {
           this.ledDisplay?.roll(
             r1, r2, currentPlayer.name, creditDelta, inCorruption,
             () => { useGameStore.getState().rollComplete(); },
+            undefined, undefined, undefined, undefined, undefined,
+            daemonCount > 0 ? daemonCount : undefined,
           );
         }
       }
@@ -400,9 +408,11 @@ export class GameScene extends Phaser.Scene {
         this.time.delayedCall(delay, () => {
           const current = useGameStore.getState().warRollDisplay;
           if (!current) return;
-          const customToast = current.actorWins
-            ? `◆  ${current.actorName.toUpperCase()} WINS`
-            : `◆  ${current.targetName.toUpperCase()} WINS`;
+          const customToast = current.isTie
+            ? (current.tieCycleLoss ? `◆  TIE — ${current.tieCycleLoss} CYCLES EACH` : '◆  TIE — NO LOSSES')
+            : current.actorWins
+              ? `◆  ${current.actorName.toUpperCase()} WINS`
+              : `◆  ${current.targetName.toUpperCase()} WINS`;
           this.ledDisplay?.roll(
             rollData.r1, rollData.r2,
             rollData.actorName,
@@ -668,6 +678,7 @@ export class GameScene extends Phaser.Scene {
     const existingIds = new Set(this.humanCardObjects.map(c => c.cardData.id));
     const incomingIds = new Set(hand.map(c => c.id));
     const isFullDeal  = !hand.some(c => existingIds.has(c.id));
+    if (isFullDeal) this._handDealEndsAt = Date.now() + (count - 1) * 70 + 300;
 
     // Animate out cards that are no longer in the hand (played / discarded)
     const zoneX        = width / 2;
@@ -1377,6 +1388,7 @@ export class GameScene extends Phaser.Scene {
 
   // ── Incoming-attack warning — fired when an AI card costs the human credits ──
   private flashIncomingAttack(attackerName: string, width: number, height: number) {
+    this._incomingAttackEndsAt = Date.now() + 2400 + 320;
     const dpr = window.devicePixelRatio;
 
     // Full-screen red flash

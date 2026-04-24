@@ -1,73 +1,65 @@
-# React + TypeScript + Vite
+# Corrupt Reality
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A cyberpunk card game for 2–5 players (one human, the rest AI) built with React, Phaser 3, and Zustand.
 
-Currently, two official plugins are available:
+## Gameplay
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Each turn a player rolls two dice for a Stability Roll that gains or loses credits, draws up to six cards, then plays one card. The goal is to be the last player standing with credits above zero.
 
-## React Compiler
+**Card categories**
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Category | Effect |
+|---|---|
+| Credits | Gain cycles (credits) |
+| Event Positive | Drain all opponents, Overclock your next roll, or Multithread for extra plays |
+| Event Negative | Damage, steal credits, steal daemons, or reset a target with Power Cycle |
+| War | Force a dice-off against another player |
+| Daemon | Install a persistent daemon that modifies future rolls or provides immunity |
+| Counter | React to an incoming attack — shield, cancel, or boost your war roll |
 
-## Expanding the ESLint configuration
+**Corruption mode** activates when The Corruption card is drawn. All subsequent Stability Rolls deal damage instead of granting credits. Daemons protect you by absorbing some of the loss.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+**Dead Man's Switch** (optional rule) — a player knocked to zero may fire one final negative card before elimination.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Stack
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- **React 19** — UI overlays, HUD, setup/game-over screens
+- **Phaser 3** — card table, animated card objects, LED dice display, player zones
+- **Zustand** — single game store; all rules live in `src/state/useGameStore.ts`
+- **Vite + TypeScript** — build tooling
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Project structure
+
+```
+src/
+  data/          card definitions and deck generation
+  game/
+    objects/     Phaser GameObjects (Card, PlayerZone, LEDDisplay, …)
+    scenes/      GameScene — mounts Phaser, subscribes to store
+  lib/           analytics, audio, RNG
+  state/         useGameStore — full game rules, AI turns, timer scheduler
+  types/         shared TypeScript types (GameState, cards, …)
+  ui/            React components (HUD, overlays, SetupScreen, GameOverScreen)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Running locally
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
+
+```bash
+npm run build   # type-check + Vite production build
+npm run lint    # ESLint
+```
+
+## AI personalities
+
+Each AI opponent is assigned one of three personalities that influence card selection: **Aggressive** (prefers WAR and damage cards), **Cautious** (prioritises daemons and credit income), **Tactical** (scores every card in hand and plays the highest-value option).
+
+## Architecture notes
+
+- All game logic is pure within the Zustand store — `applyCardEffect` returns a result struct rather than mutating shared state, and `markEliminations` threads elimination order through explicitly.
+- AI pacing uses a centralized `scheduleAi` / `cancelAllAiTimers` scheduler so pending AI actions are cancelled cleanly on reset or new game.
+- Phaser and React communicate through Zustand subscriptions; the scene never calls React methods directly.

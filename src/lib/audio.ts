@@ -106,7 +106,15 @@ function _playMusicEl(): void {
   }
   // Pause any other playing track
   _musicEls.forEach((el, i) => { if (el && i !== idx) { el.pause(); el.currentTime = 0; } });
-  _musicEls[idx]!.play().catch(() => { /* autoplay blocked — will retry on next gesture */ });
+  _musicEls[idx]!.play().catch(() => {
+    // Autoplay blocked (e.g. pointerdown fired before user activation was established).
+    // Register a one-shot retry on the next reliable user gesture.
+    const el = _musicEls[idx];
+    if (!el) return;
+    const retry = () => { if (getMusicEnabled()) el.play().catch(() => {}); };
+    window.addEventListener('click', retry, { once: true });
+    window.addEventListener('keydown', retry, { once: true });
+  });
 }
 
 /** Start background music if the toggle is enabled. Call after first user gesture. */

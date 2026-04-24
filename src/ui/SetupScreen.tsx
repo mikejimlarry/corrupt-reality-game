@@ -88,6 +88,8 @@ interface OptionsModalProps {
   setHidePpCounts: (v: boolean) => void;
   deadMansSwitch: boolean;
   setDeadMansSwitch: (v: boolean) => void;
+  warTiePenalty: boolean;
+  setWarTiePenalty: (v: boolean) => void;
   reducedMotion: boolean;
   setReducedMotion: (v: boolean) => void;
 }
@@ -96,6 +98,7 @@ function OptionsModal({
   onClose,
   hidePpCounts, setHidePpCounts,
   deadMansSwitch, setDeadMansSwitch,
+  warTiePenalty, setWarTiePenalty,
   reducedMotion, setReducedMotion,
 }: OptionsModalProps) {
   return (
@@ -135,6 +138,12 @@ function OptionsModal({
           onChange={v => setDeadMansSwitch(v)}
           label="DEAD MAN'S SWITCH"
           description="An eliminated player may play one last protocol card before they fall."
+        />
+        <Toggle
+          checked={warTiePenalty}
+          onChange={v => setWarTiePenalty(v)}
+          label="WAR TIE PENALTY"
+          description="Tied war rolls cost both combatants the winner's cycle amount instead of nothing."
         />
         <Toggle
           checked={hidePpCounts}
@@ -188,6 +197,7 @@ export const SetupScreen: React.FC = () => {
   const [startingPop, setStartingPop]       = useState(() => Number(localStorage.getItem('crg-credits') ?? '50'));
   const [hidePpCounts, setHidePpCounts]     = useState(() => localStorage.getItem('crg-hide-credits') === 'true');
   const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
+  const [warTiePenalty, setWarTiePenalty]   = useState(() => localStorage.getItem('crg-war-tie-penalty') === 'true');
   const [musicOn, setMusicOn]               = useState(() => getMusicEnabled());
   const [musicTrack, setMusicTrack]         = useState(() => getMusicTrack());
   const reducedMotion    = useGameStore(s => s.reducedMotion);
@@ -208,9 +218,10 @@ export const SetupScreen: React.FC = () => {
     localStorage.setItem('crg-credits', String(startingPop));
     localStorage.setItem('crg-hide-credits', String(hidePpCounts));
     localStorage.setItem('crg-dead-mans-switch', String(deadMansSwitch));
+    localStorage.setItem('crg-war-tie-penalty', String(warTiePenalty));
     trackEvent('game_start', { player_count: count + 1, starting_credits: startingPop });
     sfxConnect();
-    startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch);
+    startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch, warTiePenalty);
   };
 
   // Small helper so all meta-buttons share the same look; pass active=true to light it up
@@ -316,6 +327,7 @@ export const SetupScreen: React.FC = () => {
           onClose={() => setShowOptions(false)}
           hidePpCounts={hidePpCounts}     setHidePpCounts={setHidePpCounts}
           deadMansSwitch={deadMansSwitch} setDeadMansSwitch={setDeadMansSwitch}
+          warTiePenalty={warTiePenalty}   setWarTiePenalty={setWarTiePenalty}
           reducedMotion={reducedMotion}   setReducedMotion={setReducedMotion}
         />
       )}

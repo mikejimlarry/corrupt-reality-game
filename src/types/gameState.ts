@@ -55,6 +55,8 @@ export interface GameState {
   hidePpCounts: boolean;
   /** When true a player who just hits 0 may play one last negative card before elimination. */
   deadMansSwitch: boolean;
+  /** When true, a tied war roll causes both combatants to lose the winner's cycle amount instead of nothing. */
+  warTiePenalty: boolean;
   /** Non-null when the human player has triggered Dead Man's Switch and must choose a card. */
   deadMansSwitchPending: { playerIndex: number; eligibleCards: NegativeEventCard[] } | null;
   /** Non-null when the human played Backdoor against a target with multiple daemons — player must choose which to steal. */
@@ -81,7 +83,7 @@ export interface GameState {
     damageDealt: Record<string, number>;
   };
   /** Non-null when a WAR card just resolved — scene shows a dice-roll animation then clears this. */
-  warRollDisplay: { r1: number; r2: number; actorBonus: number; targetBonus: number; actorName: string; targetName: string; actorWins: boolean; logText: string } | null;
+  warRollDisplay: { r1: number; r2: number; actorBonus: number; targetBonus: number; actorName: string; targetName: string; actorWins: boolean; isTie?: boolean; tieCycleLoss?: number; logText: string } | null;
   /** When set, the next advanceTurn call routes to this player index (first turn after Corruption card). */
   postCorruptionTargetIndex: number | null;
   /**
