@@ -3,11 +3,6 @@ import React from 'react';
 import { useGameStore } from '../state/useGameStore';
 import type { CounterCard } from '../types/cards';
 
-const DAEMON_LABEL: Record<string, string> = {
-  FIREWALL:     'Firewall',
-  ENCRYPTION:   'Encryption',
-  HARDENED_NODE:'Hardened Node',
-};
 
 export const WarPreOverlay: React.FC = () => {
   const pending       = useGameStore(s => s.warPrePending);
@@ -50,20 +45,14 @@ export const WarPreOverlay: React.FC = () => {
           <span style={{ color: '#ff9955', marginLeft: 6 }}>+{player.tacticalBonus} roll</span>
         )}
       </div>
-      {player.daemons.length > 0 ? (
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {player.daemons.map((d, i) => (
-            <span key={i} style={{
-              fontSize: '0.45rem', padding: '1px 4px',
-              background: 'rgba(0,255,204,0.07)', border: '1px solid #00ffcc22',
-              color: '#00ffcc55', borderRadius: 2, letterSpacing: 1,
-            }}>
-              {DAEMON_LABEL[d] ?? d}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <div style={{ fontSize: '0.45rem', color: '#442233' }}>no daemons</div>
+      {player.daemons.includes('HARDENED_NODE') && (
+        <span style={{
+          fontSize: '0.45rem', padding: '1px 4px',
+          background: 'rgba(0,255,204,0.07)', border: '1px solid #00ffcc22',
+          color: '#00ffcc55', borderRadius: 2, letterSpacing: 1,
+        }}>
+          Hardened Node
+        </span>
       )}
     </div>
   );
