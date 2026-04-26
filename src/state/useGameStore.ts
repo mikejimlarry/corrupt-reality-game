@@ -271,16 +271,10 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       return {
         ...noFx(players.map((p, i) => {
           if (i === actorIndex) {
-            let daemons = [...p.daemons];
-            if (!isTie && !actorWins && w.loserLosesImprovement && daemons.length > 0)
-              daemons.splice(Math.floor(random() * daemons.length), 1);
-            return { ...p, credits: Math.max(0, p.credits - actorLoss), tacticalBonus: 0, daemons };
+            return { ...p, credits: Math.max(0, p.credits - actorLoss), tacticalBonus: 0 };
           }
           if (i === ti) {
-            let daemons = [...p.daemons];
-            if (!isTie && actorWins && w.loserLosesImprovement && daemons.length > 0)
-              daemons.splice(Math.floor(random() * daemons.length), 1);
-            return { ...p, credits: Math.max(0, p.credits - targetLoss), tacticalBonus: 0, daemons };
+            return { ...p, credits: Math.max(0, p.credits - targetLoss), tacticalBonus: 0 };
           }
           return p;
         })),
@@ -541,6 +535,7 @@ interface GameStore extends GameState {
   cancelTargeting(): void;
   resolveDeadMansSwitch(card: Card | null): void;
   resolveDaemonSteal(daemon: import('../types/cards').DaemonType | null): void;
+  resolveWarLoot(daemon: import('../types/cards').DaemonType): void;
   resolveWarPick(p1Index: number, p2Index: number): void;
   cancelWarPick(): void;
   playWarPreCard(cardId: string): void;
@@ -585,6 +580,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   warTiePenalty: false,
   deadMansSwitchPending: null,
   daemonStealPending: null,
+  warLootPending: null,
   warPickPending: null,
   warPrePending: null,
   pendingOverclockCard: null,
@@ -1542,6 +1538,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Cease & Desist cancelled the war!`, 'effect');
     if (!capturedWarRoll) get().addLog(warCardLog, 'card');
 
+    // ── Daemon loot (Total Siege) — winner picks which daemon the loser loses ─
+    let warLootPending: import('../types/gameState').GameState['warLootPending'] = null;
+    if (capturedWarRoll && !capturedWarRoll.isTie && warCard.loserLosesImprovement) {
+      const loserIndex = capturedWarRoll.actorWins ? p2Index : p1Index;
+      const loserDaemons = players[loserIndex].daemons;
+      if (loserDaemons.length === 1) {
+        // Only one daemon — remove it automatically, no choice needed
+        players = players.map((p, i) => i === loserIndex ? { ...p, daemons: [] } : p);
+      } else if (loserDaemons.length > 1) {
+        const winnerIndex = capturedWarRoll.actorWins ? p1Index : p2Index;
+        if (players[winnerIndex].isHuman) {
+          // Human winner gets to pick
+          warLootPending = { loserIndex, availableDaemons: [...loserDaemons] };
+        } else {
+          // AI winner — remove a random daemon
+          const idx = Math.floor(random() * loserDaemons.length);
+          players = players.map((p, i) => i === loserIndex
+            ? { ...p, daemons: p.daemons.filter((_, di) => di !== idx) } : p);
+        }
+      }
+    }
+
     // Dead Man's Switch check
     let humanDmsPending: { playerIndex: number; eligibleCards: NegativeEventCard[] } | null = null;
     if (state.deadMansSwitch) {
@@ -1597,6 +1615,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingCardId: null,
         validTargetIds: [],
         deadMansSwitchPending: humanDmsPending,
+        warLootPending,
         eliminationOrder: elim1.eliminationOrder,
         warRollDisplay: warDisplayPayload,
         gameStats: { cardsPlayed: warCardsPlayed, eliminationOrder: prevStatsWar.eliminationOrder, damageDealt: warDamageDealt },
@@ -1627,6 +1646,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       validTargetIds: [],
       eliminationOrder: elim2.eliminationOrder,
       recordSaved: winnerId ? true : state.recordSaved,
+      warLootPending,
       warRollDisplay: warDisplayPayload,
       gameStats: {
         cardsPlayed: warCardsPlayed,
@@ -1894,8 +1914,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Flush the deferred WAR log entry now that the animation has finished
     if (display?.logText) get().addLog(display.logText, 'card');
     set({ warRollDisplay: null });
-    // Advance the turn now that the war dice animation has completed
+    // If the human winner still needs to pick which daemon the loser loses, wait for that first
+    if (get().warLootPending) return;
     if (get().phase !== 'GAME_OVER') {
+      scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, 300);
+    }
+  },
+
+  resolveWarLoot: (daemon) => {
+    const state = get();
+    if (!state.warLootPending) return;
+    const { loserIndex } = state.warLootPending;
+    const players = state.players.map((p, i) => i === loserIndex
+      ? { ...p, daemons: p.daemons.filter(d => d !== daemon) }
+      : p
+    );
+    get().addLog(`${state.players[loserIndex].name} loses ${daemon.replace('_', ' ')} daemon as war spoils`, 'effect');
+    set({ players, warLootPending: null });
+    if (state.phase !== 'GAME_OVER') {
       scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, 300);
     }
   },

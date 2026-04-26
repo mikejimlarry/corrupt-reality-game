@@ -6,6 +6,7 @@ import { SetupScreen } from './ui/SetupScreen';
 import { HUD } from './ui/HUD';
 import { DeadMansSwitchOverlay } from './ui/DeadMansSwitchOverlay';
 import { DaemonStealOverlay } from './ui/DaemonStealOverlay';
+import { WarLootOverlay } from './ui/WarLootOverlay';
 import { WarPickOverlay } from './ui/WarPickOverlay';
 import { WarPreOverlay } from './ui/WarPreOverlay';
 import { CounterOpportunityOverlay } from './ui/CounterOpportunityOverlay';
@@ -124,6 +125,7 @@ function App() {
       {phase === 'GAME_OVER' && <GameOverScreen />}
       <DeadMansSwitchOverlay />
       <DaemonStealOverlay />
+      <WarLootOverlay />
       <WarPickOverlay />
       <WarPreOverlay />
       <CounterOpportunityOverlay />

@@ -61,6 +61,8 @@ export interface GameState {
   deadMansSwitchPending: { playerIndex: number; eligibleCards: NegativeEventCard[] } | null;
   /** Non-null when the human played Backdoor against a target with multiple daemons — player must choose which to steal. */
   daemonStealPending: { targetIndex: number; availableDaemons: DaemonType[] } | null;
+  /** Non-null when the human won a Total Siege and the loser has multiple daemons — winner picks which to destroy. */
+  warLootPending: { loserIndex: number; availableDaemons: DaemonType[] } | null;
   /** Non-null when the human played a WAR card — must pick two combatants before the war resolves. */
   warPickPending: { cardId: string; availablePlayers: Array<{ id: string; name: string; playerIndex: number }> } | null;
   /** Non-null when combatants have been chosen and are preparing pre-war cards. */
