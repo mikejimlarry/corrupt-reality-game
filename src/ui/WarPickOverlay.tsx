@@ -171,20 +171,7 @@ export const WarPickOverlay: React.FC = () => {
                   alignItems: 'center',
                   gap: 8,
                 }}
-                onMouseEnter={e => {
-                  if (!isSelected) {
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.10)';
-                    (e.currentTarget as HTMLElement).style.borderColor = '#ff336644';
-                    (e.currentTarget as HTMLElement).style.color = '#cc4466';
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!isSelected) {
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.04)';
-                    (e.currentTarget as HTMLElement).style.borderColor = '#ff336622';
-                    (e.currentTarget as HTMLElement).style.color = '#883355';
-                  }
-                }}
+                className="crg-btn-war"
               >
                 <span style={{ color: '#ff336688', minWidth: 14 }}>{label}</span>
                 <span style={{ flex: 1 }}>{name}</span>
@@ -226,12 +213,7 @@ export const WarPickOverlay: React.FC = () => {
             transition: 'all 0.12s',
             marginBottom: '0.5rem',
           }}
-          onMouseEnter={e => {
-            if (canConfirm) (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.28)';
-          }}
-          onMouseLeave={e => {
-            if (canConfirm) (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.18)';
-          }}
+          className={canConfirm ? 'crg-btn-war-confirm' : ''}
         >
           ⚔ DECLARE CONFLICT
         </button>
@@ -251,14 +233,7 @@ export const WarPickOverlay: React.FC = () => {
             cursor: 'pointer',
             transition: 'all 0.12s',
           }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.color = '#885566';
-            (e.currentTarget as HTMLElement).style.borderColor = '#664455';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.color = '#442233';
-            (e.currentTarget as HTMLElement).style.borderColor = '#22223322';
-          }}
+          className="crg-btn-dismiss-war"
         >
           ABORT
         </button>

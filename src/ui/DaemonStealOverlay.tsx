@@ -79,16 +79,7 @@ export const DaemonStealOverlay: React.FC = () => {
                 transition: 'all 0.15s',
                 lineHeight: 1,
               }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(0,255,204,0.12)';
-                (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc66';
-                (e.currentTarget as HTMLElement).style.color = '#00ffcc';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(0,255,204,0.04)';
-                (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc22';
-                (e.currentTarget as HTMLElement).style.color = '#44bbaa';
-              }}
+              className="crg-btn-cyan"
             >
               <div style={{ fontSize: '0.72rem', letterSpacing: 2, marginBottom: '0.3rem' }}>
                 {DAEMON_LABELS[daemon]}
@@ -115,14 +106,7 @@ export const DaemonStealOverlay: React.FC = () => {
             cursor: 'pointer',
             transition: 'all 0.15s',
           }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.color = '#669988';
-            (e.currentTarget as HTMLElement).style.borderColor = '#446655';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.color = '#334444';
-            (e.currentTarget as HTMLElement).style.borderColor = '#22334422';
-          }}
+          className="crg-btn-dismiss-teal"
         >
           ABORT — TAKE NOTHING
         </button>

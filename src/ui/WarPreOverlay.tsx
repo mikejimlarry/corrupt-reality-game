@@ -145,16 +145,7 @@ export const WarPreOverlay: React.FC = () => {
                       cursor: 'pointer',
                       transition: 'all 0.12s',
                     }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,153,51,0.16)';
-                      (e.currentTarget as HTMLElement).style.borderColor = '#ff993355';
-                      (e.currentTarget as HTMLElement).style.color = '#ffaa44';
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,153,51,0.06)';
-                      (e.currentTarget as HTMLElement).style.borderColor = '#ff993322';
-                      (e.currentTarget as HTMLElement).style.color = '#cc7733';
-                    }}
+                    className="crg-btn-orange"
                   >
                     ▲ {c.name} — +1 to CONFLICT roll
                   </button>
@@ -183,16 +174,7 @@ export const WarPreOverlay: React.FC = () => {
                       cursor: 'pointer',
                       transition: 'all 0.12s',
                     }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(100,100,255,0.16)';
-                      (e.currentTarget as HTMLElement).style.borderColor = '#5555ff55';
-                      (e.currentTarget as HTMLElement).style.color = '#8899ee';
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(100,100,255,0.06)';
-                      (e.currentTarget as HTMLElement).style.borderColor = '#5555ff22';
-                      (e.currentTarget as HTMLElement).style.color = '#6677cc';
-                    }}
+                    className="crg-btn-blue"
                   >
                     ✕ {c.name} — cancel conflict
                   </button>
@@ -217,8 +199,7 @@ export const WarPreOverlay: React.FC = () => {
             transition: 'all 0.12s',
             marginBottom: '0.5rem',
           }}
-          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.26)'}
-          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.14)'}
+          className="crg-btn-war-pass"
         >
           ⚔ GO TO BATTLE
         </button>
@@ -237,14 +218,7 @@ export const WarPreOverlay: React.FC = () => {
             cursor: 'pointer',
             transition: 'all 0.12s',
           }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.color = '#885566';
-            (e.currentTarget as HTMLElement).style.borderColor = '#664455';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.color = '#442233';
-            (e.currentTarget as HTMLElement).style.borderColor = '#22223322';
-          }}
+          className="crg-btn-dismiss-war"
         >
           RETREAT
         </button>

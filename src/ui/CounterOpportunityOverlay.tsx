@@ -39,6 +39,7 @@ export const CounterOpportunityOverlay: React.FC = () => {
     <button
       key={card.id}
       onClick={() => resolve(card.id)}
+      className="crg-btn-cyan"
       style={{
         background: 'rgba(0,255,204,0.06)',
         border: '1px solid #00ffcc22',
@@ -50,16 +51,6 @@ export const CounterOpportunityOverlay: React.FC = () => {
         cursor: 'pointer',
         transition: 'all 0.12s',
         width: '100%',
-      }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.background = 'rgba(0,255,204,0.16)';
-        (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc55';
-        (e.currentTarget as HTMLElement).style.color = '#00ffcc';
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.background = 'rgba(0,255,204,0.06)';
-        (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc22';
-        (e.currentTarget as HTMLElement).style.color = '#00cc99';
       }}
     >
       ⊘ {card.name}
@@ -163,8 +154,7 @@ export const CounterOpportunityOverlay: React.FC = () => {
             cursor: 'pointer',
             transition: 'all 0.12s',
           }}
-          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.2)'}
-          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.08)'}
+          className="crg-btn-war-proceed"
         >
           TAKE THE HIT
         </button>

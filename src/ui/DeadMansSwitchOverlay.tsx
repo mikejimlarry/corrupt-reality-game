@@ -68,16 +68,7 @@ export const DeadMansSwitchOverlay: React.FC = () => {
                 transition: 'all 0.15s',
                 lineHeight: 1,
               }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(255,0,68,0.14)';
-                (e.currentTarget as HTMLElement).style.borderColor = '#ff004488';
-                (e.currentTarget as HTMLElement).style.color = '#ff5566';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(255,0,68,0.05)';
-                (e.currentTarget as HTMLElement).style.borderColor = '#ff004422';
-                (e.currentTarget as HTMLElement).style.color = '#cc4455';
-              }}
+              className="crg-btn-red"
             >
               <div style={{ fontSize: '0.72rem', letterSpacing: 2, marginBottom: '0.3rem' }}>
                 {card.name}
@@ -104,14 +95,7 @@ export const DeadMansSwitchOverlay: React.FC = () => {
             cursor: 'pointer',
             transition: 'all 0.15s',
           }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.color = '#aa6666';
-            (e.currentTarget as HTMLElement).style.borderColor = '#664444';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.color = '#443333';
-            (e.currentTarget as HTMLElement).style.borderColor = '#33222244';
-          }}
+          className="crg-btn-dismiss-red"
         >
           SKIP — GO QUIETLY
         </button>

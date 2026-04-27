@@ -26,6 +26,15 @@ const STYLE = `
 .go-fade-in-5 { animation: go-fade-in 0.6s 0.8s ease both; }
 `;
 
+function useHover() {
+  const [hovered, setHovered] = useState(false);
+  return {
+    hovered,
+    onMouseEnter: () => setHovered(true),
+    onMouseLeave: () => setHovered(false),
+  };
+}
+
 function useInjectStyle(css: string) {
   useEffect(() => {
     const el = document.createElement('style');
@@ -75,6 +84,8 @@ export function GameOverScreen() {
   const elimOrder = gameStats.eliminationOrder
     .map(id => players.find(p => p.id === id)?.name)
     .filter(Boolean) as string[];
+
+  const hReboot = useHover();
 
   const [visible, setVisible] = useState(false);
   const [records, setRecords] = useState<GameRecords>({ wins: 0, losses: 0 });
@@ -249,9 +260,11 @@ export function GameOverScreen() {
         <div className="go-fade-in-5" style={{ display: 'flex', justifyContent: 'center' }}>
           <button
             onClick={() => resetToSetup()}
+            onMouseEnter={hReboot.onMouseEnter}
+            onMouseLeave={hReboot.onMouseLeave}
             style={{
               padding: '0.75rem 2.5rem',
-              background: `${ACCENT}18`,
+              background: hReboot.hovered ? `${ACCENT}33` : `${ACCENT}18`,
               border: `1px solid ${ACCENT}`,
               color: ACCENT,
               fontFamily: 'monospace',
@@ -259,15 +272,8 @@ export function GameOverScreen() {
               letterSpacing: 5,
               cursor: 'pointer',
               textShadow: `0 0 10px ${ACCENT}66`,
+              boxShadow: hReboot.hovered ? `0 0 20px ${ACCENT}44` : 'none',
               transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.background = `${ACCENT}33`;
-              (e.currentTarget as HTMLElement).style.boxShadow = `0 0 20px ${ACCENT}44`;
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.background = `${ACCENT}18`;
-              (e.currentTarget as HTMLElement).style.boxShadow = 'none';
             }}
           >
             ↺ REBOOT GAME

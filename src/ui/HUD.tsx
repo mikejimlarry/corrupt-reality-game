@@ -72,6 +72,15 @@ function stopPhaser(e: React.MouseEvent | React.TouchEvent) {
   e.nativeEvent.stopImmediatePropagation();
 }
 
+function useHover() {
+  const [hovered, setHovered] = useState(false);
+  return {
+    hovered,
+    onMouseEnter: () => setHovered(true),
+    onMouseLeave: () => setHovered(false),
+  };
+}
+
 const BTN_BASE: React.CSSProperties = {
   fontFamily: 'monospace',
   fontSize: 12,
@@ -143,6 +152,14 @@ export function HUD() {
   const setHandSort              = useGameStore(s => s.setHandSort);
 
   const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
+
+  const hFieldManual = useHover();
+  const hMusic       = useHover();
+  const hTrack       = useHover();
+  const hPause       = useHover();
+  const hMotion      = useHover();
+  const hSortMode    = useHover();
+  const hSortRev     = useHover();
 
   const panelStyle      = useMemo(() => panel(ACCENT), [ACCENT]);
   const primaryBtnStyle = useMemo(() => btnPrimary(ACCENT), [ACCENT]);
@@ -249,28 +266,20 @@ export function HUD() {
           {/* Help — text on desktop, icon-only on mobile */}
           <button
             onClick={() => { setShowHelp(true); trackEvent('help_opened', { source: 'hud' }); }}
+            onMouseEnter={hFieldManual.onMouseEnter}
+            onMouseLeave={hFieldManual.onMouseLeave}
             style={{
               ...BTN_BASE,
               flex: isMobile ? 0 : 1,
               width: isMobile ? 44 : 'auto',
               minWidth: 44,
-              background: 'transparent',
-              border: `1px solid ${ACCENT}44`,
+              background: hFieldManual.hovered ? `${ACCENT}22` : 'transparent',
+              border: `1px solid ${hFieldManual.hovered ? ACCENT : ACCENT + '44'}`,
               color: ACCENT,
               fontSize: isMobile ? 14 : 10,
               letterSpacing: isMobile ? 0 : 2,
               padding: '6px 10px',
               transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.background = `${ACCENT}22`;
-              el.style.borderColor = ACCENT;
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.background = 'transparent';
-              el.style.borderColor = `${ACCENT}44`;
             }}
           >
             {isMobile ? '?' : '? FIELD MANUAL'}
@@ -280,25 +289,19 @@ export function HUD() {
           <button
             onClick={handleMusicToggle}
             title={musicOn ? 'Music ON — click to mute' : 'Music OFF — click to unmute'}
+            onMouseEnter={hMusic.onMouseEnter}
+            onMouseLeave={hMusic.onMouseLeave}
             style={{
               ...BTN_BASE,
               width: 44,
               minWidth: 44,
               padding: '6px 10px',
               background: musicOn ? `${ACCENT}18` : 'transparent',
-              border: `1px solid ${musicOn ? ACCENT + '44' : ACCENT + '18'}`,
-              color: musicOn ? ACCENT : `${ACCENT}33`,
+              border: `1px solid ${hMusic.hovered ? ACCENT + '66' : musicOn ? ACCENT + '44' : ACCENT + '18'}`,
+              color: (hMusic.hovered || musicOn) ? ACCENT : `${ACCENT}33`,
               fontSize: 14,
               letterSpacing: 0,
               transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.color = ACCENT;
-              (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}66`;
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.color = musicOn ? ACCENT : `${ACCENT}33`;
-              (e.currentTarget as HTMLElement).style.borderColor = musicOn ? `${ACCENT}44` : `${ACCENT}18`;
             }}
           >
             {musicOn ? '♫' : '♪'}
@@ -309,25 +312,19 @@ export function HUD() {
             <button
               onClick={handleTrackSwitch}
               title={`Track ${musicTrack + 1} — click to switch`}
+              onMouseEnter={hTrack.onMouseEnter}
+              onMouseLeave={hTrack.onMouseLeave}
               style={{
                 ...BTN_BASE,
                 width: 44,
                 minWidth: 44,
                 padding: '6px 10px',
                 background: `${ACCENT}18`,
-                border: `1px solid ${ACCENT}33`,
-                color: `${ACCENT}88`,
+                border: `1px solid ${hTrack.hovered ? ACCENT + '66' : ACCENT + '33'}`,
+                color: hTrack.hovered ? ACCENT : `${ACCENT}88`,
                 fontSize: 12,
                 letterSpacing: 0,
                 transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.color = ACCENT;
-                (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}66`;
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.color = `${ACCENT}88`;
-                (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}33`;
               }}
             >
               {musicTrack === 0 ? '①' : '②'}
@@ -357,22 +354,16 @@ export function HUD() {
           <button
             onClick={togglePause}
             title={paused ? 'SYSTEM HALTED — click to resume' : 'Pause game'}
+            onMouseEnter={hPause.onMouseEnter}
+            onMouseLeave={hPause.onMouseLeave}
             style={{
               ...BTN_BASE,
               flex: 1,
               background: paused ? 'rgba(255,153,0,0.18)' : 'transparent',
-              border: `1px solid ${paused ? '#ff990066' : ACCENT + '18'}`,
-              color: paused ? '#ff9900' : `${ACCENT}33`,
+              border: `1px solid ${hPause.hovered ? (paused ? '#ff990088' : ACCENT + '66') : (paused ? '#ff990066' : ACCENT + '18')}`,
+              color: hPause.hovered ? (paused ? '#ffbb44' : ACCENT) : (paused ? '#ff9900' : `${ACCENT}33`),
               fontSize: 10, letterSpacing: paused ? 1 : 0,
               transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.color = paused ? '#ffbb44' : ACCENT;
-              (e.currentTarget as HTMLElement).style.borderColor = paused ? '#ff990088' : `${ACCENT}66`;
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.color = paused ? '#ff9900' : `${ACCENT}33`;
-              (e.currentTarget as HTMLElement).style.borderColor = paused ? '#ff990066' : `${ACCENT}18`;
             }}
           >
             {paused ? '▶ RESUME' : 'Ⅱ PAUSE'}
@@ -380,22 +371,16 @@ export function HUD() {
           <button
             onClick={() => setReducedMotion(!reducedMotion)}
             title={reducedMotion ? 'Reduced motion ON — click to restore' : 'Reduce animations'}
+            onMouseEnter={hMotion.onMouseEnter}
+            onMouseLeave={hMotion.onMouseLeave}
             style={{
               ...BTN_BASE,
               width: 44, minWidth: 44,
               background: reducedMotion ? `${ACCENT}18` : 'transparent',
-              border: `1px solid ${reducedMotion ? ACCENT + '44' : ACCENT + '18'}`,
-              color: reducedMotion ? ACCENT : `${ACCENT}33`,
+              border: `1px solid ${hMotion.hovered ? ACCENT + '66' : reducedMotion ? ACCENT + '44' : ACCENT + '18'}`,
+              color: (hMotion.hovered || reducedMotion) ? ACCENT : `${ACCENT}33`,
               fontSize: 13, letterSpacing: 0,
               transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.color = ACCENT;
-              (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}66`;
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.color = reducedMotion ? ACCENT : `${ACCENT}33`;
-              (e.currentTarget as HTMLElement).style.borderColor = reducedMotion ? `${ACCENT}44` : `${ACCENT}18`;
             }}
           >
             ✦
@@ -760,16 +745,12 @@ export function HUD() {
               title={`Sort: ${handSortMode} — click to change to ${nextMode}`}
               style={{
                 ...btnStyle,
-                border: handSortMode !== 'DEFAULT'
-                  ? `1px solid ${ACCENT}88` : `1px solid ${ACCENT}33`,
-                color: handSortMode !== 'DEFAULT' ? ACCENT : `${ACCENT}66`,
+                border: `1px solid ${hSortMode.hovered ? ACCENT : handSortMode !== 'DEFAULT' ? ACCENT + '88' : ACCENT + '33'}`,
+                color: (hSortMode.hovered || handSortMode !== 'DEFAULT') ? ACCENT : `${ACCENT}66`,
               }}
               onClick={() => setHandSort(nextMode, handSortReverse)}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = ACCENT; (e.currentTarget as HTMLElement).style.color = ACCENT; }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.borderColor = handSortMode !== 'DEFAULT' ? `${ACCENT}88` : `${ACCENT}33`;
-                (e.currentTarget as HTMLElement).style.color = handSortMode !== 'DEFAULT' ? ACCENT : `${ACCENT}66`;
-              }}
+              onMouseEnter={hSortMode.onMouseEnter}
+              onMouseLeave={hSortMode.onMouseLeave}
             >
               {modeLabels[handSortMode]}
             </button>
@@ -777,15 +758,12 @@ export function HUD() {
               title={handSortReverse ? 'Reversed — click to restore' : 'Click to reverse sort order'}
               style={{
                 ...btnStyle,
-                border: handSortReverse ? `1px solid ${ACCENT}88` : `1px solid ${ACCENT}33`,
-                color: handSortReverse ? ACCENT : `${ACCENT}44`,
+                border: `1px solid ${hSortRev.hovered ? ACCENT : handSortReverse ? ACCENT + '88' : ACCENT + '33'}`,
+                color: (hSortRev.hovered || handSortReverse) ? ACCENT : `${ACCENT}44`,
               }}
               onClick={() => setHandSort(handSortMode, !handSortReverse)}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = ACCENT; (e.currentTarget as HTMLElement).style.color = ACCENT; }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.borderColor = handSortReverse ? `${ACCENT}88` : `${ACCENT}33`;
-                (e.currentTarget as HTMLElement).style.color = handSortReverse ? ACCENT : `${ACCENT}44`;
-              }}
+              onMouseEnter={hSortRev.onMouseEnter}
+              onMouseLeave={hSortRev.onMouseLeave}
             >
               ⇅
             </button>

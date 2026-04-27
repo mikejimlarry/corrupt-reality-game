@@ -77,16 +77,7 @@ export const WarLootOverlay: React.FC = () => {
                 transition: 'all 0.15s',
                 lineHeight: 1,
               }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.14)';
-                (e.currentTarget as HTMLElement).style.borderColor = '#ff336666';
-                (e.currentTarget as HTMLElement).style.color = '#ff5577';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,102,0.04)';
-                (e.currentTarget as HTMLElement).style.borderColor = '#ff336622';
-                (e.currentTarget as HTMLElement).style.color = '#cc5566';
-              }}
+              className="crg-btn-war"
             >
               <div style={{ fontSize: '0.72rem', letterSpacing: 2, marginBottom: '0.3rem' }}>
                 {DAEMON_LABELS[daemon]}

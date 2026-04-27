@@ -172,14 +172,7 @@ function OptionsModal({
             cursor: 'pointer',
             transition: 'all 0.15s',
           }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.color = '#00ffcc';
-            (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc66';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.color = '#446655';
-            (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc33';
-          }}
+          className="crg-btn-cyan"
         >
           CLOSE
         </button>
@@ -238,11 +231,7 @@ export const SetupScreen: React.FC = () => {
         letterSpacing: 2, cursor: 'pointer', padding: '0.25rem 0.8rem',
         transition: 'all 0.15s',
       }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#00ffcc'; (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc66'; }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.color = active ? '#00ffcc' : '#446655';
-        (e.currentTarget as HTMLElement).style.borderColor = active ? '#00ffcc66' : '#00ffcc33';
-      }}
+      className="crg-btn-cyan"
     >
       {label}
     </button>
