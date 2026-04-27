@@ -1343,7 +1343,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     if (daemon) {
-      get().addLog(`${state.players[actorIndex].name} stole ${stolen} from ${state.players[targetIndex].name}.`, 'effect');
+      const actorAlreadyHas = state.players[actorIndex].daemons.includes(stolen);
+      if (actorAlreadyHas) {
+        get().addLog(`${state.players[actorIndex].name} extracted ${stolen} from ${state.players[targetIndex].name} — already active, daemon discarded.`, 'effect');
+      } else {
+        get().addLog(`${state.players[actorIndex].name} stole ${stolen} from ${state.players[targetIndex].name}.`, 'effect');
+      }
     }
 
     const elim = markEliminations(players, state.eliminationOrder);
