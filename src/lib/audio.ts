@@ -131,6 +131,7 @@ export function stopMusic(): void {
 // ── Preload everything on first user gesture ──────────────────────────────────
 
 const ALL_FILES = [
+  'ncpd_warrant.wav',
   'deck_ui_typing.wav',
   'deck_ui_default_activation.wav',
   'deck_ui_slider_up.wav',
@@ -235,7 +236,7 @@ export function sfxCorruption() {
 
 /** The Corruption card is revealed — shown centre-screen when drawn. */
 export function sfxCorruptionReveal() {
-  play('deck_ui_achievement_toast.wav', 1.0);
+  play('ncpd_warrant.wav', 0.9);
 }
 
 /** Dice roll complete — plays when the result digits start blinking. */

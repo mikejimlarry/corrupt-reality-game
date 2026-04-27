@@ -62,7 +62,7 @@ const CARDS: CardEntry[] = [
   { name: 'Overclock',           category: 'EVENT_POSITIVE', count: 2, effect: 'Adds +5 to your next Stability Roll total or -5 to your next Corruption Roll.' },
   { name: 'Multitask',        category: 'EVENT_POSITIVE', count: 2, effect: 'Play 1–2 additional cards this turn. Bonus cards cannot be Conflict or Countermeasure cards.' },
   // Negative events
-  { name: 'Signal Theft',        category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal 15 cycles from a target.' },
+  { name: 'Signal Theft',        category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses -15 cycles; you gain +15 cycles.' },
   { name: 'Memory Leak',         category: 'EVENT_NEGATIVE', count: 6, effect: 'Target loses -5 cycles.' },
   { name: 'Digital Crusade',     category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses -10 cycles.' },
   { name: 'Data Drought',        category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 cycles.', note: 'Firewall immune' },
@@ -81,8 +81,8 @@ const CARDS: CardEntry[] = [
   { name: 'Total Siege',         category: 'WAR',            count: 3, effect: 'Winner loses -10 cycles. Loser loses -20 cycles and one daemon.' },
   // Counters
   { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Your next Conflict roll gets +1. Play before initiating a conflict.' },
-  { name: 'System Interrupt',    category: 'COUNTER',        count: 3, effect: 'Block the next Total Siege, Skirmish, or Digital Crusade targeting you. Cannot block standard hack protocols or M.A.D.' },
-  { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Block the next hack protocol targeting you, excludes Digital Crusade, M.A.D., and Conflict cards. One use.' },
+  { name: 'System Interrupt',    category: 'COUNTER',        count: 3, effect: 'Cancel an incoming Conflict (Total Siege or Skirmish) before it resolves. Cannot block hack protocols or M.A.D.' },
+  { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Cancel an incoming Conflict before it resolves. One use.' },
   // Daemons
   { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 to Stability Roll\n-1 to Corruption Roll\nImmune to Data Drought & Sigterm.' },
   { name: 'Encryption',          category: 'DAEMON',    count: 3, effect: '+1 to Stability Roll\n-1 to Corruption Roll\nImmune to Data Flood.' },
@@ -253,9 +253,10 @@ function TabHowToPlay() {
 
       <Section title="COUNTERMEASURES">
         <P>Some cards can be played <Highlight>reactively</Highlight> — out of turn — to cancel an incoming attack before it lands.</P>
-        <Bullet><Highlight>Quarantine</Highlight> blocks any hack protocol aimed at you, <em>except</em> Digital Crusade and M.A.D.</Bullet>
-        <Bullet><Highlight>System Interrupt</Highlight> blocks any warfare card (Total Siege or Skirmish) or Digital Crusade targeting you. It cannot block standard hack protocols or M.A.D.</Bullet>
-        <P>When an AI targets you with a blockable attack and you hold the right counter, you will be prompted to play it or allow the attack through. <Highlight>Using a counter ends the attacker's turn immediately</Highlight> — they do not get to choose another card or action.</P>
+        <Bullet><Highlight>Quarantine</Highlight> cancels an incoming Conflict (Total Siege or Skirmish) before the dice are rolled.</Bullet>
+        <Bullet><Highlight>System Interrupt</Highlight> cancels an incoming Conflict (Total Siege or Skirmish). It cannot block hack protocols or M.A.D.</Bullet>
+        <Bullet><Highlight>Firewall Surge</Highlight> does not cancel — it adds +1 to your roll for the conflict ahead. The war still proceeds.</Bullet>
+        <P>When an AI targets you with a Conflict and you hold a counter card, you will be prompted to play it or allow the war through. <Highlight>Cancelling ends the attacker's turn immediately</Highlight>; boosting with Firewall Surge lets the war resolve with your improved roll.</P>
       </Section>
 
       <Section title="ELIMINATION">
@@ -330,6 +331,11 @@ function TabOptions() {
       <Section title="DEAD MAN'S SWITCH">
         <P>When enabled, any player whose cycles hit zero does not die silently. Before being eliminated, they may choose one targeted negative card from their hand to play as a final act. AI players pick automatically; the human player gets a choice.</P>
         <P>Makes endgame eliminations more dangerous — a desperate faction can still cause chaos on their way out. Best used in longer games or with experienced players.</P>
+      </Section>
+
+      <Section title="WAR TIE PENALTY">
+        <P>Controls what happens when two players roll the same total in a Conflict. When disabled (default), a tie costs nothing — neither side pays.</P>
+        <P>When enabled, both sides pay the winner's cycle penalty (e.g. -5 for Skirmish, -10 for Total Siege). Turns stalemates into a mutual cost, raising the stakes of every conflict.</P>
       </Section>
     </div>
   );
