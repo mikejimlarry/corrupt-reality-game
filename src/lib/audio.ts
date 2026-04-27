@@ -379,3 +379,8 @@ export function sfxShowModal() {
 export function sfxConnect() {
   play('deck_ui_side_menu_fly_in.wav', 1.0);
 }
+
+/** Button hover — quiet blip for any interactive button. */
+export function sfxHover() {
+  play('deck_ui_navigation.wav', 0.45);
+}

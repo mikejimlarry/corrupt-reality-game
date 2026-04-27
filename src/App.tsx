@@ -14,7 +14,7 @@ import { PauseOverlay } from './ui/PauseOverlay';
 import { GameOverScreen } from './ui/GameOverScreen';
 import { CardPreview } from './ui/CardPreview';
 import { useGameAudio } from './hooks/useGameAudio';
-import { resumeAudio, stopMusic } from './lib/audio';
+import { resumeAudio, stopMusic, sfxHover } from './lib/audio';
 import { trackEvent } from './lib/analytics';
 
 const AMBIENT_STYLE = `
@@ -52,6 +52,23 @@ function App() {
     const handler = () => resumeAudio(); // also calls startMusic() internally
     window.addEventListener('pointerdown', handler, { once: true });
     return () => window.removeEventListener('pointerdown', handler);
+  }, []);
+
+  // Button hover sound — fires once per button entry, gated to avoid rapid-fire
+  useEffect(() => {
+    let lastT = 0;
+    const handler = (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
+      if (
+        el.closest('button') &&
+        !(e.relatedTarget as HTMLElement | null)?.closest('button')
+      ) {
+        const now = Date.now();
+        if (now - lastT > 80) { lastT = now; sfxHover(); }
+      }
+    };
+    document.addEventListener('mouseover', handler, true);
+    return () => document.removeEventListener('mouseover', handler, true);
   }, []);
 
   // Stop music when the game ends or returns to setup; fire game_over event
