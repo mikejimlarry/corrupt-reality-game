@@ -177,6 +177,7 @@ export class GameScene extends Phaser.Scene {
         const targetColor = state.globalCorruptionMode ? 0x0d0003 : 0x050510;
         this.cameras.main.setBackgroundColor(targetColor);
         this.humanCardObjects.forEach(c => c.setCorrupted(state.globalCorruptionMode));
+        this.centreZone?.setCorruption(state.globalCorruptionMode);
         if (state.globalCorruptionMode) this.buildStaticNoise(w, h);
       }
       let handUpdated = false;
@@ -499,6 +500,7 @@ export class GameScene extends Phaser.Scene {
     centre.setDiscardCount(initState.discard.length);
     centre.setPhase(initState.phase);
     centre.setTurn(initState.turnNumber ?? 1);
+    centre.setCorruption(initState.globalCorruptionMode);
 
     // ── 5. Human player zone (bottom) — larger than AI zones ──────────────
     const { hidePpCounts } = useGameStore.getState();
@@ -604,6 +606,18 @@ export class GameScene extends Phaser.Scene {
     if (!human) return;
 
     const corruptionFirst = mustPlayCorruptionFirst(human, gameStats);
+
+    // Auto-select The Corruption so it appears raised when it must be played first
+    if (corruptionFirst) {
+      const corruptionCard = this.humanCardObjects.find(c =>
+        c.cardData.category === 'EVENT_NEGATIVE' &&
+        (c.cardData as import('../../types/cards').NegativeEventCard).effect === 'CORRUPTION'
+      );
+      const store = useGameStore.getState();
+      if (corruptionCard && store.selectedCardId !== corruptionCard.cardData.id) {
+        store.selectCard(corruptionCard.cardData.id);
+      }
+    }
 
     this.humanCardObjects.forEach(card => {
       const d = card.cardData;
@@ -1420,11 +1434,12 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => edges.forEach(e => e.destroy()),
     });
 
-    // Warning banner — slides up from the bottom of the screen
+    // Warning banner — emerges from the top of the human player zone
     const BW = 340, BH = 56;
     const bx = width / 2;
-    const byTarget = height - 90;
-    const con = this.add.container(bx, byTarget + 70).setDepth(190).setAlpha(0);
+    const humanZoneTop = this.humanZoneBaseY - 70; // zone center - (108 * 1.3 / 2)
+    const byTarget = humanZoneTop - BH / 2 - 8;
+    const con = this.add.container(bx, byTarget + 36).setDepth(190).setAlpha(0);
 
     const bg = this.add.graphics();
     bg.fillStyle(0x1a0005, 0.97);
@@ -1451,11 +1466,11 @@ export class GameScene extends Phaser.Scene {
       y: byTarget, alpha: 1,
       duration: 300, ease: 'Back.easeOut',
     });
-    // Hold then slide out
+    // Hold then slide out upward
     this.time.delayedCall(2400, () => {
       this.tweens.add({
         targets: con,
-        y: byTarget + 28, alpha: 0,
+        y: byTarget - 24, alpha: 0,
         duration: 320, ease: 'Quad.easeIn',
         onComplete: () => con.destroy(),
       });

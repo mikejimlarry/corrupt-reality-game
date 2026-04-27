@@ -34,6 +34,8 @@ export class CentreZone extends Phaser.GameObjects.Container {
   private phaseLabel!: Phaser.GameObjects.Text;
   private turnLabel!: Phaser.GameObjects.Text;
   private discardFaceContainer?: Phaser.GameObjects.Container;
+  private protocolLabel!: Phaser.GameObjects.Text;
+  private corruptionContainer!: Phaser.GameObjects.Container;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
@@ -157,11 +159,27 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
     this.add(g);
 
-    // "PLAY ZONE" label
-    const label = this.txt(0, zH / 2 - 14, 'ACTIVE PROTOCOL', {
+    // "ACTIVE PROTOCOL" label — hidden when corruption is active
+    this.protocolLabel = this.txt(0, zH / 2 - 14, 'ACTIVE PROTOCOL', {
       fontFamily: 'monospace', fontSize: '6px', color: '#00ffcc44', letterSpacing: 3,
     }).setOrigin(0.5);
-    this.add(label);
+    this.add(this.protocolLabel);
+
+    // Corruption alert — replaces the label when globalCorruptionMode is active
+    this.corruptionContainer = this.scene.add.container(0, zH / 2 - 28);
+    const alertLine = this.txt(0, 0, '⚠  SYSTEM ALERT  ⚠', {
+      fontFamily: 'monospace', fontSize: '6px', color: '#ff1e3c', letterSpacing: 3,
+    }).setOrigin(0.5);
+    const corruptLine = this.txt(0, 10, 'CORRUPTION DETECTED', {
+      fontFamily: 'monospace', fontSize: '7px', color: '#ff4466',
+      fontStyle: 'bold', letterSpacing: 2,
+    }).setOrigin(0.5);
+    const subLine = this.txt(0, 21, 'STABILITY ROLLS INVERTED', {
+      fontFamily: 'monospace', fontSize: '5px', color: '#ff1e3c66', letterSpacing: 1,
+    }).setOrigin(0.5);
+    this.corruptionContainer.add([alertLine, corruptLine, subLine]);
+    this.corruptionContainer.setVisible(false);
+    this.add(this.corruptionContainer);
 
     // Pulse animation on the centre dot
     const dot = this.scene.add.circle(0, 0, 8, ACCENT, 0);
@@ -188,6 +206,11 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
   setTurn(turn: number) {
     this.turnLabel.setText(`TURN ${turn}`);
+  }
+
+  setCorruption(active: boolean) {
+    this.protocolLabel.setVisible(!active);
+    this.corruptionContainer.setVisible(active);
   }
 
   /** Show the top card of the discard pile face-up on the pile. Pass null to clear. */

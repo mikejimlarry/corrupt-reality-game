@@ -242,20 +242,22 @@ export function HUD() {
               width: isMobile ? 44 : 'auto',
               minWidth: 44,
               background: 'transparent',
-              border: `1px solid ${ACCENT}22`,
-              color: `${ACCENT}44`,
+              border: `1px solid ${ACCENT}44`,
+              color: ACCENT,
               fontSize: isMobile ? 14 : 10,
               letterSpacing: isMobile ? 0 : 2,
               padding: '6px 10px',
               transition: 'all 0.15s',
             }}
             onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.color = ACCENT;
-              (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`;
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = `${ACCENT}22`;
+              el.style.borderColor = ACCENT;
             }}
             onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.color = `${ACCENT}44`;
-              (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}22`;
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = 'transparent';
+              el.style.borderColor = `${ACCENT}44`;
             }}
           >
             {isMobile ? '?' : '? FIELD MANUAL'}
@@ -387,30 +389,6 @@ export function HUD() {
           </button>
         </div>
 
-        {/* Corruption banner */}
-        {corruption && (
-          <div
-            className="corruption-pulse corruption-flicker"
-            style={{
-              background: 'rgba(20,0,5,0.92)',
-              border: '1px solid #ff1e3c88',
-              borderRadius: 6,
-              padding: '8px 14px',
-              fontFamily: 'monospace',
-              textAlign: 'center',
-            }}
-          >
-            <div style={{ fontSize: 9, color: '#ff1e3c', letterSpacing: 3, marginBottom: 2 }}>
-              ⚠ SYSTEM ALERT ⚠
-            </div>
-            <div style={{ fontSize: 11, color: '#ff4466', fontWeight: 'bold', letterSpacing: 2 }}>
-              CORRUPTION DETECTED
-            </div>
-            <div style={{ fontSize: 8, color: '#ff1e3c66', letterSpacing: 1, marginTop: 3 }}>
-              STABILITY ROLLS INVERTED
-            </div>
-          </div>
-        )}
 
         {/* Status panel + scoreboard */}
         <div style={panelStyle}>
