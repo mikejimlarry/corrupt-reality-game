@@ -480,9 +480,10 @@ export class GameScene extends Phaser.Scene {
           const topCard = state.discard[state.discard.length - 1];
           this.animateAiCardPlay(actor.id, topCard, w, h);
 
-          // Show attack warning if the human's credits went down this tick
+          // Show attack warning if the human's credits went down this tick,
+          // but not during a war — the dice overlay handles that reveal.
           const humanNow = state.players.find(p => p.isHuman);
-          if (humanNow && humanNow.credits < humanCreditsBefore) {
+          if (humanNow && humanNow.credits < humanCreditsBefore && !state.warRollDisplay) {
             this.time.delayedCall(380, () => {
               this.flashIncomingAttack(actor.name, w, h);
             });

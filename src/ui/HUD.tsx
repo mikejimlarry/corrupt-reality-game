@@ -113,7 +113,8 @@ function btnDim(accent: string): React.CSSProperties {
 export function HUD() {
   useInjectStyle(PULSE_STYLE);
   const phase               = useGameStore(s => s.phase);
-  const players             = useGameStore(s => s.players);
+  const allPlayers          = useGameStore(s => s.players);
+  const warRollDisplay      = useGameStore(s => s.warRollDisplay);
   const currentPlayerIndex  = useGameStore(s => s.currentPlayerIndex);
   const selectedCardId      = useGameStore(s => s.selectedCardId);
   const turnNumber          = useGameStore(s => s.turnNumber);
@@ -150,6 +151,14 @@ export function HUD() {
   const { w: winW } = useWindowSize();
   // Landscape mobile: short dimension < 500 px, or total width < 700 px
   const isMobile = winW < 700;
+
+  // Freeze the scoreboard during the war dice animation so credit counts/bars
+  // don't reveal the outcome before the result is shown.
+  const [displayPlayers, setDisplayPlayers] = useState(allPlayers);
+  useEffect(() => {
+    if (!warRollDisplay) setDisplayPlayers(allPlayers);
+  }, [allPlayers, warRollDisplay]);
+  const players = displayPlayers;
 
   const [logExpanded, setLogExpanded] = useState(false);
   const [showHelp, setShowHelp]       = useState(false);
@@ -474,34 +483,19 @@ export function HUD() {
         {/* Multithread indicator — shown in top-right when extra plays are pending */}
         {phase === 'MAIN' && isHuman && extraPlayPending > 0 && (
           <div style={panelStyle}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-              fontSize: 9, color: '#00ffcc66', letterSpacing: 2,
-            }}>
-              <span>⟳ MULTITHREADING — {extraPlayPending} MORE CARD{extraPlayPending > 1 ? 'S' : ''} TO PLAY</span>
-              <button
-                onClick={() => cancelExtraPlays()}
-                title="End your turn now without using remaining plays"
-                style={{
-                  background: 'transparent', border: '1px solid #00ffcc33',
-                  color: '#00ffcc55', fontFamily: 'monospace',
-                  fontSize: 8, letterSpacing: 1, padding: '2px 6px',
-                  cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.color = '#00ffcc';
-                  (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc88';
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(0,255,204,0.08)';
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.color = '#00ffcc55';
-                  (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc33';
-                  (e.currentTarget as HTMLElement).style.background = 'transparent';
-                }}
-              >
-                DONE
-              </button>
+            <div style={{ fontSize: 10, color: `${ACCENT}`, letterSpacing: 3, marginBottom: 8 }}>
+              ⟳ MULTITHREADING
             </div>
+            <div style={{ fontSize: 10, color: '#667788', marginBottom: 10 }}>
+              {extraPlayPending} more card{extraPlayPending > 1 ? 's' : ''} to play
+            </div>
+            <button
+              onClick={() => cancelExtraPlays()}
+              title="End your turn now without using remaining plays"
+              style={{ ...btnDim(ACCENT), borderColor: `${ACCENT}44`, color: `${ACCENT}aa` }}
+            >
+              ✓ DONE
+            </button>
           </div>
         )}
 
