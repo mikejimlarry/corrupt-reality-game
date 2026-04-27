@@ -43,9 +43,9 @@ const positiveEvents: Card[] = [
     rarity: 'RARE' as const, effect: 'OVERCLOCK', amount: 0,
     flavourText: 'Redline everything. Deal with the consequences later.',
   })),
-  // Multithread ×2 — play two cards in one turn (no WAR or COUNTER as second card)
+  // Multitask ×2 — play two cards in one turn (no WAR or COUNTER as second card)
   ...Array(2).fill(null).map(() => ({
-    id: uid(), name: 'Multithread', category: 'EVENT_POSITIVE' as const,
+    id: uid(), name: 'Multitask', category: 'EVENT_POSITIVE' as const,
     description: 'Run parallel processes. Play 1–2 additional cards this turn. Excludes Conflict and Countermeasure cards.',
     rarity: 'RARE' as const, effect: 'EXTRA_PLAY', amount: 0,
     flavourText: 'Two threads. One clock cycle.',

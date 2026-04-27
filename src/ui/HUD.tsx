@@ -469,11 +469,11 @@ export function HUD() {
           </div>
         )}
 
-        {/* Multithread indicator — shown in top-right when extra plays are pending */}
+        {/* Multitask indicator — shown in top-right when extra plays are pending */}
         {phase === 'MAIN' && isHuman && extraPlayPending > 0 && (
           <div style={panelStyle}>
             <div style={{ fontSize: 10, color: `${ACCENT}`, letterSpacing: 3, marginBottom: 8 }}>
-              ⟳ MULTITHREADING
+              ⟳ MULTITASKING
             </div>
             <div style={{ fontSize: 10, color: '#667788', marginBottom: 10 }}>
               {extraPlayPending} more card{extraPlayPending > 1 ? 's' : ''} to play

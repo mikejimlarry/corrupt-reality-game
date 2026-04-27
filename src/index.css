@@ -10,6 +10,26 @@ html, body, #root {
   background: #0a0a0f;
 }
 
+/* ── Button hover utilities ───────────────────────────────────────────────── */
+/* !important is required to override the inline base styles on each button.   */
+
+/* Overlay action buttons — bg + border + color */
+.crg-btn-cyan:hover   { background: rgba(0,255,204,0.13)   !important; border-color: #00ffcc55 !important; color: #00ffcc  !important; }
+.crg-btn-red:hover    { background: rgba(255,0,68,0.14)    !important; border-color: #ff004488 !important; color: #ff5566  !important; }
+.crg-btn-war:hover    { background: rgba(255,51,102,0.14)  !important; border-color: #ff336666 !important; color: #ff5577  !important; }
+.crg-btn-orange:hover { background: rgba(255,153,51,0.16)  !important; border-color: #ff993355 !important; color: #ffaa44  !important; }
+.crg-btn-blue:hover   { background: rgba(100,100,255,0.16) !important; border-color: #5555ff55 !important; color: #8899ee  !important; }
+
+/* Background-only variants */
+.crg-btn-war-proceed:hover { background: rgba(255,51,102,0.20) !important; }
+.crg-btn-war-pass:hover    { background: rgba(255,51,102,0.26) !important; }
+.crg-btn-war-confirm:hover { background: rgba(255,51,102,0.28) !important; }
+
+/* Dismiss / skip buttons */
+.crg-btn-dismiss-red:hover  { color: #aa6666 !important; border-color: #664444 !important; }
+.crg-btn-dismiss-teal:hover { color: #669988 !important; border-color: #446655 !important; }
+.crg-btn-dismiss-war:hover  { color: #885566 !important; border-color: #664455 !important; }
+
 /* ── Credits range slider ─────────────────────────────────────────────────── */
 .credits-slider {
   -webkit-appearance: none;

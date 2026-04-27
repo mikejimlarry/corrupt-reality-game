@@ -73,7 +73,7 @@ export interface GameState {
   paused: boolean;
   /** When true, card art tweens, scanlines, and panel unfold animations are skipped. */
   reducedMotion: boolean;
-  /** Number of extra card plays remaining for the current player (from Multithread). 0 = none. */
+  /** Number of extra card plays remaining for the current player (from Multitask). 0 = none. */
   extraPlayPending: number;
   /** Accumulated per-game statistics — reset each new game. */
   gameStats: {

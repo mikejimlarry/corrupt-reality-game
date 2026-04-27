@@ -60,7 +60,7 @@ const CARDS: CardEntry[] = [
   // Positive events
   { name: 'Mass Assimilation',   category: 'EVENT_POSITIVE', count: 2, effect: 'Each opponent loses -5 cycles; you gain +5 per opponent.' },
   { name: 'Overclock',           category: 'EVENT_POSITIVE', count: 2, effect: 'Adds +5 to your next Stability Roll total or -5 to your next Corruption Roll.' },
-  { name: 'Multithread',        category: 'EVENT_POSITIVE', count: 2, effect: 'Play 1–2 additional cards this turn. Bonus cards cannot be Conflict or Countermeasure cards.' },
+  { name: 'Multitask',        category: 'EVENT_POSITIVE', count: 2, effect: 'Play 1–2 additional cards this turn. Bonus cards cannot be Conflict or Countermeasure cards.' },
   // Negative events
   { name: 'Signal Theft',        category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal 15 cycles from a target.' },
   { name: 'Memory Leak',         category: 'EVENT_NEGATIVE', count: 6, effect: 'Target loses -5 cycles.' },
@@ -363,7 +363,7 @@ function TabInterface() {
       <Section title="TOP RIGHT — PHASE PANELS">
         <P>Additional panels appear below the scoreboard depending on the active game phase:</P>
         <Bullet><Highlight>SELECT A TARGET</Highlight> (red, pulsing) — A target must be chosen from the board by clicking a highlighted player zone. <Highlight>✕ CANCEL</Highlight> aborts the card play (unavailable if the card is forced).</Bullet>
-        <Bullet><Highlight>⟳ MULTITHREADING</Highlight> — Appears after playing a Multithread card. Shows how many bonus plays remain. <Highlight>✓ DONE</Highlight> ends the turn early without using them.</Bullet>
+        <Bullet><Highlight>⟳ MULTITASKING</Highlight> — Appears after playing a Multitask card. Shows how many bonus plays remain. <Highlight>✓ DONE</Highlight> ends the turn early without using them.</Bullet>
         <Bullet><Highlight>TURN COMPLETE</Highlight> — Brief flash before the turn auto-advances.</Bullet>
       </Section>
 

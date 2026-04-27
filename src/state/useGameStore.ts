@@ -352,7 +352,7 @@ function pickAiCard(
     ? Math.max(0, richestOpponent.credits - startingPop) + richestOpponent.daemons.length * 10
     : 0;
 
-  // Is there a high-impact follow-up card for after Multithread?
+  // Is there a high-impact follow-up card for after Multitask?
   const hasGoodFollowUp = ai.hand.some(c =>
     c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).amount >= 10
   );
@@ -412,7 +412,7 @@ function pickAiCard(
       }
       // Opportunistic Power Cycle only when the target is a clear runaway leader
       if (powerCycleCard && powerCycleScore >= 30) return powerCycleCard;
-      // Multithread when a high-damage follow-up exists
+      // Multitask when a high-damage follow-up exists
       if (multiThreadCard && hasGoodFollowUp && random() < 0.5) return multiThreadCard;
       // Adaptive: if behind → build resources; if ahead → press the attack
       const isAhead = richestOpponent ? ai.credits >= richestOpponent.credits : true;
@@ -534,7 +534,7 @@ interface GameStore extends GameState {
   playCard(cardId: string): void;
   applyPlayCard(cardId: string, targetIndex: number | undefined, skipCounterCheck?: boolean): void;
   discardCard(cardId: string): void;
-  /** Cancel remaining Multithread extra plays and end the human's turn. */
+  /** Cancel remaining Multitask extra plays and end the human's turn. */
   cancelExtraPlays(): void;
   selectTarget(targetId: string): void;
   cancelTargeting(): void;
@@ -813,7 +813,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const actorIndex = state.currentPlayerIndex;
     const actor = state.players[actorIndex];
 
-    // During an extra play (Multithread), WAR/COUNTER/Multithread cards are not allowed
+    // During an extra play (Multitask), WAR/COUNTER/Multitask cards are not allowed
     if (state.extraPlayPending > 0) {
       const card = actor.hand.find(c => c.id === cardId);
       if (!card) return;
@@ -1092,7 +1092,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       (card as PositiveEventCard).effect === 'EXTRA_PLAY';
 
     if (isExtraPlayCard && !winnerId) {
-      // Multithread — randomly grant 1 or 2 extra card plays
+      // Multitask — randomly grant 1 or 2 extra card plays
       const extraCount = Math.floor(random() * 2) + 1;
       set({
         players, discard, globalCorruptionMode,
@@ -1104,7 +1104,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingOverclockCard: state.pendingOverclockCard,
         gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: newDamageDealt },
       });
-      get().addLog(`${actor.name} activated Multithread — ${extraCount} extra play${extraCount > 1 ? 's' : ''} granted!`, 'effect');
+      get().addLog(`${actor.name} activated Multitask — ${extraCount} extra play${extraCount > 1 ? 's' : ''} granted!`, 'effect');
       // AI immediately picks a valid extra card (no redraw)
       if (!isHuman) {
         scheduleAi(() => {
@@ -1129,7 +1129,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    // If this card was played as an extra play (from Multithread), decrement the counter
+    // If this card was played as an extra play (from Multitask), decrement the counter
     const newExtraPlays = (state.extraPlayPending > 0 && !isExtraPlayCard)
       ? state.extraPlayPending - 1
       : 0;
@@ -1693,7 +1693,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const actor = state.players[state.currentPlayerIndex];
     if (!actor.isHuman) return; // AI never calls this
     set({ extraPlayPending: 0, phase: 'END_TURN', selectedCardId: null });
-    get().addLog(`${actor.name} ended Multithread early.`, 'effect');
+    get().addLog(`${actor.name} ended Multitask early.`, 'effect');
   },
 
   endTurn: () => {
