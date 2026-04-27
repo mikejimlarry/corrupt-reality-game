@@ -1031,7 +1031,7 @@ export class GameScene extends Phaser.Scene {
 
     // Title
     const dpr = window.devicePixelRatio;
-    con.add(this.add.text(0, -H / 2 + 13, '⚡  OVERCLOCK', {
+    con.add(this.add.text(0, -H / 2 + 13, '◈  OVERCLOCK', {
       fontFamily: 'monospace', fontSize: '10px', color: '#00ccff',
       fontStyle: 'bold', resolution: dpr,
     }).setOrigin(0.5));
