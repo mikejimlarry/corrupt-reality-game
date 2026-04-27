@@ -7,10 +7,32 @@ import { CentreZone, DISCARD_LOCAL_CX, DISCARD_LOCAL_CY } from '../objects/Centr
 import { LEDDisplay } from '../objects/LEDDisplay';
 import { DaemonBoard } from '../objects/DaemonBoard';
 import { useGameStore, mustPlayCorruptionFirst } from '../../state/useGameStore';
+import type { HandSortMode } from '../../state/useGameStore';
 import { sfxCorruptionReveal } from '../../lib/audio';
 import type { Card as CardData } from '../../types/cards';
 import type { PlayerState } from '../../types/gameState';
 
+
+const CATEGORY_SORT_ORDER: Record<string, number> = {
+  CREDITS: 0, EVENT_POSITIVE: 1, EVENT_NEGATIVE: 2, WAR: 3, DAEMON: 4, COUNTER: 5,
+};
+
+function sortHand(hand: CardData[], mode: HandSortMode, reverse: boolean): CardData[] {
+  const sorted = [...hand];
+  if (mode === 'TYPE') {
+    sorted.sort((a, b) => (CATEGORY_SORT_ORDER[a.category] ?? 9) - (CATEGORY_SORT_ORDER[b.category] ?? 9));
+  } else if (mode === 'VALUE') {
+    sorted.sort((a, b) => {
+      const aVal = (a as any).amount ?? (a as any).loserLoses ?? 0;
+      const bVal = (b as any).amount ?? (b as any).loserLoses ?? 0;
+      return bVal - aVal;
+    });
+  } else if (mode === 'ALPHA') {
+    sorted.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  if (reverse) sorted.reverse();
+  return sorted;
+}
 
 export class GameScene extends Phaser.Scene {
   private unsubscribeStore?: () => void;
@@ -162,6 +184,8 @@ export class GameScene extends Phaser.Scene {
     );
     let prevPendingOverclockCard: import('../../types/cards').Card | null = null;
     let prevWarRollDisplay: import('../../types/gameState').GameState['warRollDisplay'] = null;
+    let prevHandSortMode = useGameStore.getState().handSortMode;
+    let prevHandSortReverse = useGameStore.getState().handSortReverse;
 
     this.unsubscribeStore = useGameStore.subscribe(state => {
       const { players, selectedCardId } = state;
@@ -238,6 +262,18 @@ export class GameScene extends Phaser.Scene {
               this.syncAiCardBacks(aiPlayer, w, h);
             });
           }
+        }
+      }
+
+      // ── Hand sort changed — re-layout without a full hand rebuild ──────
+      if (!rebuilt && !handUpdated &&
+          (state.handSortMode !== prevHandSortMode || state.handSortReverse !== prevHandSortReverse)) {
+        prevHandSortMode = state.handSortMode;
+        prevHandSortReverse = state.handSortReverse;
+        const human = players.find(p => p.isHuman);
+        if (human && human.hand.length > 0) {
+          this.updateHumanHand(human.hand, w, h);
+          handUpdated = true;
         }
       }
 
@@ -644,6 +680,9 @@ export class GameScene extends Phaser.Scene {
 
   // ── Human hand (fan layout) — larger cards, clearly visible ──────────────
   private updateHumanHand(hand: CardData[], width: number, height: number) {
+    const { handSortMode, handSortReverse } = useGameStore.getState();
+    hand = sortHand(hand, handSortMode, handSortReverse);
+
     if (hand.length === 0) {
       this.humanCardObjects.forEach(c => c.destroy());
       this.humanCardObjects = [];
@@ -1466,11 +1505,11 @@ export class GameScene extends Phaser.Scene {
       y: byTarget, alpha: 1,
       duration: 300, ease: 'Back.easeOut',
     });
-    // Hold then slide out upward
+    // Hold then slide down behind the player info box
     this.time.delayedCall(2400, () => {
       this.tweens.add({
         targets: con,
-        y: byTarget - 24, alpha: 0,
+        y: byTarget + 60, alpha: 0,
         duration: 320, ease: 'Quad.easeIn',
         onComplete: () => con.destroy(),
       });

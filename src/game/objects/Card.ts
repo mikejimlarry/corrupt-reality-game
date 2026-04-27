@@ -712,20 +712,26 @@ export class Card extends Phaser.GameObjects.Container {
       duration: 300, delay, ease: 'Quad.easeOut',
       onComplete: () => {
         this.isDealt = true;
-        if (!useGameStore.getState().reducedMotion) {
-          this.startNameScramble();
-          this.startTypewriter();
-          this.startStatCountUp();
-          this.startDropout();
-        } else {
-          // Reduced motion: populate text instantly
-          this.descText.setText(this.cardData.description);
-          if (this.statLabel) {
-            this.statLabel.setText(`${this.statPrefix}${this.statRawValue}`);
-          }
-        }
         onComplete?.();
       },
+    });
+    // Schedule text animations via delayedCall rather than onComplete so they
+    // still fire if the deal-in tween is killed early by killTweensOf (which
+    // happens during TARGETING phase entry and hand-lift transitions).
+    this.scene.time.delayedCall(delay + 300, () => {
+      if (!this.active) return;
+      this.isDealt = true;
+      if (!useGameStore.getState().reducedMotion) {
+        this.startNameScramble();
+        this.startTypewriter();
+        this.startStatCountUp();
+        this.startDropout();
+      } else {
+        this.descText.setText(this.cardData.description);
+        if (this.statLabel) {
+          this.statLabel.setText(`${this.statPrefix}${this.statRawValue}`);
+        }
+      }
     });
   }
 

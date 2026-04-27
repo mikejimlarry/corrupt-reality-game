@@ -1,6 +1,7 @@
 // src/ui/HUD.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useGameStore, mustPlayCorruptionFirst } from '../state/useGameStore';
+import type { HandSortMode } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
 import { sfxCardPlay, getMusicEnabled, setMusicEnabled, sfxToggleOn, sfxToggleOff, getMusicTrack, nextMusicTrack } from '../lib/audio';
 import { trackEvent } from '../lib/analytics';
@@ -136,6 +137,9 @@ export function HUD() {
   const hidePpCounts             = useGameStore(s => s.hidePpCounts);
   const reducedMotion            = useGameStore(s => s.reducedMotion);
   const setReducedMotion         = useGameStore(s => s.setReducedMotion);
+  const handSortMode             = useGameStore(s => s.handSortMode);
+  const handSortReverse          = useGameStore(s => s.handSortReverse);
+  const setHandSort              = useGameStore(s => s.setHandSort);
 
   const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
 
@@ -736,6 +740,64 @@ export function HUD() {
           </button>
         </div>
       )}
+      {/* ── HAND SORT — bottom-right, visible during gameplay ── */}
+      {phase !== 'GAME_OVER' && (() => {
+        const SORT_MODES: HandSortMode[] = ['DEFAULT', 'TYPE', 'VALUE', 'ALPHA'];
+        const modeLabels: Record<HandSortMode, string> = { DEFAULT: 'DEF', TYPE: 'TYPE', VALUE: 'VAL', ALPHA: 'A–Z' };
+        const nextMode = SORT_MODES[(SORT_MODES.indexOf(handSortMode) + 1) % SORT_MODES.length];
+        const btnStyle: React.CSSProperties = {
+          fontFamily: 'monospace', fontSize: 8, letterSpacing: 2,
+          padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+          background: 'rgba(5,5,15,0.88)', transition: 'all 0.12s',
+          minHeight: 0,
+        };
+        return (
+          <div
+            style={{
+              position: 'fixed', bottom: 92, right: 14, zIndex: 6,
+              display: 'flex', alignItems: 'center', gap: 4,
+              pointerEvents: 'auto',
+            }}
+            onMouseDown={stopPhaser}
+            onTouchStart={stopPhaser}
+          >
+            <span style={{ fontFamily: 'monospace', fontSize: 7, color: `${ACCENT}44`, letterSpacing: 2 }}>SORT</span>
+            <button
+              title={`Sort: ${handSortMode} — click to change to ${nextMode}`}
+              style={{
+                ...btnStyle,
+                border: handSortMode !== 'DEFAULT'
+                  ? `1px solid ${ACCENT}88` : `1px solid ${ACCENT}33`,
+                color: handSortMode !== 'DEFAULT' ? ACCENT : `${ACCENT}66`,
+              }}
+              onClick={() => setHandSort(nextMode, handSortReverse)}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = ACCENT; (e.currentTarget as HTMLElement).style.color = ACCENT; }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = handSortMode !== 'DEFAULT' ? `${ACCENT}88` : `${ACCENT}33`;
+                (e.currentTarget as HTMLElement).style.color = handSortMode !== 'DEFAULT' ? ACCENT : `${ACCENT}66`;
+              }}
+            >
+              {modeLabels[handSortMode]}
+            </button>
+            <button
+              title={handSortReverse ? 'Reversed — click to restore' : 'Click to reverse sort order'}
+              style={{
+                ...btnStyle,
+                border: handSortReverse ? `1px solid ${ACCENT}88` : `1px solid ${ACCENT}33`,
+                color: handSortReverse ? ACCENT : `${ACCENT}44`,
+              }}
+              onClick={() => setHandSort(handSortMode, !handSortReverse)}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = ACCENT; (e.currentTarget as HTMLElement).style.color = ACCENT; }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = handSortReverse ? `${ACCENT}88` : `${ACCENT}33`;
+                (e.currentTarget as HTMLElement).style.color = handSortReverse ? ACCENT : `${ACCENT}44`;
+              }}
+            >
+              ⇅
+            </button>
+          </div>
+        );
+      })()}
     </>
   );
 }

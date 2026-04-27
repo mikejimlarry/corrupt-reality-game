@@ -503,6 +503,8 @@ const makeLogEntry = (text: string, type: LogEntry['type']): LogEntry => ({
 
 // ── Store interface ────────────────────────────────────────────────────────────
 
+export type HandSortMode = 'DEFAULT' | 'TYPE' | 'VALUE' | 'ALPHA';
+
 interface GameStore extends GameState {
   selectedCardId: string | null;
   hoveredCardId: string | null;
@@ -517,6 +519,9 @@ interface GameStore extends GameState {
   eliminationOrder: string[];
   /** Guards against double-saving the game record when multiple set() paths can reach game-over. */
   recordSaved: boolean;
+  handSortMode: HandSortMode;
+  handSortReverse: boolean;
+  setHandSort(mode: HandSortMode, reverse: boolean): void;
   clearWarRollDisplay(): void;
   togglePause(): void;
   setReducedMotion(v: boolean): void;
@@ -553,7 +558,7 @@ interface GameStore extends GameState {
 
 // ── Default state ──────────────────────────────────────────────────────────────
 
-const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[]; corruptionReveal: boolean; corruptionPendingTarget: boolean; eliminationOrder: string[]; recordSaved: boolean } = {
+const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[]; corruptionReveal: boolean; corruptionPendingTarget: boolean; eliminationOrder: string[]; recordSaved: boolean; handSortMode: HandSortMode; handSortReverse: boolean } = {
   phase: 'SETUP',
   players: [],
   deck: [],
@@ -592,6 +597,8 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   postCorruptionTargetIndex: null,
   // Placeholder — real value initialised from localStorage in the store body below.
   reducedMotion: false,
+  handSortMode: 'DEFAULT',
+  handSortReverse: false,
 };
 
 // ── Cyberpunk AI names & personalities ────────────────────────────────────────
@@ -671,6 +678,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     localStorage.setItem('crg-reduced-motion', String(v));
     set({ reducedMotion: v });
   },
+
+  setHandSort: (mode, reverse) => set({ handSortMode: mode, handSortReverse: reverse }),
 
   togglePause: () => {
     const nowPaused = !get().paused;
