@@ -209,6 +209,11 @@ export function sfxTurnStart() {
   play('deck_ui_tab_transition_01.wav', 0.8);
 }
 
+/** Incoming war alert — fires at the start of the Phaser animation. */
+export function sfxWarIncoming() {
+  play('deck_ui_side_menu_fly_in.wav', 1.0);
+}
+
 /** WAR card played. */
 export function sfxWar() {
   play('deck_ui_side_menu_fly_in.wav', 1.0);

@@ -547,6 +547,7 @@ interface GameStore extends GameState {
   passWarPre(): void;
   cancelWarPre(): void;
   finalizeWarResolution(warCard: import('../types/cards').WarCard, p1Index: number, p2Index: number): void;
+  proceedToCounterPending(): void;
   resolveCounterOpportunity(counterCardId: string | null): void;
   endTurn(): void;
   advanceTurn(): void;
@@ -589,6 +590,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   warPickPending: null,
   warPrePending: null,
   pendingOverclockCard: null,
+  warIncomingReveal: null,
   counterPending: null,
   paused: false,
   extraPlayPending: 0,
@@ -925,8 +927,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ) as CounterCard[];
           if (eligibleCounters.length > 0) {
             trackEvent('counter_opportunity_shown', { eligible_count: eligibleCounters.length });
-            set({ counterPending: { type: 'WAR', attackerIndex: actorIndex, cardId, targetIndex: targetI, eligibleCounters } });
-            return; // resume via resolveCounterOpportunity
+            // Fire the Phaser incoming-war animation first; the scene calls
+            // proceedToCounterPending() after ~1.2s to show the React overlay.
+            set({ warIncomingReveal: {
+              attackerName: actor.name,
+              cardName: card.name,
+              attackerIndex: actorIndex,
+              cardId,
+              targetIndex: targetI,
+              eligibleCounters,
+            }});
+            return; // resume via proceedToCounterPending → resolveCounterOpportunity
           }
         }
       }
@@ -1477,7 +1488,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ warPrePending: null, selectedCardId: null, phase: 'END_TURN' });
   },
 
-  // ── Reactive counter resolution ────────────────────────────────────────────
+  // ── Incoming war animation complete → show the counter overlay ───────────
+  proceedToCounterPending: () => {
+    const { warIncomingReveal } = get();
+    if (!warIncomingReveal) return;
+    const { attackerIndex, cardId, targetIndex, eligibleCounters } = warIncomingReveal;
+    set({
+      warIncomingReveal: null,
+      counterPending: { type: 'WAR', attackerIndex, cardId, targetIndex, eligibleCounters },
+    });
+  },
+
+  // ── Reactive counter resolution ───────────────────────���────────────────────
   resolveCounterOpportunity: (counterCardId: string | null) => {
     const state = get();
     const pending = state.counterPending;

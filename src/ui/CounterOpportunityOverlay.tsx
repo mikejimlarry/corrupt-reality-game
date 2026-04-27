@@ -62,27 +62,27 @@ export const CounterOpportunityOverlay: React.FC = () => {
       position: 'fixed', inset: 0,
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(5,0,10,0.94)',
+      background: 'rgba(8,3,0,0.94)',
       zIndex: 200,
       fontFamily: 'monospace',
     }}>
       <div style={{
-        border: '1px solid #ff336644',
+        border: '1px solid #ff880044',
         padding: '2rem',
         maxWidth: 480,
         width: '90%',
-        background: 'rgba(15,0,10,0.90)',
+        background: 'rgba(18,6,0,0.92)',
       }}>
 
         {/* Header */}
         <div style={{
-          color: '#ff5566', letterSpacing: 6, fontSize: '0.55rem',
+          color: '#ff7722', letterSpacing: 6, fontSize: '0.55rem',
           textAlign: 'center', marginBottom: '0.3rem',
         }}>
           ⚔ INCOMING WAR
         </div>
         <h2 style={{
-          color: '#ff4466', letterSpacing: 3, fontSize: '1rem',
+          color: '#ff8800', letterSpacing: 3, fontSize: '1rem',
           margin: '0 0 1rem', textAlign: 'center',
         }}>
           {attackCard.name.toUpperCase()}
@@ -90,7 +90,7 @@ export const CounterOpportunityOverlay: React.FC = () => {
 
         {/* Who's attacking */}
         <div style={{
-          fontSize: '0.65rem', color: '#ff336688', letterSpacing: 2,
+          fontSize: '0.65rem', color: '#ff770055', letterSpacing: 2,
           textAlign: 'center', marginBottom: '1.25rem',
         }}>
           {attacker.name.toUpperCase()} is declaring war on you
@@ -98,7 +98,7 @@ export const CounterOpportunityOverlay: React.FC = () => {
 
         {/* Counter options */}
         <div style={{
-          fontSize: '0.5rem', color: '#00ffcc44', letterSpacing: 3,
+          fontSize: '0.5rem', color: '#ff880033', letterSpacing: 3,
           marginBottom: '0.5rem',
         }}>
           RESPOND BEFORE THE WAR BEGINS
@@ -138,16 +138,16 @@ export const CounterOpportunityOverlay: React.FC = () => {
         </div>
 
         {/* Separator */}
-        <div style={{ borderBottom: '1px solid #ff336622', marginBottom: '1rem' }} />
+        <div style={{ borderBottom: '1px solid #ff880022', marginBottom: '1rem' }} />
 
         {/* Allow */}
         <button
           onClick={() => resolve(null)}
           style={{
             width: '100%',
-            background: 'rgba(255,51,102,0.08)',
-            border: '1px solid #ff336644',
-            color: '#ff4466',
+            background: 'rgba(255,136,0,0.08)',
+            border: '1px solid #ff880044',
+            color: '#ff8800',
             fontFamily: 'monospace',
             fontSize: '0.72rem', letterSpacing: 3,
             padding: '0.6rem',

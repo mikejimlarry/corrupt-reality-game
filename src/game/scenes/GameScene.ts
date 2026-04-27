@@ -8,7 +8,7 @@ import { LEDDisplay } from '../objects/LEDDisplay';
 import { DaemonBoard } from '../objects/DaemonBoard';
 import { useGameStore, mustPlayCorruptionFirst } from '../../state/useGameStore';
 import type { HandSortMode } from '../../state/useGameStore';
-import { sfxCorruptionReveal } from '../../lib/audio';
+import { sfxCorruptionReveal, sfxWarIncoming } from '../../lib/audio';
 import type { Card as CardData } from '../../types/cards';
 import type { PlayerState } from '../../types/gameState';
 
@@ -184,6 +184,7 @@ export class GameScene extends Phaser.Scene {
     );
     let prevPendingOverclockCard: import('../../types/cards').Card | null = null;
     let prevWarRollDisplay: import('../../types/gameState').GameState['warRollDisplay'] = null;
+    let prevWarIncomingReveal: import('../../types/gameState').GameState['warIncomingReveal'] = null;
     let prevHandSortMode = useGameStore.getState().handSortMode;
     let prevHandSortReverse = useGameStore.getState().handSortReverse;
 
@@ -464,6 +465,14 @@ export class GameScene extends Phaser.Scene {
         });
       }
       if (!state.warRollDisplay) prevWarRollDisplay = null;
+
+      // ── Incoming war animation — fires before the counter overlay appears ──
+      if (state.warIncomingReveal && !prevWarIncomingReveal) {
+        prevWarIncomingReveal = state.warIncomingReveal;
+        const rev = state.warIncomingReveal;
+        this.showIncomingWarAlert(rev.attackerName, rev.cardName, w, h);
+      }
+      if (!state.warIncomingReveal) prevWarIncomingReveal = null;
 
       // Update centre zone pile counts and turn number
       if (state.deck.length !== prevDeckLen) {
@@ -1437,6 +1446,86 @@ export class GameScene extends Phaser.Scene {
           });
         });
       },
+    });
+  }
+
+  // ── Incoming war alert — plays before the counter opportunity overlay appears ──
+  private showIncomingWarAlert(attackerName: string, cardName: string, width: number, height: number) {
+    sfxWarIncoming();
+    const dpr = window.devicePixelRatio;
+    const cx = width / 2;
+    const cy = height / 2;
+    const HOLD_MS = 1200;
+
+    // ── Full-screen orange flash ──────────────────────────────────────────────
+    const flash = this.add.rectangle(cx, cy, width, height, 0xff6600, 0.22);
+    flash.setDepth(280).setAlpha(0);
+    this.tweens.add({
+      targets: flash,
+      alpha: { from: 0.22, to: 0 },
+      duration: HOLD_MS + 300,
+      ease: 'Quad.easeOut',
+      onComplete: () => flash.destroy(),
+    });
+
+    // ── Centre alert banner ───────────────────────────────────────────────────
+    const con = this.add.container(cx, cy).setDepth(285).setAlpha(0);
+
+    const BW = 380, BH = 100;
+    const bg = this.add.graphics();
+    bg.fillStyle(0x110004, 0.97);
+    bg.fillRoundedRect(-BW / 2, -BH / 2, BW, BH, 6);
+    bg.lineStyle(2, 0xff6600, 0.9);
+    bg.strokeRoundedRect(-BW / 2, -BH / 2, BW, BH, 6);
+    bg.fillStyle(0xff6600, 0.22);
+    bg.fillRoundedRect(-BW / 2, -BH / 2, BW, 14, { tl: 6, tr: 6, bl: 0, br: 0 });
+    con.add(bg);
+
+    // Conflict declared label
+    const label = this.add.text(0, -BH / 2 + 8, '⚔  CONFLICT DECLARED', {
+      fontFamily: 'monospace', fontSize: '8px', color: '#ff8844',
+      letterSpacing: 5, resolution: dpr,
+    }).setOrigin(0.5);
+    con.add(label);
+
+    // War card name — large, glitchy
+    const title = this.add.text(0, -12, cardName.toUpperCase(), {
+      fontFamily: 'monospace', fontSize: '22px', color: '#ffffff',
+      fontStyle: 'bold', resolution: dpr,
+    }).setOrigin(0.5);
+    con.add(title);
+
+    // Attacker name
+    con.add(this.add.text(0, 24, `${attackerName.toUpperCase()} IS DECLARING WAR ON YOU`, {
+      fontFamily: 'monospace', fontSize: '8px', color: '#ff664488',
+      letterSpacing: 2, resolution: dpr,
+    }).setOrigin(0.5));
+
+    // Slam in from top
+    con.y = cy - 60;
+    this.tweens.add({
+      targets: con, y: cy, alpha: 1,
+      duration: 180, ease: 'Back.easeOut',
+    });
+
+    // Strobe the title text
+    this.tweens.add({
+      targets: title,
+      alpha: { from: 1, to: 0.3 },
+      duration: 140, repeat: 4, yoyo: true,
+      ease: 'Stepped',
+    });
+
+    // Hold then fly out upward and call proceedToCounterPending
+    this.time.delayedCall(HOLD_MS, () => {
+      this.tweens.add({
+        targets: con, y: cy - 80, alpha: 0,
+        duration: 220, ease: 'Quad.easeIn',
+        onComplete: () => {
+          con.destroy();
+          useGameStore.getState().proceedToCounterPending();
+        },
+      });
     });
   }
 

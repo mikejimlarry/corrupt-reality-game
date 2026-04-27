@@ -89,6 +89,19 @@ export interface GameState {
   /** When set, the next advanceTurn call routes to this player index (first turn after Corruption card). */
   postCorruptionTargetIndex: number | null;
   /**
+   * Non-null while the "INCOMING CONFLICT" Phaser animation is playing.
+   * The Phaser scene watches this, fires the animation, then calls proceedToCounterPending()
+   * which clears this and sets counterPending so the React overlay appears.
+   */
+  warIncomingReveal: {
+    attackerName: string;
+    cardName: string;
+    attackerIndex: number;
+    cardId: string;
+    targetIndex: number;
+    eligibleCounters: CounterCard[];
+  } | null;
+  /**
    * Non-null when an AI declared WAR on the human and they have a counter card in hand
    * — pauses the AI turn so the human can respond before the war roll.
    */
