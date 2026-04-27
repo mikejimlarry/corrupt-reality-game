@@ -156,6 +156,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => (
       {/* Close */}
       <button
         onClick={onClose}
+        className="crg-btn-cyan"
         style={{
           width: '100%',
           background: 'transparent',
@@ -166,14 +167,6 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => (
           padding: '0.5rem',
           cursor: 'pointer',
           transition: 'all 0.15s',
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.color = '#00ffcc';
-          (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc66';
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.color = '#446655';
-          (e.currentTarget as HTMLElement).style.borderColor = '#00ffcc33';
         }}
       >
         CLOSE

@@ -483,11 +483,12 @@ export const HelpModal: React.FC<Props> = ({ onClose }) => {
           </div>
           <button
             onClick={handleClose}
+            className="crg-btn-cyan"
             style={{
               background: 'transparent', border: '1px solid #00ffcc33',
               color: '#446655', fontFamily: 'monospace', fontSize: '0.8rem',
               cursor: 'pointer', padding: '0.25rem 0.6rem',
-              letterSpacing: 2,
+              letterSpacing: 2, transition: 'all 0.15s',
             }}
           >
             ✕ CLOSE
