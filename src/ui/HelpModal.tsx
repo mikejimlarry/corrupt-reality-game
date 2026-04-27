@@ -335,10 +335,92 @@ function TabOptions() {
   );
 }
 
+function TabInterface() {
+  return (
+    <div>
+      <Section title="OVERVIEW">
+        <P>The game board combines the Phaser canvas (animated game world) and the React HUD overlay (all interactive panels and buttons). Everything clickable lives in the HUD overlay.</P>
+      </Section>
+
+      <Section title="TOP LEFT — CONTROLS">
+        <Bullet><Highlight>? FIELD MANUAL</Highlight> — Opens this modal at any point during play.</Bullet>
+        <Bullet><Highlight>♫ / ♪</Highlight> — Toggles background music on or off.</Bullet>
+        <Bullet><Highlight>① / ②</Highlight> — Switches between the two music tracks. Only visible when music is on.</Bullet>
+      </Section>
+
+      <Section title="TOP RIGHT — SYSTEM">
+        <Bullet><Highlight>Ⅱ PAUSE / ▶ RESUME</Highlight> — Halts or resumes the game. AI turns do not advance while paused.</Bullet>
+        <Bullet><Highlight>✦</Highlight> — Toggles reduced-motion mode. Disables card animations, scanlines, and panel wipes.</Bullet>
+      </Section>
+
+      <Section title="TOP RIGHT — STATUS PANEL">
+        <P>Shows the current turn number, game phase, whose turn it is, and a mini scoreboard for all players.</P>
+        <Bullet>The <Highlight>▶</Highlight> dot marks the active player.</Bullet>
+        <Bullet>The bar next to each name represents cycles relative to the starting total.</Bullet>
+        <Bullet>Eliminated players appear struck-through and dimmed.</Bullet>
+      </Section>
+
+      <Section title="TOP RIGHT — PHASE PANELS">
+        <P>Additional panels appear below the scoreboard depending on the active game phase:</P>
+        <Bullet><Highlight>SELECT A TARGET</Highlight> (red, pulsing) — A target must be chosen from the board by clicking a highlighted player zone. <Highlight>✕ CANCEL</Highlight> aborts the card play (unavailable if the card is forced).</Bullet>
+        <Bullet><Highlight>⟳ MULTITHREADING</Highlight> — Appears after playing a Multithread card. Shows how many bonus plays remain. <Highlight>✓ DONE</Highlight> ends the turn early without using them.</Bullet>
+        <Bullet><Highlight>TURN COMPLETE</Highlight> — Brief flash before the turn auto-advances.</Bullet>
+      </Section>
+
+      <Section title="CENTRE — ACTION BUTTONS">
+        <P>Main action buttons anchor to the bottom-centre of the screen during your turn:</P>
+        <Bullet><Highlight>BEGIN SEQUENCE</Highlight> — Tap to roll dice and collect cycles (Stability Roll phase).</Bullet>
+        <Bullet><Highlight>DRAW CARD</Highlight> — Tap to draw up to your hand limit of 6 (Draw phase).</Bullet>
+        <Bullet><Highlight>PLAY</Highlight> — Activates the selected card. Some cards require choosing a target first.</Bullet>
+        <Bullet><Highlight>DISCARD</Highlight> — Removes the selected card from play with no effect and ends your turn.</Bullet>
+      </Section>
+
+      <Section title="YOUR HAND">
+        <P>Cards fan out along the bottom of the screen during your Main phase.</P>
+        <Bullet>Hover a card to lift and preview it. Click to select it — it rises and glows.</Bullet>
+        <Bullet>Click a selected card again to deselect it.</Bullet>
+        <Bullet>Cards that can't be played in the current situation appear dimmed or tinted red.</Bullet>
+        <Bullet>When <Highlight>The Corruption</Highlight> is in your opening hand it is auto-selected — you must play it before any other card.</Bullet>
+      </Section>
+
+      <Section title="BOTTOM RIGHT — SORT CONTROLS">
+        <P>Visible during gameplay. Cycle through sort modes with the mode button; reverse order with <Highlight>⇅</Highlight>.</P>
+        <Bullet><Highlight>DEF</Highlight> — Deal order (default).</Bullet>
+        <Bullet><Highlight>TYPE</Highlight> — Grouped by card category.</Bullet>
+        <Bullet><Highlight>VAL</Highlight> — Sorted by stat value, highest first.</Bullet>
+        <Bullet><Highlight>A–Z</Highlight> — Alphabetical by card name.</Bullet>
+        <Bullet>The <Highlight>⇅</Highlight> button reverses whichever mode is active. Both buttons light up when non-default.</Bullet>
+      </Section>
+
+      <Section title="BOTTOM LEFT — ACTIVITY LOG">
+        <P>The strip at the bottom-left previews the latest event. Click it to expand the full scrollable log — card plays, roll results, combat outcomes, and turn markers are all recorded here.</P>
+      </Section>
+
+      <Section title="BOARD — PLAYER INFO BOXES">
+        <P>Each player has an info box on the canvas showing their current state.</P>
+        <Bullet>The <Highlight>cycle bar</Highlight> fills left-to-right and animates when cycles change. A flash of green means a gain; red means a loss.</Bullet>
+        <Bullet>The large number on the right is the exact cycle total (shown as <Highlight>???</Highlight> in Hide Cycles mode).</Bullet>
+        <Bullet>Active <Highlight>daemon pills</Highlight> appear along the bottom of the box.</Bullet>
+        <Bullet>When targeting is required, valid boxes pulse with a red border and "CLICK TO TARGET" label. Click one to confirm.</Bullet>
+      </Section>
+
+      <Section title="POPUPS AND OVERLAYS">
+        <P>Full-screen overlays appear during reactive moments and require a response before play continues:</P>
+        <Bullet><Highlight>INCOMING WAR</Highlight> — An AI is declaring war on you. Play a counter card to block or boost, or take the hit.</Bullet>
+        <Bullet><Highlight>PRE-CONFLICT PREPARATION</Highlight> — Before dice roll, each combatant may play Firewall Surge (+1 to roll) or System Interrupt (cancel the conflict).</Bullet>
+        <Bullet><Highlight>CONFLICT DECLARATION</Highlight> — When you play a Warfare card, select two combatants. They each roll; the loser pays the cost.</Bullet>
+        <Bullet><Highlight>DAEMON EXTRACTION / WAR SPOILS</Highlight> — Choose which daemon to steal or destroy after a Backdoor or Total Siege victory.</Bullet>
+        <Bullet><Highlight>DEAD MAN'S SWITCH</Highlight> — Appears when an eliminated player may play one final card (if the option is enabled).</Bullet>
+      </Section>
+    </div>
+  );
+}
+
 // ── Main modal ────────────────────────────────────────────────────────────────
 
 const TABS = [
   { id: 'howtoplay', label: 'HOW TO PLAY' },
+  { id: 'interface', label: 'INTERFACE' },
   { id: 'cards',     label: 'CARDS' },
   { id: 'options',   label: 'OPTIONS' },
 ];
@@ -437,6 +519,7 @@ export const HelpModal: React.FC<Props> = ({ onClose }) => {
         {/* Scrollable content */}
         <div style={{ overflowY: 'auto', padding: '1.25rem', flex: 1 }}>
           {activeTab === 'howtoplay' && <TabHowToPlay />}
+          {activeTab === 'interface' && <TabInterface />}
           {activeTab === 'cards'     && <TabCards />}
           {activeTab === 'options'   && <TabOptions />}
         </div>
