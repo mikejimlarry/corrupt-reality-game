@@ -335,20 +335,30 @@ export const SetupScreen: React.FC = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: 300 }}>
 
         {/* Handle */}
-        <input
-          type="text"
-          placeholder="YOUR HANDLE"
-          value={name}
-          onChange={e => setName(e.target.value.toUpperCase())}
-          style={{
-            background: 'transparent',
-            border: 'none', borderBottom: '1px solid #00ffcc',
-            color: '#00ffcc', fontFamily: 'monospace',
-            fontSize: '0.9rem', padding: '0.5rem',
-            letterSpacing: 3, outline: 'none',
-            textTransform: 'uppercase',
-          }}
-        />
+        <style>{`@keyframes crg-blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }`}</style>
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          borderBottom: '1px solid #00ffcc',
+          padding: '0.5rem 0.5rem 0.5rem 0',
+        }}>
+          <span style={{ color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.9rem', marginRight: 4 }}>{'>'}</span>
+          <span style={{ color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.9rem', marginRight: 4, animation: 'crg-blink 1s step-end infinite' }}>_</span>
+          <input
+            type="text"
+            placeholder="YOUR HANDLE"
+            value={name}
+            onChange={e => setName(e.target.value.toUpperCase())}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              color: '#00ffcc', fontFamily: 'monospace',
+              fontSize: '0.9rem', padding: 0,
+              letterSpacing: 3, outline: 'none',
+              textTransform: 'uppercase',
+            }}
+          />
+        </div>
 
         {/* Number of AI agents */}
         <div>
