@@ -341,23 +341,40 @@ export const SetupScreen: React.FC = () => {
           borderBottom: '1px solid #00ffcc',
           padding: '0.5rem 0.5rem 0.5rem 0',
         }}>
-          <span style={{ color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.9rem', marginRight: 4 }}>{'>'}</span>
-          <span style={{ color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.9rem', marginRight: 4, animation: 'crg-blink 1s step-end infinite' }}>_</span>
-          <input
-            type="text"
-            placeholder="YOUR HANDLE"
-            value={name}
-            onChange={e => setName(e.target.value.toUpperCase())}
-            style={{
-              flex: 1,
-              background: 'transparent',
-              border: 'none',
-              color: '#00ffcc', fontFamily: 'monospace',
-              fontSize: '0.9rem', padding: 0,
-              letterSpacing: 3, outline: 'none',
-              textTransform: 'uppercase',
-            }}
-          />
+          <span style={{ color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.9rem', marginRight: 6 }}>{'>'}</span>
+          {/* Mirror + cursor: the invisible mirror span sizes itself to the typed text,
+              the blinking _ sits immediately after it, the real input overlays everything. */}
+          <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+            <span style={{
+              visibility: 'hidden', whiteSpace: 'pre',
+              fontFamily: 'monospace', fontSize: '0.9rem', letterSpacing: 3,
+              pointerEvents: 'none',
+            }}>{name}</span>
+            <span style={{
+              color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.9rem',
+              animation: 'crg-blink 1s step-end infinite', lineHeight: 1,
+              pointerEvents: 'none',
+            }}>_</span>
+            {name === '' && (
+              <span style={{
+                position: 'absolute', left: 0, pointerEvents: 'none',
+                fontFamily: 'monospace', fontSize: '0.9rem', letterSpacing: 3,
+                color: '#334455',
+              }}>YOUR HANDLE</span>
+            )}
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value.toUpperCase())}
+              style={{
+                position: 'absolute', inset: 0, width: '100%',
+                background: 'transparent', border: 'none', outline: 'none',
+                color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.9rem',
+                letterSpacing: 3, caretColor: 'transparent',
+                textTransform: 'uppercase', padding: 0,
+              }}
+            />
+          </div>
         </div>
 
         {/* Number of AI agents */}
