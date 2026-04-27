@@ -142,6 +142,10 @@ export function HUD() {
   const paused              = useGameStore(s => s.paused);
   const extraPlayPending         = useGameStore(s => s.extraPlayPending);
   const corruptionPendingTarget  = useGameStore(s => s.corruptionPendingTarget);
+  const anyOverlayActive         = useGameStore(s => !!(
+    s.warPickPending || s.warPrePending ||
+    s.daemonStealPending || s.warLootPending || s.deadMansSwitchPending
+  ));
   const gameStats                = useGameStore(s => s.gameStats);
   const startingPop              = useGameStore(s => s.startingPop);
   const hidePpCounts             = useGameStore(s => s.hidePpCounts);
@@ -533,7 +537,7 @@ export function HUD() {
       )}
 
       {/* ── MAIN phase — play / discard anchored to bottom-centre ── */}
-      {phase === 'MAIN' && isHuman && (
+      {phase === 'MAIN' && isHuman && !anyOverlayActive && (
         <div
           style={{
             position: 'fixed',
