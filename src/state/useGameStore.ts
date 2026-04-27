@@ -607,7 +607,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
 
 // ── Cyberpunk AI names & personalities ────────────────────────────────────────
 
-const AI_NAMES = ['Ghost', 'Cipher', 'Null.Byte', 'Phantom'];
+const AI_NAMES = ['GHOST', 'CIPHER', 'NULL.BYTE', 'PHANTOM'];
 const AI_PERSONALITIES: AIPersonality[] = ['AGGRESSIVE', 'CAUTIOUS', 'TACTICAL'];
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -625,7 +625,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const deck = generateDeck();
     const players: PlayerState[] = Array.from({ length: playerCount }, (_, i) => ({
       id: `player_${i}`,
-      name: i === 0 ? playerName : AI_NAMES[i] ?? `Agent ${i}`,
+      name: i === 0 ? playerName.toUpperCase() : AI_NAMES[i] ?? `AGENT ${i}`,
       isHuman: i === 0,
       personality: i === 0 ? undefined : AI_PERSONALITIES[(i - 1) % AI_PERSONALITIES.length],
       credits: startingPop,
