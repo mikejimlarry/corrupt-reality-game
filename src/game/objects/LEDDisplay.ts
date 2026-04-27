@@ -501,7 +501,8 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
         // Show total after a short beat (skipped in war mode — no meaningful sum)
         this.scene.time.delayedCall(180, () => {
-          if (!warMode) this.totalTxt.setText(`= ${total}`).setColor(finalHex);
+          const displayTotal = total + (daemonCount ?? 0);
+          if (!warMode) this.totalTxt.setText(`= ${displayTotal}`).setColor(finalHex);
           this.statusTxt.setText(statusLabel).setColor(finalHex);
 
           // ── Credit toast ───────────────────────────────────────────────
