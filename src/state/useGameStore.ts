@@ -1106,11 +1106,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       (card as PositiveEventCard).effect === 'EXTRA_PLAY';
 
     if (isExtraPlayCard && !winnerId) {
-      // Multitask — randomly grant 1 or 2 extra card plays
-      const extraCount = Math.floor(random() * 2) + 1;
+      // Multitask — always grants 2 extra plays; human may end early after 1
       set({
         players, discard, globalCorruptionMode,
-        extraPlayPending: extraCount,
+        extraPlayPending: 2,
         phase: 'MAIN',
         selectedCardId: null, pendingCardId: null, validTargetIds: [],
         deadMansSwitchPending: null,
@@ -1118,7 +1117,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingOverclockCard: state.pendingOverclockCard,
         gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: newDamageDealt },
       });
-      get().addLog(`${actor.name} activated Multitask — ${extraCount} extra play${extraCount > 1 ? 's' : ''} granted!`, 'effect');
+      get().addLog(`${actor.name} activated Multitask — 2 extra plays granted!`, 'effect');
       // AI immediately picks a valid extra card (no redraw)
       if (!isHuman) {
         scheduleAi(() => {
