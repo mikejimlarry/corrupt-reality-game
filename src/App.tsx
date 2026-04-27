@@ -13,6 +13,7 @@ import { CounterOpportunityOverlay } from './ui/CounterOpportunityOverlay';
 import { PauseOverlay } from './ui/PauseOverlay';
 import { GameOverScreen } from './ui/GameOverScreen';
 import { CardPreview } from './ui/CardPreview';
+import { UpdateBanner } from './ui/UpdateBanner';
 import { useGameAudio } from './hooks/useGameAudio';
 import { resumeAudio, stopMusic, sfxHover } from './lib/audio';
 import { trackEvent } from './lib/analytics';
@@ -148,6 +149,7 @@ function App() {
       <CounterOpportunityOverlay />
       <PauseOverlay />
       <CardPreview />
+      <UpdateBanner />
     </>
   );
 }

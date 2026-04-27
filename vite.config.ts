@@ -26,7 +26,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'icons/*.png', 'sfx/*.mp3', 'sfx/*.wav'],
       manifest: {
         name: 'Corrupt Reality',
