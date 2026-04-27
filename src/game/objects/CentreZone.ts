@@ -9,7 +9,8 @@ const H = 200;
 const PILE_W      = 80;
 const PILE_CARD_H = 112;   // card area height only
 const PILE_H      = 158;   // card area (112) + label zone (46)
-const ACCENT = 0x00ffcc;
+const ACCENT_NORMAL     = 0x00ffcc;
+const ACCENT_CORRUPTION = 0xff3355;
 const DPR = () => window.devicePixelRatio;
 
 // Local coords of the discard pile top-card rect
@@ -37,6 +38,18 @@ export class CentreZone extends Phaser.GameObjects.Container {
   private protocolLabel!: Phaser.GameObjects.Text;
   private corruptionContainer!: Phaser.GameObjects.Container;
 
+  // Accent color — switches to red in corruption mode
+  private accent = ACCENT_NORMAL;
+  private accentHex = '#00ffcc';
+
+  // Preserved state across rebuilds
+  private savedDrawCount   = 54;
+  private savedDiscardCount = 0;
+  private savedPhase       = 'STABILITY PHASE';
+  private savedTurn        = 1;
+  private savedDiscardTop: CardData | null = null;
+  private corruptionActive = false;
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
     this.build();
@@ -48,23 +61,24 @@ export class CentreZone extends Phaser.GameObjects.Container {
   }
 
   private build() {
+    const A    = this.accent;
+    const Ahex = this.accentHex;
+
     // ── Outer frame ──────────────────────────────────────────────────────────
     const frame = this.scene.add.graphics();
-    frame.lineStyle(1, ACCENT, 0.15);
+    frame.lineStyle(1, A, 0.15);
     frame.strokeRoundedRect(-W / 2, -H / 2, W, H, 10);
     this.add(frame);
 
     // ── Draw pile ─────────────────────────────────────────────────────────────
     this.buildPile(-W / 2 + 16, -PILE_H / 2, 'DRAW', true);
-    // Count label: 12px below card area bottom
     this.drawCountLabel = this.txt(-W / 2 + 16 + PILE_W / 2, DISCARD_Y + PILE_CARD_H + 12, '54', {
-      fontFamily: 'monospace', fontSize: '18px', color: '#00ffcc', fontStyle: 'bold',
+      fontFamily: 'monospace', fontSize: '18px', color: Ahex, fontStyle: 'bold',
     }).setOrigin(0.5, 0);
     this.add(this.drawCountLabel);
 
     // ── Discard pile ──────────────────────────────────────────────────────────
     this.buildPile(W / 2 - PILE_W - 16, -PILE_H / 2, 'DISCARD', false);
-    // Count label: 12px below card area bottom
     this.discardCountLabel = this.txt(W / 2 - PILE_W / 2 - 16, DISCARD_Y + PILE_CARD_H + 12, '0', {
       fontFamily: 'monospace', fontSize: '18px', color: '#334455', fontStyle: 'bold',
     }).setOrigin(0.5, 0);
@@ -75,7 +89,7 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
     // ── Phase / turn labels ───────────────────────────────────────────────────
     this.phaseLabel = this.txt(0, -H / 2 + 10, 'STABILITY PHASE', {
-      fontFamily: 'monospace', fontSize: '8px', color: '#00ffcc', letterSpacing: 3,
+      fontFamily: 'monospace', fontSize: '8px', color: Ahex, letterSpacing: 3,
     }).setOrigin(0.5);
     this.add(this.phaseLabel);
 
@@ -86,7 +100,9 @@ export class CentreZone extends Phaser.GameObjects.Container {
   }
 
   private buildPile(x: number, y: number, label: string, isDraw: boolean) {
-    const accent = isDraw ? ACCENT : 0x334455;
+    const A    = this.accent;
+    const Ahex = this.accentHex;
+    const accent = isDraw ? A : 0x334455;
 
     const g = this.scene.add.graphics();
 
@@ -102,13 +118,12 @@ export class CentreZone extends Phaser.GameObjects.Container {
     if (isDraw) {
       const cx = x + PILE_W / 2;
       const cy = y + PILE_CARD_H / 2;
-      g.lineStyle(0.5, ACCENT, 0.25);
-      // Simple diamond
+      g.lineStyle(0.5, A, 0.25);
       g.beginPath();
       g.moveTo(cx, cy - 18); g.lineTo(cx + 14, cy);
       g.lineTo(cx, cy + 18); g.lineTo(cx - 14, cy);
       g.closePath(); g.strokePath();
-      g.fillStyle(ACCENT, 0.08);
+      g.fillStyle(A, 0.08);
       g.beginPath();
       g.moveTo(cx, cy - 18); g.lineTo(cx + 14, cy);
       g.lineTo(cx, cy + 18); g.lineTo(cx - 14, cy);
@@ -117,27 +132,27 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
     this.add(g);
 
-    // "DRAW" / "DISCARD" label — sits just above the pile
     const lbl = this.txt(x + PILE_W / 2, y - 6, label, {
       fontFamily: 'monospace', fontSize: '7px',
-      color: isDraw ? '#00ffcc' : '#334455', letterSpacing: 3,
+      color: isDraw ? Ahex : '#334455', letterSpacing: 3,
     }).setOrigin(0.5, 1);
     this.add(lbl);
   }
 
   private buildProtocolZone() {
+    const A = this.accent;
     const zW = 140, zH = 110;
     const g = this.scene.add.graphics();
 
     // Background
     g.fillStyle(0x060610, 1);
     g.fillRoundedRect(-zW / 2, -zH / 2, zW, zH, 8);
-    g.lineStyle(1, ACCENT, 0.2);
+    g.lineStyle(1, A, 0.2);
     g.strokeRoundedRect(-zW / 2, -zH / 2, zW, zH, 8);
 
     // Corner ticks
     const tick = 12;
-    g.lineStyle(1.5, ACCENT, 0.6);
+    g.lineStyle(1.5, A, 0.6);
     [[-zW/2, -zH/2], [zW/2, -zH/2], [-zW/2, zH/2], [zW/2, zH/2]].forEach(([cx, cy], i) => {
       const sx = cx === -zW/2 ? 1 : -1;
       const sy = cy === -zH/2 ? 1 : -1;
@@ -148,24 +163,25 @@ export class CentreZone extends Phaser.GameObjects.Container {
     });
 
     // Central diamond
-    g.lineStyle(1, ACCENT, 0.4);
+    g.lineStyle(1, A, 0.4);
     g.beginPath();
     g.moveTo(0, -22); g.lineTo(18, 0); g.lineTo(0, 22); g.lineTo(-18, 0);
     g.closePath(); g.strokePath();
 
     // Inner dot
-    g.fillStyle(ACCENT, 0.6);
+    g.fillStyle(A, 0.6);
     g.fillCircle(0, 0, 3);
 
     this.add(g);
 
-    // "ACTIVE PROTOCOL" label — hidden when corruption is active
+    // "ACTIVE PROTOCOL" label
     this.protocolLabel = this.txt(0, zH / 2 - 14, 'ACTIVE PROTOCOL', {
       fontFamily: 'monospace', fontSize: '6px', color: '#00ffcc44', letterSpacing: 3,
     }).setOrigin(0.5);
+    this.protocolLabel.setVisible(!this.corruptionActive);
     this.add(this.protocolLabel);
 
-    // Corruption alert — replaces the label when globalCorruptionMode is active
+    // Corruption alert
     this.corruptionContainer = this.scene.add.container(0, zH / 2 - 28);
     const alertLine = this.txt(0, 0, '⚠  SYSTEM ALERT  ⚠', {
       fontFamily: 'monospace', fontSize: '6px', color: '#ff1e3c', letterSpacing: 3,
@@ -178,12 +194,12 @@ export class CentreZone extends Phaser.GameObjects.Container {
       fontFamily: 'monospace', fontSize: '5px', color: '#ff1e3c66', letterSpacing: 1,
     }).setOrigin(0.5);
     this.corruptionContainer.add([alertLine, corruptLine, subLine]);
-    this.corruptionContainer.setVisible(false);
+    this.corruptionContainer.setVisible(this.corruptionActive);
     this.add(this.corruptionContainer);
 
     // Pulse animation on the centre dot
-    const dot = this.scene.add.circle(0, 0, 8, ACCENT, 0);
-    dot.setStrokeStyle(1, ACCENT, 0.3);
+    const dot = this.scene.add.circle(0, 0, 8, A, 0);
+    dot.setStrokeStyle(1, A, 0.3);
     this.scene.tweens.add({
       targets: dot, scaleX: 2.5, scaleY: 2.5, alpha: { from: 0.3, to: 0 },
       duration: 1800, repeat: -1, ease: 'Quad.easeOut',
@@ -191,31 +207,52 @@ export class CentreZone extends Phaser.GameObjects.Container {
     this.add(dot);
   }
 
+  // ── Rebuild all children with the current accent color ────────────────────
+  private rebuild() {
+    this.discardFaceContainer = undefined;
+    this.removeAll(true);
+    this.build();
+    this.setDrawCount(this.savedDrawCount);
+    this.setDiscardCount(this.savedDiscardCount);
+    this.setPhase(this.savedPhase);
+    this.setTurn(this.savedTurn);
+    if (this.savedDiscardTop) this.setDiscardTop(this.savedDiscardTop);
+  }
+
+  // ── Public API ─────────────────────────────────────────────────────────────
+
   setDrawCount(n: number) {
+    this.savedDrawCount = n;
     this.drawCountLabel.setText(`${n}`);
-    this.drawCountLabel.setColor(n > 0 ? '#00ffcc' : '#334455');
+    this.drawCountLabel.setColor(n > 0 ? this.accentHex : '#334455');
   }
 
   setDiscardCount(n: number) {
+    this.savedDiscardCount = n;
     this.discardCountLabel.setText(`${n}`);
   }
 
   setPhase(phase: string) {
+    this.savedPhase = phase;
     this.phaseLabel.setText(phase);
   }
 
   setTurn(turn: number) {
+    this.savedTurn = turn;
     this.turnLabel.setText(`TURN ${turn}`);
   }
 
   setCorruption(active: boolean) {
-    this.protocolLabel.setVisible(!active);
-    this.corruptionContainer.setVisible(active);
+    if (this.corruptionActive === active) return;
+    this.corruptionActive = active;
+    this.accent   = active ? ACCENT_CORRUPTION : ACCENT_NORMAL;
+    this.accentHex = active ? '#ff3355' : '#00ffcc';
+    this.rebuild();
   }
 
   /** Show the top card of the discard pile face-up on the pile. Pass null to clear. */
   setDiscardTop(card: CardData | null) {
-    // Remove previous face-up card
+    this.savedDiscardTop = card;
     this.discardFaceContainer?.destroy();
     this.discardFaceContainer = undefined;
     if (!card) return;

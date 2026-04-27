@@ -402,7 +402,7 @@ export function HUD() {
             TURN {turnNumber} · {phase}
           </div>
           <div style={{ fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold', marginBottom: 10 }}>
-            {isHuman ? '▶ YOUR TURN' : `⏳ ${currentPlayer?.name ?? '...'}`}
+            {isHuman ? '▶ YOUR TURN' : `◌ ${currentPlayer?.name ?? '...'}`}
           </div>
 
           {/* Mini scoreboard */}

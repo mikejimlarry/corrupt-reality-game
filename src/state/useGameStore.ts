@@ -554,6 +554,7 @@ interface GameStore extends GameState {
   triggerRoll(): void;
   rollComplete(): void;
   corruptionRevealComplete(): void;
+  powerCycleRevealComplete(): void;
   runAiTurn(): void;
 }
 
@@ -590,6 +591,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   warPickPending: null,
   warPrePending: null,
   pendingOverclockCard: null,
+  powerCycleReveal: null,
   warIncomingReveal: null,
   counterPending: null,
   paused: false,
@@ -998,6 +1000,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           recordSaved: winnerId ? true : state.recordSaved,
           phase: winnerId ? 'GAME_OVER' : (actor.isHuman ? 'END_TURN' : 'MAIN'),
           selectedCardId: null, pendingCardId: null, validTargetIds: [],
+          powerCycleReveal: { targetName: target.name },
           gameStats: {
             cardsPlayed: newCardsPlayed,
             eliminationOrder: winnerId ? elim0.eliminationOrder : prevStats.eliminationOrder,
@@ -1792,6 +1795,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ corruptionReveal: false });
     }
   },
+
+  powerCycleRevealComplete: () => { set({ powerCycleReveal: null }); },
 
   rollComplete: () => {
     const state = get();

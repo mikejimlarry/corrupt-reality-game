@@ -89,6 +89,10 @@ export interface GameState {
   /** When set, the next advanceTurn call routes to this player index (first turn after Corruption card). */
   postCorruptionTargetIndex: number | null;
   /**
+   * Non-null while the Power Cycle animation is playing — cleared by powerCycleRevealComplete().
+   */
+  powerCycleReveal: { targetName: string } | null;
+  /**
    * Non-null while the "INCOMING CONFLICT" Phaser animation is playing.
    * The Phaser scene watches this, fires the animation, then calls proceedToCounterPending()
    * which clears this and sets counterPending so the React overlay appears.

@@ -8,7 +8,7 @@ import { LEDDisplay } from '../objects/LEDDisplay';
 import { DaemonBoard } from '../objects/DaemonBoard';
 import { useGameStore, mustPlayCorruptionFirst } from '../../state/useGameStore';
 import type { HandSortMode } from '../../state/useGameStore';
-import { sfxCorruptionReveal, sfxWarIncoming } from '../../lib/audio';
+import { sfxCorruptionReveal, sfxWarIncoming, sfxLoss } from '../../lib/audio';
 import type { Card as CardData } from '../../types/cards';
 import type { PlayerState } from '../../types/gameState';
 
@@ -184,6 +184,7 @@ export class GameScene extends Phaser.Scene {
     );
     let prevPendingOverclockCard: import('../../types/cards').Card | null = null;
     let prevWarRollDisplay: import('../../types/gameState').GameState['warRollDisplay'] = null;
+    let prevPowerCycleReveal: import('../../types/gameState').GameState['powerCycleReveal'] = null;
     let prevWarIncomingReveal: import('../../types/gameState').GameState['warIncomingReveal'] = null;
     let prevHandSortMode = useGameStore.getState().handSortMode;
     let prevHandSortReverse = useGameStore.getState().handSortReverse;
@@ -465,6 +466,13 @@ export class GameScene extends Phaser.Scene {
         });
       }
       if (!state.warRollDisplay) prevWarRollDisplay = null;
+
+      // ── Power Cycle animation ─────────────────────────────────────────────
+      if (state.powerCycleReveal && !prevPowerCycleReveal) {
+        prevPowerCycleReveal = state.powerCycleReveal;
+        this.showPowerCycleAnimation(state.powerCycleReveal.targetName, w, h);
+      }
+      if (!state.powerCycleReveal) prevPowerCycleReveal = null;
 
       // ── Incoming war animation — fires before the counter overlay appears ──
       if (state.warIncomingReveal && !prevWarIncomingReveal) {
@@ -1452,6 +1460,115 @@ export class GameScene extends Phaser.Scene {
           });
         });
       },
+    });
+  }
+
+  // ── Power Cycle animation — full-screen reboot sequence ─────────────────────
+  private showPowerCycleAnimation(targetName: string, width: number, height: number) {
+    sfxLoss();
+    const dpr  = window.devicePixelRatio;
+    const cx   = width / 2;
+    const cy   = height / 2;
+    const HOLD = 1800;
+
+    // ── White power-surge flash ───────────────────────────────────────────────
+    const surge = this.add.rectangle(cx, cy, width, height, 0xffffff, 0.55);
+    surge.setDepth(290);
+    this.tweens.add({
+      targets: surge, alpha: 0,
+      duration: 500, ease: 'Quad.easeOut',
+      onComplete: () => surge.destroy(),
+    });
+
+    // ── Thick scanline wipes from top to bottom ───────────────────────────────
+    const SH = height * 0.12;
+    const scan = this.add.rectangle(cx, -SH / 2, width, SH, 0x000000, 0.92);
+    scan.setDepth(291);
+    this.tweens.add({
+      targets: scan, y: height + SH / 2,
+      duration: 520, ease: 'Quad.easeIn',
+      onComplete: () => scan.destroy(),
+    });
+
+    // ── Centre reboot panel ───────────────────────────────────────────────────
+    const con = this.add.container(cx, cy - 40).setDepth(295).setAlpha(0);
+
+    const BW = 400, BH = 130;
+    const bg = this.add.graphics();
+    bg.fillStyle(0x020508, 0.98);
+    bg.fillRoundedRect(-BW / 2, -BH / 2, BW, BH, 6);
+    bg.lineStyle(2, 0x00ffcc, 0.7);
+    bg.strokeRoundedRect(-BW / 2, -BH / 2, BW, BH, 6);
+    bg.fillStyle(0x00ffcc, 0.12);
+    bg.fillRoundedRect(-BW / 2, -BH / 2, BW, 14, { tl: 6, tr: 6, bl: 0, br: 0 });
+    con.add(bg);
+
+    con.add(this.add.text(0, -BH / 2 + 8, 'HACK PROTOCOL  ·  LEGENDARY', {
+      fontFamily: 'monospace', fontSize: '7px', color: '#00ffcc88',
+      letterSpacing: 4, resolution: dpr,
+    }).setOrigin(0.5));
+
+    const titleText = this.add.text(0, -18, 'POWER CYCLE', {
+      fontFamily: 'monospace', fontSize: '26px', color: '#00ffcc',
+      fontStyle: 'bold', resolution: dpr,
+    }).setOrigin(0.5);
+    con.add(titleText);
+
+    con.add(this.add.text(0, 20, `${targetName.toUpperCase()} SYSTEM REBOOTING`, {
+      fontFamily: 'monospace', fontSize: '9px', color: '#00ffcc88',
+      letterSpacing: 3, resolution: dpr,
+    }).setOrigin(0.5));
+
+    // Progress bar
+    const barW = BW - 60;
+    const barBg = this.add.graphics();
+    barBg.fillStyle(0x00ffcc, 0.12);
+    barBg.fillRect(-barW / 2, 42, barW, 6);
+    con.add(barBg);
+
+    const barFill = this.add.graphics();
+    barFill.fillStyle(0x00ffcc, 0.8);
+    barFill.fillRect(-barW / 2, 42, 0, 6);
+    con.add(barFill);
+
+    // Animate bar fill over HOLD duration
+    let barProgress = 0;
+    const barTimer = this.time.addEvent({
+      delay: 16, repeat: Math.floor(HOLD / 16),
+      callback: () => {
+        barProgress = Math.min(1, barProgress + 16 / HOLD);
+        barFill.clear();
+        barFill.fillStyle(0x00ffcc, 0.8);
+        barFill.fillRect(-barW / 2, 42, barW * barProgress, 6);
+      },
+    });
+
+    // Slam panel in
+    con.y = cy - 80;
+    this.tweens.add({
+      targets: con, y: cy - 40, alpha: 1,
+      duration: 220, ease: 'Back.easeOut',
+    });
+
+    // Strobe title during hold
+    this.tweens.add({
+      targets: titleText,
+      alpha: { from: 1, to: 0.2 },
+      duration: 180, repeat: 3, yoyo: true,
+      ease: 'Stepped',
+    });
+
+    // Hold then fly out and clear state
+    this.time.delayedCall(HOLD, () => {
+      barTimer.remove(false);
+      this.tweens.add({
+        targets: con, y: cy + 60, alpha: 0,
+        duration: 260, ease: 'Quad.easeIn',
+        onComplete: () => {
+          con.destroy();
+          useGameStore.getState().powerCycleRevealComplete();
+        },
+      });
     });
   }
 
