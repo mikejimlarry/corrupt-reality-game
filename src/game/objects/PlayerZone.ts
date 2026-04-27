@@ -160,33 +160,36 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     const p = this.player;
     const accent = p.isHuman ? HUMAN_COLOR : AI_COLOR;
     const accentHex = p.isHuman ? '#00ffcc' : '#ff3366';
-    const left = -W / 2, top = -H / 2;
+    const top = -H / 2;
     const barY = top + 42;
     const barH = 8;
     const impY = barY + barH + 22;
 
     if (daemons.length > 0) {
+      const PILL_W = 70, PILL_GAP = 6;
+      const rowWidth = daemons.length * PILL_W + (daemons.length - 1) * PILL_GAP;
+      const startX = -rowWidth / 2;
       daemons.forEach((imp, i) => {
         const label = IMP_LABEL[imp] ?? imp;
         const pill = this.scene.add.graphics();
-        const pillX = left + PAD + i * 76;
+        const pillX = startX + i * (PILL_W + PILL_GAP);
         pill.fillStyle(accent, 0.12);
-        pill.fillRoundedRect(pillX, impY, 70, 16, 3);
+        pill.fillRoundedRect(pillX, impY, PILL_W, 16, 3);
         pill.lineStyle(0.5, accent, 0.5);
-        pill.strokeRoundedRect(pillX, impY, 70, 16, 3);
+        pill.strokeRoundedRect(pillX, impY, PILL_W, 16, 3);
         this.add(pill);
         this.daemonItems.push(pill);
 
-        const impText = this.txt(pillX + 35, impY + 8, label, {
+        const impText = this.txt(pillX + PILL_W / 2, impY + 8, label, {
           fontFamily: 'monospace', fontSize: '6px', color: accentHex,
         }).setOrigin(0.5);
         this.add(impText);
         this.daemonItems.push(impText);
       });
     } else {
-      const noImp = this.txt(left + PAD, impY + 8, 'NO DAEMONS', {
+      const noImp = this.txt(0, impY + 8, 'NO DAEMONS', {
         fontFamily: 'monospace', fontSize: '6px', color: '#223344', letterSpacing: 2,
-      }).setOrigin(0, 0.5);
+      }).setOrigin(0.5);
       this.add(noImp);
       this.daemonItems.push(noImp);
     }
