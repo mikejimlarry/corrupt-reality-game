@@ -53,8 +53,10 @@ export class Card extends Phaser.GameObjects.Container {
   private isSelected     = false;
   private isDealt        = false;
   private isInapplicable = false;
+  private isDiscardOnly  = false;
   private restX      = 0;
   private restY      = 0;
+  private restAngle  = 0;
   private restScale  = 1;   // set from whatever scale was applied before dealIn
   private restDepth  = 0;
   private selectionGlow!: Phaser.GameObjects.Graphics;
@@ -293,9 +295,10 @@ export class Card extends Phaser.GameObjects.Container {
   }
 
   /** Update the rest position so subsequent tweens (hover, inapplicable) land correctly. */
-  updateRestPosition(x: number, y: number) {
+  updateRestPosition(x: number, y: number, angle?: number) {
     this.restX = x;
     this.restY = y;
+    if (angle !== undefined) this.restAngle = angle;
   }
 
   /** Update the rest-Y so hover lift/restore uses the correct target after a reposition tween. */
@@ -335,6 +338,7 @@ export class Card extends Phaser.GameObjects.Container {
       this.scene.tweens.add({
         targets: this,
         x: this.restX, y: this.restY,
+        angle: this.restAngle,
         alpha: 0.85,
         scaleX: this.restScale * 0.9,
         scaleY: this.restScale * 0.9,
@@ -344,12 +348,27 @@ export class Card extends Phaser.GameObjects.Container {
       this.scene.tweens.add({
         targets: this,
         x: this.restX, y: this.restY,
+        angle: this.restAngle,
         alpha: 1,
         scaleX: this.restScale,
         scaleY: this.restScale,
         duration: 200, ease: 'Quad.easeOut',
       });
     }
+  }
+
+  /**
+   * Mark this card as discard-only (e.g. a daemon already installed).
+   * Dims the card to signal it can't be played, but hover and click still work
+   * so the player can select it and discard it.
+   */
+  setDiscardOnly(v: boolean) {
+    if (this.isDiscardOnly === v) return;
+    this.isDiscardOnly = v;
+    this.scene.tweens.add({
+      targets: this, alpha: v ? 0.5 : 1,
+      duration: 200, ease: 'Sine.easeInOut',
+    });
   }
 
   /** Apply or remove the corruption visual variant. */
@@ -701,8 +720,9 @@ export class Card extends Phaser.GameObjects.Container {
   dealIn(fromX: number, fromY: number, delay = 0, targetAlpha = 1, onComplete?: () => void) {
     const targetX = this.x;
     const targetY = this.y;
-    // Capture whatever scale was set externally (e.g. 1.25 for human cards)
+    // Capture whatever scale/angle was set externally (e.g. 1.25 scale, fan angle)
     this.restScale = this.scaleX;
+    this.restAngle = this.angle;
     this.restX = targetX;
     this.restY = targetY;
     this.setPosition(fromX, fromY).setAlpha(0).setScale(this.restScale * 0.5);

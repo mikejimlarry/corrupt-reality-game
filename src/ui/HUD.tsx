@@ -236,6 +236,10 @@ export function HUD() {
   const corruptionFirstActive = isHuman && !!humanPlayer && mustPlayCorruptionFirst(humanPlayer, gameStats);
   const isForced = (selectedCard as any)?.effect === 'CORRUPTION' || corruptionPendingTarget || corruptionFirstActive;
 
+  // Already-installed daemon — can discard but not play
+  const isDiscardOnly = selectedCard?.category === 'DAEMON' &&
+    !!humanPlayer?.daemons.includes((selectedCard as any).daemonType);
+
   const handleMusicToggle = () => {
     const next = !musicOn;
     setMusicOn(next);
@@ -574,18 +578,20 @@ export function HUD() {
                 {selectedCard.name.toUpperCase()}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  className={corruption ? 'corruption-pulse' : 'hud-pulse'}
-                  style={{
-                    ...primaryBtnStyle,
-                    width: isMobile ? 120 : 100,
-                    fontSize: isMobile ? 14 : 12,
-                    minHeight: 48,
-                  }}
-                  onClick={() => { sfxCardPlay(); playCard(selectedCard.id); }}
-                >
-                  PLAY
-                </button>
+                {!isDiscardOnly && (
+                  <button
+                    className={corruption ? 'corruption-pulse' : 'hud-pulse'}
+                    style={{
+                      ...primaryBtnStyle,
+                      width: isMobile ? 120 : 100,
+                      fontSize: isMobile ? 14 : 12,
+                      minHeight: 48,
+                    }}
+                    onClick={() => { sfxCardPlay(); playCard(selectedCard.id); }}
+                  >
+                    PLAY
+                  </button>
+                )}
                 {!isForced && extraPlayPending === 0 && (
                   <button
                     style={{

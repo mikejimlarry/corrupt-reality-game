@@ -643,8 +643,8 @@ export class GameScene extends Phaser.Scene {
     const isHumanTurn = players[currentPlayerIndex]?.isHuman;
 
     if (phase !== 'MAIN' || !isHumanTurn) {
-      // Outside human MAIN phase — lift all inapplicability so the hand resets cleanly
-      this.humanCardObjects.forEach(c => c.setInapplicable(false));
+      // Outside human MAIN phase — reset all card states cleanly
+      this.humanCardObjects.forEach(c => { c.setInapplicable(false); c.setDiscardOnly(false); });
       return;
     }
 
@@ -667,21 +667,27 @@ export class GameScene extends Phaser.Scene {
 
     this.humanCardObjects.forEach(card => {
       const d = card.cardData;
-      let bad = false;
 
+      // Daemon already installed — selectable for discard but not playable
+      if (!corruptionFirst && d.category === 'DAEMON') {
+        const dt = (d as import('../../types/cards').DaemonCard).daemonType;
+        if (dt && human.daemons.includes(dt)) {
+          card.setInapplicable(false);
+          card.setDiscardOnly(true);
+          return;
+        }
+      }
+
+      card.setDiscardOnly(false);
+
+      let bad = false;
       if (corruptionFirst) {
-        // Every card except The Corruption itself is blocked
         const isCorruption = d.category === 'EVENT_NEGATIVE' &&
           (d as import('../../types/cards').NegativeEventCard).effect === 'CORRUPTION';
         bad = !isCorruption;
       } else {
         // COUNTER cards are reactive (WAR only) — never playable from hand
         if (d.category === 'COUNTER') bad = true;
-        // Daemon already installed
-        if (d.category === 'DAEMON') {
-          const dt = (d as import('../../types/cards').DaemonCard).daemonType;
-          if (dt && human.daemons.includes(dt)) bad = true;
-        }
       }
 
       card.setInapplicable(bad);
@@ -804,7 +810,7 @@ export class GameScene extends Phaser.Scene {
         // clearSelectionState() intentionally does NOT kill tweens so the reposition
         // tween below is not cancelled by a simultaneous selectedCardId → null change.
         existing.clearSelectionState();
-        existing.updateRestPosition(targetX, targetY);
+        existing.updateRestPosition(targetX, targetY, targetAngle);
         existing.setDepth(targetDepth);
         this.tweens.killTweensOf(existing);
         this.tweens.add({
