@@ -1,5 +1,14 @@
 // src/ui/SetupScreen.tsx
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+
+function useHover() {
+  const [hovered, setHovered] = useState(false);
+  return {
+    hovered,
+    onMouseEnter: useCallback(() => setHovered(true),  []),
+    onMouseLeave: useCallback(() => setHovered(false), []),
+  };
+}
 import { useGameStore } from '../state/useGameStore';
 import { HelpModal } from './HelpModal';
 import { AboutModal } from './AboutModal';
@@ -27,6 +36,7 @@ function SegmentButton({
   return (
     <button
       onClick={onClick}
+      className="crg-btn-cyan"
       style={{
         flex: 1, padding: '0.4rem',
         background: active ? '#00ffcc22' : 'transparent',
@@ -196,6 +206,7 @@ export const SetupScreen: React.FC = () => {
   const reducedMotion    = useGameStore(s => s.reducedMotion);
   const setReducedMotion = useGameStore(s => s.setReducedMotion);
   const prevCredits = useRef(startingPop);
+  const hConnect = useHover();
 
   const [showHelp, setShowHelp]       = useState(false);
   const [showAbout, setShowAbout]     = useState(false);
@@ -391,15 +402,19 @@ export const SetupScreen: React.FC = () => {
         {/* Start */}
         <button
           onClick={handleStart}
+          onMouseEnter={hConnect.onMouseEnter}
+          onMouseLeave={hConnect.onMouseLeave}
           style={{
             padding: '0.75rem',
-            background: '#00ffcc11',
+            background: hConnect.hovered ? '#00ffcc22' : '#00ffcc11',
             border: '1px solid #00ffcc',
             color: '#00ffcc',
             fontFamily: 'monospace',
             fontSize: '1rem',
             letterSpacing: 4,
             cursor: 'pointer',
+            boxShadow: hConnect.hovered ? '0 0 18px #00ffcc33' : 'none',
+            transition: 'all 0.15s',
           }}
         >
           CONNECT →
