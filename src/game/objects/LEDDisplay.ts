@@ -17,7 +17,6 @@ const DIGIT_CY      = DIGIT_TOP_Y + DIGIT_H / 2;          // vertical centre of 
 const BELOW_DIGITS  = DIGIT_TOP_Y + DIGIT_H + 10;         // first row below digits
 const SCREEN_BOTTOM = DIGIT_TOP_Y + DIGIT_H + 16;         // bottom edge of screen recess rect
 const NAME_Y        = SCREEN_BOTTOM + 12;                  // war: player name labels (clear of border)
-const BONUS_Y       = SCREEN_BOTTOM + 24;                  // war: tactical modifier labels
 
 const COLOR_DIM         = 0x001508;
 const COLOR_GREEN       = 0x00ff55;

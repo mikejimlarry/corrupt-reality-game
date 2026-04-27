@@ -357,7 +357,7 @@ export class Card extends Phaser.GameObjects.Container {
     if (v && !this.corruptLayer) {
       const con = this.scene.add.container(0, 0);
       this.add(con);
-      this.corruptLayer = con as unknown as Phaser.GameObjects.Graphics;
+      this.corruptLayer = con;
 
       // Offset red border — slightly inside the normal border
       const borderGfx = this.scene.add.graphics();

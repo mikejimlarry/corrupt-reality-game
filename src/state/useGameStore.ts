@@ -553,7 +553,7 @@ interface GameStore extends GameState {
 
 // ── Default state ──────────────────────────────────────────────────────────────
 
-const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[]; corruptionReveal: boolean; corruptionPendingTarget: boolean } = {
+const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[]; corruptionReveal: boolean; corruptionPendingTarget: boolean; eliminationOrder: string[]; recordSaved: boolean } = {
   phase: 'SETUP',
   players: [],
   deck: [],
