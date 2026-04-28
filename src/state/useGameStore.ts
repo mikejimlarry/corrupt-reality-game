@@ -376,17 +376,33 @@ function pickAiCard(
         ?? ai.hand.find(c => c.category === 'EVENT_NEGATIVE')
         ?? nonCounterHand[0] ?? ai.hand[0];
     }
-    case 'CAUTIOUS':
+    case 'CAUTIOUS': {
+      // Self near-death: shift from building to stealing/attacking
+      if (ai.credits <= startingPop * 0.3) {
+        return ai.hand.find(c => c.category === 'EVENT_NEGATIVE')
+          ?? ai.hand.find(c => c.category === 'WAR')
+          ?? ai.hand.find(c => c.category === 'CREDITS')
+          ?? nonCounterHand[0] ?? ai.hand[0];
+      }
       return ai.hand.find(c => c.category === 'DAEMON')
         ?? ai.hand.find(c => c.category === 'CREDITS')
         ?? nonCounterHand[0] ?? ai.hand[0];
+    }
     case 'TACTICAL': {
+      // Opponents close enough to finish off
+      const nearDeathOpponents = liveOpponents.filter(p => p.credits <= startingPop * 0.25);
+      // Richest daemon stash available to steal
+      const maxOpponentDaemons = liveOpponents.reduce((m, p) => Math.max(m, p.daemons.length), 0);
+
       const score = (c: Card): number => {
         if (c.category === 'WAR') return (c as WarCard).loserLoses;
         if (c.category === 'EVENT_NEGATIVE') {
           const neg = c as NegativeEventCard;
           if (neg.effect === 'POWER_CYCLE') return powerCycleScore;
-          return neg.amount + 5;
+          if (neg.effect === 'STEAL_DAEMON') return maxOpponentDaemons >= 2 ? 20 : maxOpponentDaemons === 1 ? 10 : 0;
+          // Finisher bonus: this card can eliminate a near-death opponent
+          const canFinish = nearDeathOpponents.some(p => p.credits <= neg.amount);
+          return neg.amount + 5 + (canFinish ? 25 : 0);
         }
         if (c.category === 'EVENT_POSITIVE') {
           const pos = c as PositiveEventCard;
@@ -432,6 +448,56 @@ function pickAiCard(
     default:
       return anyCard;
   }
+}
+
+// Returns the best target index for an AI card play, or undefined for non-targeting cards.
+function pickAiTarget(
+  ai: PlayerState,
+  allPlayers: PlayerState[],
+  actorIndex: number,
+  card: Card,
+  startingPop: number,
+): number | undefined {
+  if (card.category === 'CREDITS' || card.category === 'DAEMON' || card.category === 'COUNTER') return undefined;
+  if (card.category === 'EVENT_POSITIVE') return undefined; // self-target or all-opponents
+  if (card.category === 'EVENT_NEGATIVE' && !(card as NegativeEventCard).targetsOther) return undefined;
+
+  const liveOpponents = allPlayers
+    .map((p, i) => ({ p, i }))
+    .filter(({ p, i }) => i !== actorIndex && !p.eliminated);
+
+  if (liveOpponents.length === 0) return undefined;
+  if (liveOpponents.length === 1) return liveOpponents[0].i;
+
+  const eliminationFloor = startingPop * 0.25;
+  const cardDamage = card.category === 'EVENT_NEGATIVE' ? ((card as NegativeEventCard).amount ?? 0) : 0;
+
+  // Daemon-steal: prefer target with the most daemons
+  if (card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).effect === 'STEAL_DAEMON') {
+    const withDaemons = [...liveOpponents]
+      .filter(({ p }) => p.daemons.length > 0)
+      .sort((a, b) => b.p.daemons.length - a.p.daemons.length);
+    if (withDaemons.length > 0) return withDaemons[0].i;
+  }
+
+  const threatScore = (p: PlayerState): number => {
+    const base = p.credits + p.daemons.length * 12;
+    // Finishing blow: card eliminates this target — strongly prefer
+    if (cardDamage > 0 && p.credits <= cardDamage) return base + 40;
+    // Near-death but not finishable: waste of a targeted card, deprioritise
+    if (p.credits <= eliminationFloor) return base - 60;
+    return base;
+  };
+
+  // MUTUAL_DAMAGE: prefer targets richer than the AI so the AI gains relative ground
+  if (card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).effect === 'MUTUAL_DAMAGE') {
+    const richerPool = liveOpponents.filter(({ p }) => p.credits > ai.credits);
+    const pool = richerPool.length > 0 ? richerPool : liveOpponents;
+    return [...pool].sort((a, b) => threatScore(b.p) - threatScore(a.p))[0].i;
+  }
+
+  // Default: highest threat (richest + most daemons, table leader first)
+  return [...liveOpponents].sort((a, b) => threatScore(b.p) - threatScore(a.p))[0].i;
 }
 
 function cardLogText(card: Card, actorName: string, lastTargetName: string | null, warRollResult: WarRollSnapshot | null): string {
@@ -715,7 +781,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
               scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
               return;
             }
-            get().applyPlayCard(card.id, undefined);
+            const aiTarget = pickAiTarget(actor, s.players, s.currentPlayerIndex, card, s.startingPop);
+            get().applyPlayCard(card.id, aiTarget);
           }, AI_CARD_DELAY);
         } else if (phase === 'END_TURN') {
           scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
@@ -788,10 +855,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
         // Human: show reveal first, then prompt for target selection
         set({ deck, discard, players, phase: 'MAIN', corruptionReveal: true, globalCorruptionMode: true, corruptionPendingTarget: true });
       } else {
-        // AI: apply damage to a random live opponent immediately before the reveal
+        // AI: apply damage to the highest-threat live opponent before the reveal
         let corruptionTargetIdx: number | null = null;
         if (liveOps.length > 0) {
-          const { i: ti } = liveOps[Math.floor(random() * liveOps.length)];
+          const ti = pickAiTarget(players[actorIndex], players, actorIndex, corruptionCard, state.startingPop)
+            ?? liveOps[Math.floor(random() * liveOps.length)].i;
           corruptionTargetIdx = ti;
           players = players.map((p, i) =>
             i === ti ? { ...p, credits: Math.max(0, p.credits - 10) } : p
@@ -921,7 +989,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         .map((p, i) => ({ p, i }))
         .filter(({ p, i }) => i !== actorIndex && !p.eliminated);
       if (liveOpponents.length > 0) {
-        const targetI = liveOpponents[Math.floor(random() * liveOpponents.length)].i;
+        const targetI = pickAiTarget(actor, state.players, actorIndex, card, state.startingPop)
+          ?? liveOpponents[Math.floor(random() * liveOpponents.length)].i;
         const target  = state.players[targetI];
         if (target.isHuman && !target.negotiating) {
           const eligibleCounters = target.hand.filter(c =>
@@ -2021,8 +2090,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (!get().paused) get().advanceTurn();
         return;
       }
-      // AI skips the TARGETING phase — applyPlayCard picks a random target internally
-      get().applyPlayCard(card.id, undefined);
+      const aiTarget = pickAiTarget(currentActor, currentState.players, currentState.currentPlayerIndex, card, currentState.startingPop);
+      get().applyPlayCard(card.id, aiTarget);
     }, AI_CARD_DELAY);
   },
 }));
