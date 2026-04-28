@@ -155,7 +155,7 @@ export function GameOverScreen() {
           <div style={{ fontSize: '0.7rem', color: `${ACCENT}88`, letterSpacing: 3, marginTop: '0.4rem' }}>
             {humanWon
               ? `${human?.name ?? 'YOU'} DOMINATES THE NET`
-              : `${winner?.name ?? 'UNKNOWN'} CONTROLS THE NET`}
+              : `${winner?.name ?? 'NOTHING'} CONTROLS THE NET`}
           </div>
         </div>
 
