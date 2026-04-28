@@ -20,7 +20,7 @@ export const TutorialOverlay: React.FC = () => {
   const step = TUTORIAL_STEPS[tutorialStep];
   if (!step) return null;
 
-  const isComplete = tutorialStep === 8;
+  const isComplete = tutorialStep === 9;
 
   const handleNext = () => {
     sfxNavClick();
@@ -52,7 +52,7 @@ export const TutorialOverlay: React.FC = () => {
         {/* Step counter */}
         {!isComplete && (
           <div style={{ fontSize: '0.45rem', letterSpacing: 6, color: '#00ffcc33' }}>
-            TUTORIAL · STEP {tutorialStep + 1} / 8
+            TUTORIAL · STEP {tutorialStep + 1} / 9
           </div>
         )}
         {isComplete && (

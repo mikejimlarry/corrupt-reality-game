@@ -905,6 +905,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   drawCard: () => {
     const state = get();
     if (state.phase !== 'DRAW') return;
+    if (state.tutorialModalOpen) return;
 
     const actorIndex = state.currentPlayerIndex;
     const currentHandSize = state.players[actorIndex].hand.length;
@@ -975,7 +976,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     } else {
       set({
         deck, discard, players, phase: 'MAIN',
-        ...(state.tutorialStep === 0 ? { tutorialStep: 1, tutorialModalOpen: true } : {}),
+        ...(state.tutorialStep === 1 ? { tutorialStep: 2, tutorialModalOpen: true } : {}),
       });
       get().addLog(
         `${state.players[actorIndex].name} drew ${drawn} card${drawn !== 1 ? 's' : ''}.`,
@@ -1343,8 +1344,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const nextTutorialStep = computeNextTutorialStep(state.tutorialStep, card.name);
-    // Keep the human in MAIN at step 2 so they can still play Firewall after Data Harvest
-    const tutorialKeepMain = isHuman && nextTutorialStep === 2;
+    // Keep the human in MAIN at step 3 so they can still play Firewall after Data Harvest
+    const tutorialKeepMain = isHuman && nextTutorialStep === 3;
 
     set({
       players, discard, globalCorruptionMode, winnerId,
@@ -1954,7 +1955,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Tutorial: advance step when human's turn comes back (steps 3→4, 5→6)
     const { tutorialStep } = state;
     const nextTutorialStep =
-      (tutorialStep === 3 || tutorialStep === 5) && nextIndex === 0
+      (tutorialStep === 4 || tutorialStep === 6) && nextIndex === 0
         ? tutorialStep + 1
         : tutorialStep;
     const tutorialStepAdvanced = nextTutorialStep !== tutorialStep;
@@ -2008,7 +2009,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { tutorialStep } = get();
     set({
       warCancelledReveal: null,
-      ...(tutorialStep === 7 ? { tutorialStep: 8, tutorialModalOpen: true } : {}),
+      ...(tutorialStep === 8 ? { tutorialStep: 9, tutorialModalOpen: true } : {}),
     });
   },
 
@@ -2152,7 +2153,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // ── Normal flow — actor still alive, proceed to draw / AI card phase ─────
     if (actor.isHuman) {
-      set({ phase: 'DRAW' });
+      set({
+        phase: 'DRAW',
+        ...(state.tutorialStep === 0 ? { tutorialStep: 1, tutorialModalOpen: true } : {}),
+      });
     } else {
       scheduleAi(() => { if (!get().paused) get().runAiTurn(); }, AI_DRAW_DELAY);
     }
