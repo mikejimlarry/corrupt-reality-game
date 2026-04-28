@@ -61,6 +61,7 @@ const CARDS: CardEntry[] = [
   { name: 'Mass Assimilation',   category: 'EVENT_POSITIVE', count: 2, effect: 'Each opponent loses -5 cycles; you gain +5 per opponent.' },
   { name: 'Overclock',           category: 'EVENT_POSITIVE', count: 2, effect: 'Adds +5 to your next Stability Roll total or -5 to your next Corruption Roll.' },
   { name: 'Multitask',        category: 'EVENT_POSITIVE', count: 2, effect: 'Play 1–2 additional cards this turn. Bonus cards cannot be Conflict or Countermeasure cards.' },
+  { name: 'Quarantine',       category: 'EVENT_POSITIVE', count: 3, effect: 'Arms a standing block. The next Conflict or Digital Crusade targeting you is automatically cancelled and this card is consumed.' },
   // Negative events
   { name: 'Signal Theft',        category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses -15 cycles; you gain +15 cycles.' },
   { name: 'Memory Leak',         category: 'EVENT_NEGATIVE', count: 6, effect: 'Target loses -5 cycles.' },
@@ -81,12 +82,11 @@ const CARDS: CardEntry[] = [
   { name: 'Total Siege',         category: 'WAR',            count: 3, effect: 'Winner loses -10 cycles. Loser loses -20 cycles and one daemon.' },
   // Counters
   { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Your next Conflict roll gets +1. Play before initiating a conflict.' },
-  { name: 'System Interrupt',    category: 'COUNTER',        count: 3, effect: 'Cancel an incoming Conflict (Total Siege or Skirmish) before it resolves. Cannot block hack protocols or M.A.D.' },
-  { name: 'Quarantine',          category: 'COUNTER',        count: 2, effect: 'Cancel an incoming Conflict before it resolves. One use.' },
+  { name: 'System Interrupt',    category: 'COUNTER',        count: 2, effect: 'Cancel an incoming Conflict before it resolves. One use.' },
   // Daemons
-  { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 to Stability Roll\n-1 to Corruption Roll\nImmune to Data Drought & Sigterm.' },
-  { name: 'Encryption',          category: 'DAEMON',    count: 3, effect: '+1 to Stability Roll\n-1 to Corruption Roll\nImmune to Data Flood.' },
-  { name: 'Hardened Node',       category: 'DAEMON',    count: 5, effect: '+1 to Stability Roll\n-1 to Corruption Roll\nImmune to Node Rip\nReduces Conflict losses by 5.' },
+  { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 to Stability Roll. -1 to Corruption Roll. Immune to Data Drought & Sigterm.' },
+  { name: 'Encryption',          category: 'DAEMON',    count: 3, effect: '+1 to Stability Roll. -1 to Corruption Roll. Immune to Data Flood.' },
+  { name: 'Hardened Node',       category: 'DAEMON',    count: 5, effect: '+1 to Stability Roll. -1 to Corruption Roll. Immune to Node Rip. Reduces Conflict losses by 5.' },
 ];
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -252,11 +252,9 @@ function TabHowToPlay() {
       </Section>
 
       <Section title="COUNTERMEASURES">
-        <P>Some cards can be played <Highlight>reactively</Highlight> — out of turn — to cancel an incoming attack before it lands.</P>
-        <Bullet><Highlight>Quarantine</Highlight> cancels an incoming Conflict (Total Siege or Skirmish) before the dice are rolled.</Bullet>
-        <Bullet><Highlight>System Interrupt</Highlight> cancels an incoming Conflict (Total Siege or Skirmish). It cannot block hack protocols or M.A.D.</Bullet>
-        <Bullet><Highlight>Firewall Surge</Highlight> does not cancel — it adds +1 to your roll for the conflict ahead. The war still proceeds.</Bullet>
-        <P>When an AI targets you with a Conflict and you hold a counter card, you will be prompted to play it or allow the war through. <Highlight>Cancelling ends the attacker's turn immediately</Highlight>; boosting with Firewall Surge lets the war resolve with your improved roll.</P>
+        <P><Highlight>Quarantine</Highlight> is a proactive System Event — play it on your own turn to arm a standing block. The next Conflict or Digital Crusade targeting you is automatically cancelled and the card is consumed. It cannot block M.A.D.</P>
+        <P><Highlight>System Interrupt</Highlight> is a reactive Countermeasure — when an AI declares war on you and you hold one, you are prompted to cancel the conflict before the dice roll. <Highlight>Cancelling ends the attacker's turn immediately.</Highlight></P>
+        <P><Highlight>Firewall Surge</Highlight> does not cancel — it adds +1 to your Conflict roll. Play it before the dice roll to fight with an edge.</P>
       </Section>
 
       <Section title="ELIMINATION">
@@ -413,7 +411,7 @@ function TabInterface() {
       <Section title="POPUPS AND OVERLAYS">
         <P>Full-screen overlays appear during reactive moments and require a response before play continues:</P>
         <Bullet><Highlight>INCOMING WAR</Highlight> — An AI is declaring war on you. Play a counter card to block or boost, or take the hit.</Bullet>
-        <Bullet><Highlight>PRE-CONFLICT PREPARATION</Highlight> — Before dice roll, each combatant may play Firewall Surge (+1 to roll) or System Interrupt (cancel the conflict).</Bullet>
+        <Bullet><Highlight>PRE-CONFLICT PREPARATION</Highlight> — Before dice roll, each combatant may play Firewall Surge (+1 to roll).</Bullet>
         <Bullet><Highlight>CONFLICT DECLARATION</Highlight> — When you play a Warfare card, select two combatants. They each roll; the loser pays the cost.</Bullet>
         <Bullet><Highlight>DAEMON EXTRACTION / WAR SPOILS</Highlight> — Choose which daemon to steal or destroy after a Backdoor or Total Siege victory.</Bullet>
         <Bullet><Highlight>DEAD MAN'S SWITCH</Highlight> — Appears when an eliminated player may play one final card (if the option is enabled).</Bullet>

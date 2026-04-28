@@ -17,15 +17,11 @@ export const WarPreOverlay: React.FC = () => {
   const combatantIndex = step === 1 ? p1Index : p2Index;
   const combatant = players[combatantIndex];
 
-  // Cards this combatant can play: Firewall Surge (multiple OK) or System Interrupt (cancel)
-  const eligibleCards = combatant.hand.filter(c => {
-    if (c.category !== 'COUNTER') return false;
-    const cnt = c as CounterCard;
-    return cnt.counterType === 'TACTICAL_ADVANTAGE' || cnt.counterType === 'NEGOTIATE';
-  }) as CounterCard[];
-
-  const surgeCards = eligibleCards.filter(c => c.counterType === 'TACTICAL_ADVANTAGE');
-  const siCards    = eligibleCards.filter(c => c.counterType === 'NEGOTIATE');
+  // Cards this combatant can play: Firewall Surge (+1 roll) only.
+  // Quarantine is proactive — arm it on your own turn before a war reaches you.
+  const surgeCards = combatant.hand.filter(c =>
+    c.category === 'COUNTER' && (c as CounterCard).counterType === 'TACTICAL_ADVANTAGE'
+  ) as CounterCard[];
   const currentBonus = combatant.tacticalBonus;
 
   const renderPlayer = (player: typeof players[0], _isActive: boolean) => (
@@ -153,34 +149,6 @@ export const WarPreOverlay: React.FC = () => {
               </>
             )}
 
-            {/* System Interrupt — cancels the conflict */}
-            {siCards.length > 0 && (
-              <>
-                <div style={{ fontSize: '0.5rem', color: '#ff336644', letterSpacing: 3, marginTop: 8, marginBottom: 2 }}>
-                  SYSTEM INTERRUPT — cancels this conflict entirely
-                </div>
-                {siCards.map(c => (
-                  <button
-                    key={c.id}
-                    onClick={() => playPreCard(c.id)}
-                    style={{
-                      background: 'rgba(100,100,255,0.06)',
-                      border: '1px solid #5555ff22',
-                      color: '#6677cc',
-                      fontFamily: 'monospace',
-                      fontSize: '0.72rem', letterSpacing: 2,
-                      padding: '0.6rem 0.9rem',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      transition: 'all 0.12s',
-                    }}
-                    className="crg-btn-blue"
-                  >
-                    ✕ {c.name} — cancel conflict
-                  </button>
-                ))}
-              </>
-            )}
           </div>
         )}
 

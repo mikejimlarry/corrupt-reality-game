@@ -6,14 +6,12 @@ import { useGameStore } from '../state/useGameStore';
 import type { CounterCard } from '../types/cards';
 
 const COUNTER_LABEL: Record<string, string> = {
-  SHIELD:             'QUARANTINE',
-  NEGOTIATE:          'SYSTEM INTERRUPT',
+  SHIELD:             'SYSTEM INTERRUPT',
   TACTICAL_ADVANTAGE: 'FIREWALL SURGE',
 };
 
 const COUNTER_DESC: Record<string, string> = {
-  SHIELD:             'Cancel the war — Quarantine nullifies the incoming Conflict.',
-  NEGOTIATE:          'Cancel the war — System Interrupt blocks incoming Conflict cards.',
+  SHIELD:             'Cancel the war — System Interrupt nullifies the incoming Conflict.',
   TACTICAL_ADVANTAGE: 'Boost your roll by +1 — war still proceeds, but you fight with an edge.',
 };
 
@@ -30,9 +28,8 @@ export const CounterOpportunityOverlay: React.FC = () => {
 
   if (!attacker || !attackCard) return null;
 
-  // Group by counterType
+  // Group by counterType (NEGOTIATE/Quarantine is proactive — never appears here)
   const shieldCards   = eligibleCounters.filter(c => c.counterType === 'SHIELD');
-  const negCards      = eligibleCounters.filter(c => c.counterType === 'NEGOTIATE');
   const tacticalCards = eligibleCounters.filter(c => c.counterType === 'TACTICAL_ADVANTAGE');
 
   const counterBtn = (card: CounterCard) => (
@@ -113,22 +110,11 @@ export const CounterOpportunityOverlay: React.FC = () => {
               {shieldCards.map(counterBtn)}
             </>
           )}
-          {negCards.length > 0 && (
-            <>
-              <div style={{
-                fontSize: '0.5rem', color: '#00ffcc33', letterSpacing: 2,
-                marginTop: shieldCards.length > 0 ? 8 : 0, marginBottom: 2,
-              }}>
-                {COUNTER_LABEL.NEGOTIATE} — {COUNTER_DESC.NEGOTIATE}
-              </div>
-              {negCards.map(counterBtn)}
-            </>
-          )}
           {tacticalCards.length > 0 && (
             <>
               <div style={{
                 fontSize: '0.5rem', color: '#00ffcc33', letterSpacing: 2,
-                marginTop: (shieldCards.length > 0 || negCards.length > 0) ? 8 : 0, marginBottom: 2,
+                marginTop: shieldCards.length > 0 ? 8 : 0, marginBottom: 2,
               }}>
                 {COUNTER_LABEL.TACTICAL_ADVANTAGE} — {COUNTER_DESC.TACTICAL_ADVANTAGE}
               </div>

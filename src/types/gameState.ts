@@ -28,7 +28,7 @@ export interface PlayerState {
   overclocked: boolean;
   /** Set by Firewall Surge — adds +1 per stack to this player's next CONFLICT roll. */
   tacticalBonus: number;
-  /** Set by System Interrupt — blocks the next incoming WAR or Digital Crusade targeting this player. */
+  /** Set by Quarantine — blocks the next incoming WAR or Digital Crusade targeting this player. */
   negotiating: boolean;
 }
 

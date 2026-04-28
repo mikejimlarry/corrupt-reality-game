@@ -133,6 +133,10 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       if (pos.effect === 'OVERCLOCK') {
         return noFx(players.map((p, i) => i === actorIndex ? { ...p, overclocked: true } : p));
       }
+      // NEGOTIATE — arm a standing block on the actor (proactive Quarantine)
+      if (pos.effect === 'NEGOTIATE') {
+        return noFx(players.map((p, i) => i === actorIndex ? { ...p, negotiating: true } : p));
+      }
       return noFx(players.map((p, i) =>
         i === actorIndex ? { ...p, credits: Math.min(200, p.credits + pos.amount) } : p
       ));
@@ -156,7 +160,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       if (ti === -1) return noFx(players);
       const lastTargetName = players[ti].name;
 
-      // Quarantine — the target's shield absorbs the attack and is consumed.
+      // System Interrupt — the target's shield absorbs the attack and is consumed.
       // Does NOT block Digital Crusade or M.A.D. (those require Cease & Desist or nothing).
       if (
         players[ti].quarantined &&
@@ -294,7 +298,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
 
     case 'COUNTER': {
       const cnt = card as CounterCard;
-      // SHIELD (Quarantine) — played via resolveCounterOpportunity which cancels the war
+      // SHIELD (System Interrupt) — played via resolveCounterOpportunity which cancels the war
       // directly; this applyCardEffect path is a no-op fallback.
       if (cnt.counterType === 'SHIELD') {
         return noFx(players);
@@ -302,11 +306,6 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       // TACTICAL_ADVANTAGE (Firewall Surge) — adds +1 to the next WAR roll (stackable)
       if (cnt.counterType === 'TACTICAL_ADVANTAGE') {
         return noFx(players.map((p, i) => i === actorIndex ? { ...p, tacticalBonus: p.tacticalBonus + 1 } : p));
-      }
-      // NEGOTIATE (Cease & Desist) — block the next WAR or EVENT_NEGATIVE targeting this player
-      // NEGOTIATE (System Interrupt) — block the next WAR or Digital Crusade targeting this player
-      if (cnt.counterType === 'NEGOTIATE') {
-        return noFx(players.map((p, i) => i === actorIndex ? { ...p, negotiating: true } : p));
       }
       return noFx(players);
     }
@@ -385,6 +384,7 @@ function pickAiCard(
           ?? nonCounterHand[0] ?? ai.hand[0];
       }
       return ai.hand.find(c => c.category === 'DAEMON')
+        ?? ai.hand.find(c => c.category === 'EVENT_POSITIVE' && (c as PositiveEventCard).effect === 'NEGOTIATE')
         ?? ai.hand.find(c => c.category === 'CREDITS')
         ?? nonCounterHand[0] ?? ai.hand[0];
     }
@@ -407,6 +407,7 @@ function pickAiCard(
         if (c.category === 'EVENT_POSITIVE') {
           const pos = c as PositiveEventCard;
           if (pos.effect === 'EXTRA_PLAY') return hasGoodFollowUp ? 15 : 0;
+          if (pos.effect === 'NEGOTIATE') return ai.negotiating ? 0 : 10; // skip if block already armed
           return pos.amount;
         }
         if (c.category === 'CREDITS') return (c as CreditsCard).amount;
@@ -512,6 +513,8 @@ function cardLogText(card: Card, actorName: string, lastTargetName: string | nul
         return `${actorName} activated ${card.name} — next roll is doubled`;
       if (pos.effect === 'EXTRA_PLAY')
         return `${actorName} activated ${card.name} — plays an additional card this turn`;
+      if (pos.effect === 'NEGOTIATE')
+        return `${actorName} activated ${card.name} — standing block armed`;
       return `${actorName} triggered ${card.name} (+${pos.amount} cycles)`;
     }
     case 'EVENT_NEGATIVE': {
@@ -550,8 +553,6 @@ function cardLogText(card: Card, actorName: string, lastTargetName: string | nul
         return `${actorName} activated ${card.name} — next hack blocked`;
       if (cnt.counterType === 'TACTICAL_ADVANTAGE')
         return `${actorName} activated ${card.name} — +1 to next CONFLICT roll`;
-      if (cnt.counterType === 'NEGOTIATE')
-        return `${actorName} deployed ${card.name} — next CONFLICT or Digital Crusade will be cancelled`;
       return `${actorName} played ${card.name}`;
     }
   }
@@ -981,9 +982,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // ── WAR counter opportunity — when AI targets human with a WAR card ───────
     // Give the human a chance to play a counter card before the war resolves.
-    // All COUNTER card types are eligible: NEGOTIATE (cancel), TACTICAL_ADVANTAGE
-    // (+1 roll), SHIELD (cancel — Quarantine blocks the war). Skip if human already
-    // has the negotiating flag active (System Interrupt already armed).
+    // Reactive COUNTER cards: TACTICAL_ADVANTAGE (+1 roll) and SHIELD (System Interrupt, cancel).
+    // NEGOTIATE (Quarantine) is now proactive — handled via negotiating flag, not the counter window.
+    // Skip the window entirely if the human already has negotiating armed.
     if (!skipCounterCheck && !actor.isHuman && card.category === 'WAR') {
       const liveOpponents = state.players
         .map((p, i) => ({ p, i }))
@@ -1135,8 +1136,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const cardLog = cardLogText(card, actor.name, fx.lastTargetName, fx.warRollResult);
-    if (blockedBy) get().addLog(`${blockedBy}'s Quarantine absorbed the attack!`, 'effect');
-    if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s System Interrupt cancelled the attack!`, 'effect');
+    if (blockedBy) get().addLog(`${blockedBy}'s System Interrupt absorbed the attack!`, 'effect');
+    if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Quarantine cancelled the attack!`, 'effect');
     if (daemonBlockedBy) get().addLog(`${daemonBlockedBy} blocked the attack!`, 'effect');
     // WAR log deferred to clearWarRollDisplay() so it appears after the dice animation.
     // For blocked wars (no capturedWarRoll) there is no animation, so log immediately.
@@ -1544,10 +1545,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         `${combatant.name} plays Firewall Surge — roll bonus now +${players[combatantIndex].tacticalBonus}`,
         'effect',
       );
-    } else if (cnt.counterType === 'NEGOTIATE') {
-      // Cease & Desist — cancel the war entirely
-      set({ players, discard, warPrePending: null, selectedCardId: null, phase: 'END_TURN' });
-      get().addLog(`${combatant.name} plays Cease & Desist — war cancelled!`, 'effect');
     }
   },
 

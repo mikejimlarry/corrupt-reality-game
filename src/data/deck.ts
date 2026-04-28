@@ -26,7 +26,7 @@ const creditCards: Card[] = [
   })),
 ];
 
-// ── EVENT_POSITIVE (6) ───────────────────────────────────────────────────────
+// ── EVENT_POSITIVE (9) ───────────────────────────────────────────────────────
 
 const positiveEvents: Card[] = [
   // Mass Assimilation ×2 — P&P Migration
@@ -49,6 +49,13 @@ const positiveEvents: Card[] = [
     description: 'Run parallel processes. Play 1–2 additional cards this turn. Excludes Conflict and Countermeasure cards.',
     rarity: 'RARE' as const, effect: 'EXTRA_PLAY', amount: 0,
     flavourText: 'Two threads. One clock cycle.',
+  })),
+  // Quarantine ×3 — proactive standing block (formerly NEGOTIATE counter)
+  ...Array(3).fill(null).map(() => ({
+    id: uid(), name: 'Quarantine', category: 'EVENT_POSITIVE' as const,
+    description: 'INSTANT — Arms a standing block. The next Conflict or Digital Crusade targeting you is automatically cancelled and this card is consumed.',
+    rarity: 'UNCOMMON' as const, effect: 'NEGOTIATE', amount: 0,
+    flavourText: 'Seal the ports. Drop the packets.',
   })),
 ];
 
@@ -175,8 +182,8 @@ const warCards: Card[] = [
   })),
 ];
 
-// ── COUNTER (9) ──────────────────────────────────────────────────────────────
-// P&P base: Tactical Advantage ×4, Buy Indulgence ×3 | New: Quarantine ×2
+// ── COUNTER (6) ──────────────────────────────────────────────────────────────
+// P&P base: Tactical Advantage ×4 | New: System Interrupt ×2
 
 const counterCards: Card[] = [
   // Firewall Surge ×4 — P&P Tactical Advantage (+1 to your war die roll)
@@ -186,16 +193,9 @@ const counterCards: Card[] = [
     rarity: 'COMMON' as const, counterType: 'TACTICAL_ADVANTAGE' as const,
     flavourText: 'Control the variance. Control the outcome.',
   })),
-  // System Interrupt ×3 — P&P Buy Indulgence (cancel a War or Digital Crusade)
-  ...Array(3).fill(null).map(() => ({
-    id: uid(), name: 'System Interrupt', category: 'COUNTER' as const,
-    description: 'INSTANT — Cancel a Conflict or Digital Crusade before it resolves.',
-    rarity: 'UNCOMMON' as const, counterType: 'NEGOTIATE' as const,
-    flavourText: 'The most powerful line of code: null.',
-  })),
-  // Quarantine ×2 — SHIELD: cancel an incoming WAR before the roll
+  // System Interrupt ×2 — SHIELD: cancel an incoming WAR before the roll
   ...Array(2).fill(null).map(() => ({
-    id: uid(), name: 'Quarantine', category: 'COUNTER' as const,
+    id: uid(), name: 'System Interrupt', category: 'COUNTER' as const,
     description: 'INSTANT — Cancel an incoming Conflict before it resolves.',
     rarity: 'UNCOMMON' as const, counterType: 'SHIELD' as const,
     flavourText: 'Nothing gets in. Nothing gets out.',
