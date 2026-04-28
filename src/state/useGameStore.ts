@@ -4,6 +4,7 @@ import type { GameState, PlayerState, LogEntry, AIPersonality } from '../types/g
 import type { Card, CreditsCard, PositiveEventCard, NegativeEventCard, WarCard, DaemonCard, CounterCard } from '../types/cards';
 import { initRNG, random } from '../lib/rng';
 import { generateDeck } from '../data/deck';
+import { TUTORIAL_REQUIRED_CARD, TUTORIAL_AI_CARD } from '../data/tutorial';
 import { trackEvent } from '../lib/analytics';
 
 // ── Corruption-first constraint ───────────────────────────────────────────────
@@ -568,6 +569,24 @@ const makeLogEntry = (text: string, type: LogEntry['type']): LogEntry => ({
   timestamp: Date.now(),
 });
 
+// ── Tutorial helpers ──────────────────────────────────────────────────────────
+
+/** Returns the next tutorial step after playing cardName at currentStep, or null if no advance. */
+function computeNextTutorialStep(currentStep: number | null, cardName: string): number | null {
+  if (currentStep === null) return null;
+  const required = TUTORIAL_REQUIRED_CARD[currentStep];
+  if (required && cardName === required) return currentStep + 1;
+  return null;
+}
+
+/** Returns the scripted AI card for the current tutorial step, or null to use normal AI logic. */
+function getTutorialAiCard(step: number | null, hand: Card[]): Card | null {
+  if (step === null) return null;
+  const name = TUTORIAL_AI_CARD[step];
+  if (!name) return null;
+  return hand.find(c => c.name === name) ?? null;
+}
+
 // ── Store interface ────────────────────────────────────────────────────────────
 
 export type HandSortMode = 'DEFAULT' | 'TYPE' | 'VALUE' | 'ALPHA';
@@ -593,6 +612,7 @@ interface GameStore extends GameState {
   togglePause(): void;
   setReducedMotion(v: boolean): void;
   startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean, warTiePenalty: boolean): void;
+  startTutorial(playerName?: string): void;
   resetToSetup(): void;
   setHoveredCard(id: string | null): void;
   addLog(text: string, type: LogEntry['type']): void;
@@ -668,6 +688,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {} },
   warRollDisplay: null,
   postCorruptionTargetIndex: null,
+  tutorialStep: null,
   // Placeholder — real value initialised from localStorage in the store body below.
   reducedMotion: false,
   handSortMode: 'DEFAULT',
@@ -743,6 +764,70 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     get().addLog('Game started. Welcome to Corrupt Reality.', 'turn');
     get().addLog(`${players[0].name}'s turn — Begin the sequence.`, 'turn');
+  },
+
+  startTutorial: (playerName = 'Ghost') => {
+    cancelAllAiTimers();
+    const seed = initRNG();
+
+    const fullDeck = generateDeck();
+
+    const pickCard = (name: string): Card => {
+      const idx = fullDeck.findIndex(c => c.name === name);
+      if (idx === -1) throw new Error(`Tutorial card not found: ${name}`);
+      return fullDeck.splice(idx, 1)[0];
+    };
+
+    const humanHand: Card[] = [
+      pickCard('Data Harvest'),
+      pickCard('Firewall'),
+      pickCard('Memory Leak'),
+      pickCard('Quarantine'),
+      pickCard('Firewall Surge'),
+    ];
+
+    const aiHand: Card[] = [
+      pickCard('Neural Uplink'),
+      pickCard('Skirmish'),
+      pickCard('Skirmish'),
+      pickCard('Data Harvest'),
+      pickCard('Data Harvest'),
+    ];
+
+    const tutorialPlayers: PlayerState[] = [
+      {
+        id: 'player_0', name: playerName.toUpperCase(), isHuman: true,
+        credits: 50, hand: humanHand, daemons: [], eliminated: false,
+        quarantined: false, overclocked: false, tacticalBonus: 0, negotiating: false,
+      },
+      {
+        id: 'player_1', name: 'GHOST', isHuman: false, personality: 'BALANCED' as const,
+        credits: 50, hand: aiHand, daemons: [], eliminated: false,
+        quarantined: false, overclocked: false, tacticalBonus: 0, negotiating: false,
+      },
+    ];
+
+    const firstRoll: [number, number] = [Math.ceil(random() * 6), Math.ceil(random() * 6)];
+    set({
+      ...defaultState,
+      reducedMotion: get().reducedMotion,
+      phase: 'PHASE_ROLL',
+      players: tutorialPlayers,
+      deck: fullDeck,
+      discard: [],
+      gameSeed: seed,
+      currentPlayerIndex: 0,
+      turnNumber: 1,
+      selectedCardId: null,
+      rollResult: firstRoll,
+      rollTriggered: false,
+      startingPop: 50,
+      tutorialStep: 0,
+      gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {} },
+    });
+
+    get().addLog('Tutorial mode. Follow the guide to learn the basics.', 'turn');
+    get().addLog(`${tutorialPlayers[0].name}'s turn — Roll the dice to begin.`, 'turn');
   },
 
   resetToSetup: () => { cancelAllAiTimers(); set({ ...defaultState, reducedMotion: get().reducedMotion, selectedCardId: null, hoveredCardId: null, turnNumber: 1 }); },
@@ -871,7 +956,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ deck, discard, players, phase: 'MAIN', corruptionReveal: true, globalCorruptionMode: true, postCorruptionTargetIndex: corruptionTargetIdx });
       }
     } else {
-      set({ deck, discard, players, phase: 'MAIN' });
+      set({
+        deck, discard, players, phase: 'MAIN',
+        ...(state.tutorialStep === 0 ? { tutorialStep: 1 } : {}),
+      });
       get().addLog(
         `${state.players[actorIndex].name} drew ${drawn} card${drawn !== 1 ? 's' : ''}.`,
         'turn',
@@ -900,6 +988,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     const card = actor.hand.find(c => c.id === cardId);
     if (!card) return;
+
+    // Tutorial: only allow the scripted card for the current step
+    if (state.tutorialStep !== null && actor.isHuman) {
+      const required = TUTORIAL_REQUIRED_CARD[state.tutorialStep];
+      if (required && card.name !== required) return;
+    }
 
     const liveOpponents = state.players.filter((p, i) => i !== actorIndex && !p.eliminated);
 
@@ -1231,17 +1325,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       );
     }
 
+    const nextTutorialStep = computeNextTutorialStep(state.tutorialStep, card.name);
+    // Keep the human in MAIN at step 2 so they can still play Firewall after Data Harvest
+    const tutorialKeepMain = isHuman && nextTutorialStep === 2;
+
     set({
       players, discard, globalCorruptionMode, winnerId,
       extraPlayPending: newExtraPlays,
       eliminationOrder: elim2.eliminationOrder,
       recordSaved: winnerId ? true : state.recordSaved,
-      phase: alive.length <= 1 ? 'GAME_OVER' : (moreExtraPlays ? 'MAIN' : (isHuman ? 'END_TURN' : 'MAIN')),
+      phase: alive.length <= 1 ? 'GAME_OVER' : (moreExtraPlays ? 'MAIN' : ((isHuman && !tutorialKeepMain) ? 'END_TURN' : 'MAIN')),
       selectedCardId: null,
       pendingCardId: null,
       validTargetIds: [],
       deadMansSwitchPending: null,
       pendingOverclockCard: isHumanOverclock ? card : state.pendingOverclockCard,
+      tutorialStep: nextTutorialStep !== null ? nextTutorialStep : state.tutorialStep,
       warCancelledReveal: negotiateBlockedBy
         ? { attackerName: actor.name, defenderName: negotiateBlockedBy }
         : null,
@@ -1834,6 +1933,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (wrappedAround) trackEvent('turn_played', { turn_number: newTurnNumber });
     const roll: [number, number] = [Math.ceil(random() * 6), Math.ceil(random() * 6)];
 
+    // Tutorial: advance step when human's turn comes back (steps 3→4, 5→6)
+    const { tutorialStep } = state;
+    const nextTutorialStep =
+      (tutorialStep === 3 || tutorialStep === 5) && nextIndex === 0
+        ? tutorialStep + 1
+        : tutorialStep;
+
     set({
       currentPlayerIndex: nextIndex,
       phase: 'PHASE_ROLL',
@@ -1842,6 +1948,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       rollTriggered: false,
       selectedCardId: null,
       postCorruptionTargetIndex: null,
+      tutorialStep: nextTutorialStep,
     });
 
     const nextPlayer = players[nextIndex];
@@ -1875,7 +1982,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   powerCycleRevealComplete: () => { set({ powerCycleReveal: null }); },
-  warCancelledRevealComplete: () => { set({ warCancelledReveal: null }); },
+  warCancelledRevealComplete: () => {
+    const { tutorialStep } = get();
+    set({
+      warCancelledReveal: null,
+      ...(tutorialStep === 7 ? { tutorialStep: 8 } : {}),
+    });
+  },
 
   rollComplete: () => {
     const state = get();
@@ -2091,7 +2204,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (get().paused) return; // ← guard: paused between draw and card pick
       const currentState = get();
       const currentActor = currentState.players[currentState.currentPlayerIndex];
-      const card = pickAiCard(currentActor, currentState.players, currentState.currentPlayerIndex, currentState.startingPop, currentState.gameStats);
+      const card =
+        getTutorialAiCard(currentState.tutorialStep, currentActor.hand) ??
+        pickAiCard(currentActor, currentState.players, currentState.currentPlayerIndex, currentState.startingPop, currentState.gameStats);
       if (!card) {
         if (!get().paused) get().advanceTurn();
         return;

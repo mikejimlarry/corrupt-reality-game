@@ -235,6 +235,7 @@ function OptionsModal({
 
 export const SetupScreen: React.FC = () => {
   const startGame = useGameStore(s => s.startGame);
+  const startTutorial = useGameStore(s => s.startTutorial);
   const [name, setName]                     = useState(() => localStorage.getItem('crg-handle') ?? '');
   const [nameFocused, setNameFocused]       = useState(false);
   const [count, setCount]                   = useState(() => Number(localStorage.getItem('crg-count') ?? '1'));
@@ -490,6 +491,29 @@ export const SetupScreen: React.FC = () => {
           }}
         >
           CONNECT →
+        </button>
+
+        {/* Tutorial */}
+        <button
+          onClick={() => {
+            resumeAudio();
+            sfxNavClick();
+            startTutorial(name.trim() || 'Ghost');
+          }}
+          style={{
+            padding: '0.5rem',
+            background: 'transparent',
+            border: '1px solid #00ffcc33',
+            color: '#446655',
+            fontFamily: 'monospace',
+            fontSize: '0.65rem',
+            letterSpacing: 3,
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+          className="crg-btn-cyan"
+        >
+          ▷ TUTORIAL
         </button>
       </div>
     </div>

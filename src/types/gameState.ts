@@ -97,6 +97,10 @@ export interface GameState {
    */
   warCancelledReveal: { attackerName: string; defenderName: string } | null;
   /**
+   * 0–7: active tutorial step. 8: tutorial complete (show completion screen). null: not in tutorial.
+   */
+  tutorialStep: number | null;
+  /**
    * Non-null while the "INCOMING CONFLICT" Phaser animation is playing.
    * The Phaser scene watches this, fires the animation, then calls proceedToCounterPending()
    * which clears this and sets counterPending so the React overlay appears.
