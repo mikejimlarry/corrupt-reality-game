@@ -196,6 +196,7 @@ function OptionsModal({
 export const SetupScreen: React.FC = () => {
   const startGame = useGameStore(s => s.startGame);
   const [name, setName]                     = useState(() => localStorage.getItem('crg-handle') ?? '');
+  const [nameFocused, setNameFocused]       = useState(false);
   const [count, setCount]                   = useState(() => Number(localStorage.getItem('crg-count') ?? '1'));
   const [startingPop, setStartingPop]       = useState(() => Number(localStorage.getItem('crg-credits') ?? '50'));
   const [hidePpCounts, setHidePpCounts]     = useState(() => localStorage.getItem('crg-hide-credits') === 'true');
@@ -350,11 +351,13 @@ export const SetupScreen: React.FC = () => {
               fontFamily: 'monospace', fontSize: '0.9rem', letterSpacing: 3,
               pointerEvents: 'none',
             }}>{name}</span>
-            <span style={{
-              color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.9rem',
-              animation: 'crg-blink 1s step-end infinite', lineHeight: 1,
-              pointerEvents: 'none',
-            }}>_</span>
+            {nameFocused && (
+              <span style={{
+                color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.9rem',
+                animation: 'crg-blink 1s step-end infinite', lineHeight: 1,
+                pointerEvents: 'none',
+              }}>_</span>
+            )}
             {name === '' && (
               <span style={{
                 position: 'absolute', left: 0, pointerEvents: 'none',
@@ -366,6 +369,8 @@ export const SetupScreen: React.FC = () => {
               type="text"
               value={name}
               onChange={e => setName(e.target.value.toUpperCase())}
+              onFocus={() => setNameFocused(true)}
+              onBlur={() => setNameFocused(false)}
               style={{
                 position: 'absolute', inset: 0, width: '100%',
                 background: 'transparent', border: 'none', outline: 'none',
