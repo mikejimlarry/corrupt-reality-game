@@ -7,6 +7,7 @@ import { CentreZone, DISCARD_LOCAL_CX, DISCARD_LOCAL_CY } from '../objects/Centr
 import { LEDDisplay } from '../objects/LEDDisplay';
 import { DaemonBoard } from '../objects/DaemonBoard';
 import { useGameStore, mustPlayCorruptionFirst } from '../../state/useGameStore';
+import { TUTORIAL_REQUIRED_CARD } from '../../data/tutorial';
 import type { HandSortMode } from '../../state/useGameStore';
 import { sfxCorruptionReveal, sfxWarIncoming, sfxWarCancelled, sfxLoss } from '../../lib/audio';
 import type { Card as CardData } from '../../types/cards';
@@ -707,6 +708,12 @@ export class GameScene extends Phaser.Scene {
       } else {
         // COUNTER cards are reactive (WAR only) — never playable from hand
         if (d.category === 'COUNTER') bad = true;
+        // Tutorial: only the scripted card is playable
+        const { tutorialStep } = useGameStore.getState();
+        if (tutorialStep !== null) {
+          const required = TUTORIAL_REQUIRED_CARD[tutorialStep];
+          if (required) bad = d.name !== required;
+        }
       }
 
       card.setInapplicable(bad);

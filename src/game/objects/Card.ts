@@ -2,6 +2,7 @@
 import Phaser from 'phaser';
 import type { Card as CardData, CardCategory, CardRarity } from '../../types/cards';
 import { useGameStore, mustPlayCorruptionFirst } from '../../state/useGameStore';
+import { TUTORIAL_REQUIRED_CARD } from '../../data/tutorial';
 import { sfxCardSelect, sfxGlitch } from '../../lib/audio';
 
 // ── Dimensions ───────────────────────────────────────────────────────────────
@@ -437,6 +438,12 @@ export class Card extends Phaser.GameObjects.Container {
     if (this.cardData.category === 'DAEMON') {
       const daemonType = (this.cardData as import('../../types/cards').DaemonCard).daemonType;
       if (daemonType && current.daemons.includes(daemonType)) return;
+    }
+
+    // Tutorial: block selection of any card that isn't the required one
+    if (store.tutorialStep !== null) {
+      const required = TUTORIAL_REQUIRED_CARD[store.tutorialStep];
+      if (required && this.cardData.name !== required) return;
     }
 
     const newId = store.selectedCardId === this.cardData.id ? null : this.cardData.id;
