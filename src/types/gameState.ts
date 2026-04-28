@@ -100,6 +100,8 @@ export interface GameState {
    * 0–7: active tutorial step. 8: tutorial complete (show completion screen). null: not in tutorial.
    */
   tutorialStep: number | null;
+  /** When true the tutorial modal is open — the player must dismiss it before interacting. */
+  tutorialModalOpen: boolean;
   /**
    * Non-null while the "INCOMING CONFLICT" Phaser animation is playing.
    * The Phaser scene watches this, fires the animation, then calls proceedToCounterPending()

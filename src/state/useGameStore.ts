@@ -613,6 +613,7 @@ interface GameStore extends GameState {
   setReducedMotion(v: boolean): void;
   startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean, warTiePenalty: boolean): void;
   startTutorial(playerName?: string): void;
+  dismissTutorialModal(): void;
   resetToSetup(): void;
   setHoveredCard(id: string | null): void;
   addLog(text: string, type: LogEntry['type']): void;
@@ -689,6 +690,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   warRollDisplay: null,
   postCorruptionTargetIndex: null,
   tutorialStep: null,
+  tutorialModalOpen: false,
   // Placeholder — real value initialised from localStorage in the store body below.
   reducedMotion: false,
   handSortMode: 'DEFAULT',
@@ -823,11 +825,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
       rollTriggered: false,
       startingPop: 50,
       tutorialStep: 0,
+      tutorialModalOpen: true,
       gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {} },
     });
 
     get().addLog('Tutorial mode. Follow the guide to learn the basics.', 'turn');
     get().addLog(`${tutorialPlayers[0].name}'s turn — Roll the dice to begin.`, 'turn');
+  },
+
+  dismissTutorialModal: () => {
+    set({ tutorialModalOpen: false });
+    // If it's the AI's turn and it was waiting for the modal to clear, restart it
+    const state = get();
+    const currentPlayer = state.players[state.currentPlayerIndex];
+    if (!currentPlayer?.isHuman && state.phase !== 'GAME_OVER' && state.tutorialStep !== null) {
+      if (state.phase === 'PHASE_ROLL') {
+        scheduleAi(() => { if (!get().paused && !get().tutorialModalOpen) get().triggerRoll(); }, AI_ROLL_DELAY);
+      } else if (state.phase === 'MAIN') {
+        scheduleAi(() => { if (!get().paused && !get().tutorialModalOpen) get().runAiTurn(); }, AI_CARD_DELAY);
+      }
+    }
   },
 
   resetToSetup: () => { cancelAllAiTimers(); set({ ...defaultState, reducedMotion: get().reducedMotion, selectedCardId: null, hoveredCardId: null, turnNumber: 1 }); },
@@ -958,7 +975,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     } else {
       set({
         deck, discard, players, phase: 'MAIN',
-        ...(state.tutorialStep === 0 ? { tutorialStep: 1 } : {}),
+        ...(state.tutorialStep === 0 ? { tutorialStep: 1, tutorialModalOpen: true } : {}),
       });
       get().addLog(
         `${state.players[actorIndex].name} drew ${drawn} card${drawn !== 1 ? 's' : ''}.`,
@@ -1341,6 +1358,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       deadMansSwitchPending: null,
       pendingOverclockCard: isHumanOverclock ? card : state.pendingOverclockCard,
       tutorialStep: nextTutorialStep !== null ? nextTutorialStep : state.tutorialStep,
+      tutorialModalOpen: nextTutorialStep !== null ? true : state.tutorialModalOpen,
       warCancelledReveal: negotiateBlockedBy
         ? { attackerName: actor.name, defenderName: negotiateBlockedBy }
         : null,
@@ -1939,6 +1957,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       (tutorialStep === 3 || tutorialStep === 5) && nextIndex === 0
         ? tutorialStep + 1
         : tutorialStep;
+    const tutorialStepAdvanced = nextTutorialStep !== tutorialStep;
 
     set({
       currentPlayerIndex: nextIndex,
@@ -1949,6 +1968,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       selectedCardId: null,
       postCorruptionTargetIndex: null,
       tutorialStep: nextTutorialStep,
+      ...(tutorialStepAdvanced ? { tutorialModalOpen: true } : {}),
     });
 
     const nextPlayer = players[nextIndex];
@@ -1961,7 +1981,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   triggerRoll: () => {
-    if (get().phase !== 'PHASE_ROLL') return;
+    const s = get();
+    if (s.phase !== 'PHASE_ROLL') return;
+    if (s.tutorialModalOpen) return;
     set({ rollTriggered: true });
   },
 
@@ -1986,7 +2008,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { tutorialStep } = get();
     set({
       warCancelledReveal: null,
-      ...(tutorialStep === 7 ? { tutorialStep: 8 } : {}),
+      ...(tutorialStep === 7 ? { tutorialStep: 8, tutorialModalOpen: true } : {}),
     });
   },
 

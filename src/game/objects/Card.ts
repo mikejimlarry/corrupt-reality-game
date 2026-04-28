@@ -440,8 +440,9 @@ export class Card extends Phaser.GameObjects.Container {
       if (daemonType && current.daemons.includes(daemonType)) return;
     }
 
-    // Tutorial: block selection of any card that isn't the required one
+    // Tutorial: block all selection while modal is open, or if card isn't the required one
     if (store.tutorialStep !== null) {
+      if (store.tutorialModalOpen) return;
       const required = TUTORIAL_REQUIRED_CARD[store.tutorialStep];
       if (required && this.cardData.name !== required) return;
     }

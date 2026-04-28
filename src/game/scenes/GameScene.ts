@@ -708,11 +708,15 @@ export class GameScene extends Phaser.Scene {
       } else {
         // COUNTER cards are reactive (WAR only) — never playable from hand
         if (d.category === 'COUNTER') bad = true;
-        // Tutorial: only the scripted card is playable
-        const { tutorialStep } = useGameStore.getState();
+        // Tutorial: block all cards when modal is open; otherwise only allow the required card
+        const { tutorialStep, tutorialModalOpen } = useGameStore.getState();
         if (tutorialStep !== null) {
-          const required = TUTORIAL_REQUIRED_CARD[tutorialStep];
-          if (required) bad = d.name !== required;
+          if (tutorialModalOpen) {
+            bad = true;
+          } else {
+            const required = TUTORIAL_REQUIRED_CARD[tutorialStep];
+            if (required) bad = d.name !== required;
+          }
         }
       }
 
