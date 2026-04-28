@@ -287,6 +287,22 @@ export function sfxGlitch() {
   src.start(t); src.stop(t + 0.14);
 }
 
+/** Rising ping when a WAR card is deflected by Quarantine. */
+export function sfxWarCancelled() {
+  const c = ctx();
+  if (!c) return;
+  const t = c.currentTime;
+  const osc = c.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(640, t);
+  osc.frequency.exponentialRampToValueAtTime(1280, t + 0.12);
+  const gain = c.createGain();
+  gain.gain.setValueAtTime(0.28, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+  osc.connect(gain); gain.connect(c.destination);
+  osc.start(t); osc.stop(t + 0.38);
+}
+
 /** Descending harsh tone when a daemon is terminated. */
 export function sfxDaemonTerminated() {
   const c = ctx();

@@ -622,6 +622,7 @@ interface GameStore extends GameState {
   rollComplete(): void;
   corruptionRevealComplete(): void;
   powerCycleRevealComplete(): void;
+  warCancelledRevealComplete(): void;
   runAiTurn(): void;
 }
 
@@ -659,6 +660,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   warPrePending: null,
   pendingOverclockCard: null,
   powerCycleReveal: null,
+  warCancelledReveal: null,
   warIncomingReveal: null,
   counterPending: null,
   paused: false,
@@ -1240,6 +1242,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       validTargetIds: [],
       deadMansSwitchPending: null,
       pendingOverclockCard: isHumanOverclock ? card : state.pendingOverclockCard,
+      warCancelledReveal: negotiateBlockedBy
+        ? { attackerName: actor.name, defenderName: negotiateBlockedBy }
+        : null,
       warRollDisplay: capturedWarRoll ? {
         r1: capturedWarRoll.actorBase,
         r2: capturedWarRoll.targetBase,
@@ -1639,7 +1644,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const negotiateBlockedBy = warFx.negotiateBlockedBy;
 
     const warCardLog = cardLogText(warCard, state.players[actorIndex].name, warFx.lastTargetName, warFx.warRollResult);
-    if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Cease & Desist cancelled the war!`, 'effect');
+    if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Quarantine cancelled the attack!`, 'effect');
     if (!capturedWarRoll) get().addLog(warCardLog, 'card');
 
     // ── Daemon loot (Total Siege) — winner picks which daemon the loser loses ─
@@ -1752,6 +1757,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       recordSaved: winnerId ? true : state.recordSaved,
       warLootPending,
       warRollDisplay: warDisplayPayload,
+      warCancelledReveal: negotiateBlockedBy
+        ? { attackerName: state.players[actorIndex].name, defenderName: negotiateBlockedBy }
+        : null,
       gameStats: {
         cardsPlayed: warCardsPlayed,
         eliminationOrder: winnerId ? elim2.eliminationOrder : prevStatsWar.eliminationOrder,
@@ -1867,6 +1875,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   powerCycleRevealComplete: () => { set({ powerCycleReveal: null }); },
+  warCancelledRevealComplete: () => { set({ warCancelledReveal: null }); },
 
   rollComplete: () => {
     const state = get();

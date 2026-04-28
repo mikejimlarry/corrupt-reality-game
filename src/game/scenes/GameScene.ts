@@ -8,7 +8,7 @@ import { LEDDisplay } from '../objects/LEDDisplay';
 import { DaemonBoard } from '../objects/DaemonBoard';
 import { useGameStore, mustPlayCorruptionFirst } from '../../state/useGameStore';
 import type { HandSortMode } from '../../state/useGameStore';
-import { sfxCorruptionReveal, sfxWarIncoming, sfxLoss } from '../../lib/audio';
+import { sfxCorruptionReveal, sfxWarIncoming, sfxWarCancelled, sfxLoss } from '../../lib/audio';
 import type { Card as CardData } from '../../types/cards';
 import type { PlayerState } from '../../types/gameState';
 
@@ -185,6 +185,7 @@ export class GameScene extends Phaser.Scene {
     let prevPendingOverclockCard: import('../../types/cards').Card | null = null;
     let prevWarRollDisplay: import('../../types/gameState').GameState['warRollDisplay'] = null;
     let prevPowerCycleReveal: import('../../types/gameState').GameState['powerCycleReveal'] = null;
+    let prevWarCancelledReveal: import('../../types/gameState').GameState['warCancelledReveal'] = null;
     let prevWarIncomingReveal: import('../../types/gameState').GameState['warIncomingReveal'] = null;
     let prevHandSortMode = useGameStore.getState().handSortMode;
     let prevHandSortReverse = useGameStore.getState().handSortReverse;
@@ -476,6 +477,13 @@ export class GameScene extends Phaser.Scene {
         this.showPowerCycleAnimation(state.powerCycleReveal.targetName, w, h);
       }
       if (!state.powerCycleReveal) prevPowerCycleReveal = null;
+
+      // ── War cancelled animation — plays when Quarantine deflects a war ──
+      if (state.warCancelledReveal && !prevWarCancelledReveal) {
+        prevWarCancelledReveal = state.warCancelledReveal;
+        this.showWarCancelledAnimation(state.warCancelledReveal.attackerName, state.warCancelledReveal.defenderName, w, h);
+      }
+      if (!state.warCancelledReveal) prevWarCancelledReveal = null;
 
       // ── Incoming war animation — fires before the counter overlay appears ──
       if (state.warIncomingReveal && !prevWarIncomingReveal) {
@@ -1650,6 +1658,81 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => {
           con.destroy();
           useGameStore.getState().proceedToCounterPending();
+        },
+      });
+    });
+  }
+
+  // ── War-cancelled animation — plays when Quarantine deflects an incoming war ──
+  private showWarCancelledAnimation(attackerName: string, defenderName: string, width: number, height: number) {
+    sfxWarCancelled();
+    const dpr = window.devicePixelRatio;
+    const cx = width / 2;
+    const cy = height / 2;
+    const HOLD_MS = 950;
+
+    // Cyan flash
+    const flash = this.add.rectangle(cx, cy, width, height, 0x00ffcc, 0.10);
+    flash.setDepth(280).setAlpha(0);
+    this.tweens.add({
+      targets: flash,
+      alpha: { from: 0.10, to: 0 },
+      duration: HOLD_MS + 250,
+      ease: 'Quad.easeOut',
+      onComplete: () => flash.destroy(),
+    });
+
+    const con = this.add.container(cx, cy).setDepth(285).setAlpha(0);
+
+    const BW = 370, BH = 90;
+    const bg = this.add.graphics();
+    bg.fillStyle(0x001510, 0.97);
+    bg.fillRoundedRect(-BW / 2, -BH / 2, BW, BH, 6);
+    bg.lineStyle(2, 0x00ffcc, 0.80);
+    bg.strokeRoundedRect(-BW / 2, -BH / 2, BW, BH, 6);
+    bg.fillStyle(0x00ffcc, 0.16);
+    bg.fillRoundedRect(-BW / 2, -BH / 2, BW, 13, { tl: 6, tr: 6, bl: 0, br: 0 });
+    con.add(bg);
+
+    con.add(this.add.text(0, -BH / 2 + 7, '⊘  QUARANTINE ACTIVE', {
+      fontFamily: 'monospace', fontSize: '8px', color: '#00ffcc',
+      letterSpacing: 5, resolution: dpr,
+    }).setOrigin(0.5));
+
+    const title = this.add.text(0, -8, 'CONFLICT BLOCKED', {
+      fontFamily: 'monospace', fontSize: '20px', color: '#00ffcc',
+      fontStyle: 'bold', resolution: dpr,
+    }).setOrigin(0.5);
+    con.add(title);
+
+    con.add(this.add.text(0, 26, `${attackerName.toUpperCase()}'S ATTACK DEFLECTED BY ${defenderName.toUpperCase()}`, {
+      fontFamily: 'monospace', fontSize: '7px', color: '#00ffcc66',
+      letterSpacing: 2, resolution: dpr,
+    }).setOrigin(0.5));
+
+    // Slam up from below
+    con.y = cy + 60;
+    this.tweens.add({
+      targets: con, y: cy, alpha: 1,
+      duration: 200, ease: 'Back.easeOut',
+    });
+
+    // Pulse the title
+    this.tweens.add({
+      targets: title,
+      alpha: { from: 1, to: 0.25 },
+      duration: 160, repeat: 2, yoyo: true,
+      ease: 'Stepped',
+    });
+
+    // Hold then fade upward
+    this.time.delayedCall(HOLD_MS, () => {
+      this.tweens.add({
+        targets: con, y: cy - 40, alpha: 0,
+        duration: 240, ease: 'Quad.easeIn',
+        onComplete: () => {
+          con.destroy();
+          useGameStore.getState().warCancelledRevealComplete();
         },
       });
     });

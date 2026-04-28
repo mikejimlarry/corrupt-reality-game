@@ -93,6 +93,10 @@ export interface GameState {
    */
   powerCycleReveal: { targetName: string } | null;
   /**
+   * Non-null while the war-cancelled (Quarantine) animation is playing — cleared by warCancelledRevealComplete().
+   */
+  warCancelledReveal: { attackerName: string; defenderName: string } | null;
+  /**
    * Non-null while the "INCOMING CONFLICT" Phaser animation is playing.
    * The Phaser scene watches this, fires the animation, then calls proceedToCounterPending()
    * which clears this and sets counterPending so the React overlay appears.
