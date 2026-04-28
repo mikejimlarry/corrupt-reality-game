@@ -205,6 +205,9 @@ export class GameScene extends Phaser.Scene {
         this.humanCardObjects.forEach(c => c.setCorrupted(state.globalCorruptionMode));
         this.centreZone?.setCorruption(state.globalCorruptionMode);
         if (state.globalCorruptionMode) this.buildStaticNoise(w, h);
+        // Play the NCPD warrant SFX when a human plays the Corruption card from hand.
+        // The draw-path already triggers it via showCorruptionReveal(); this covers the play-path.
+        if (state.globalCorruptionMode && !state.corruptionReveal) sfxCorruptionReveal();
       }
       let handUpdated = false;
       let rebuilt = false;
