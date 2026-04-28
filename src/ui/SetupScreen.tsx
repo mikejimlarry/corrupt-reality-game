@@ -104,6 +104,29 @@ interface OptionsModalProps {
   setReducedMotion: (v: boolean) => void;
 }
 
+const OPTIONS_ANIM_CSS = `
+@keyframes opt-unfold {
+  0%   { transform: scaleY(0) scaleX(0.04); opacity: 0; }
+  40%  { transform: scaleY(1) scaleX(0.04); opacity: 1; }
+  100% { transform: scaleY(1) scaleX(1);    opacity: 1; }
+}
+@keyframes opt-fold {
+  0%   { transform: scaleY(1) scaleX(1);    opacity: 1; }
+  55%  { transform: scaleY(1) scaleX(0.04); opacity: 1; }
+  100% { transform: scaleY(0) scaleX(0.04); opacity: 0; }
+}
+@keyframes opt-in  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes opt-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes opt-bd-in  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes opt-bd-out { from { opacity: 1 } to { opacity: 0 } }
+.opt-unfold   { animation: opt-unfold  0.38s cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: center center; }
+.opt-fold     { animation: opt-fold    0.28s cubic-bezier(0.55, 0, 1, 0.45) both; transform-origin: center center; }
+.opt-in       { animation: opt-in      0.14s 0.32s ease both; }
+.opt-out      { animation: opt-out     0.08s ease both; }
+.opt-bd-in    { animation: opt-bd-in   0.22s ease both; }
+.opt-bd-out   { animation: opt-bd-out  0.28s ease both; }
+`;
+
 function OptionsModal({
   onClose,
   hidePpCounts, setHidePpCounts,
@@ -111,83 +134,100 @@ function OptionsModal({
   warTiePenalty, setWarTiePenalty,
   reducedMotion, setReducedMotion,
 }: OptionsModalProps) {
+  const [closing, setClosing] = useState(false);
+
+  const handleClose = useCallback(() => {
+    setClosing(true);
+    setTimeout(onClose, 300);
+  }, [onClose]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleClose]);
+
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0,
-        background: 'rgba(2,4,12,0.96)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 500,
-        fontFamily: 'monospace',
-      }}
-      onClick={onClose}
-    >
+    <>
+      <style>{OPTIONS_ANIM_CSS}</style>
       <div
+        onClick={handleClose}
+        className={closing ? 'opt-bd-out' : 'opt-bd-in'}
         style={{
-          border: '1px solid #00ffcc33',
-          background: 'rgba(5,10,20,0.98)',
-          padding: '2rem 2.5rem',
-          maxWidth: 400,
-          width: '90%',
-          color: '#00ffcc',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.75rem',
+          position: 'fixed', inset: 0,
+          background: 'rgba(2,4,12,0.96)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 500,
+          fontFamily: 'monospace',
         }}
-        onClick={e => e.stopPropagation()}
       >
-        <div style={{ fontSize: '0.5rem', letterSpacing: 6, color: '#00ffcc44', marginBottom: '0.25rem' }}>
-          SYSTEM CONFIG
-        </div>
-        <h2 style={{ margin: '0 0 0.5rem', fontSize: '1rem', letterSpacing: 4, color: '#00ffcc' }}>
-          OPTIONS
-        </h2>
-
-        <Toggle
-          checked={deadMansSwitch}
-          onChange={v => setDeadMansSwitch(v)}
-          label="DEAD MAN'S SWITCH"
-          description="An eliminated player may play one last protocol card before they fall."
-        />
-        <Toggle
-          checked={warTiePenalty}
-          onChange={v => setWarTiePenalty(v)}
-          label="WAR TIE PENALTY"
-          description="Tied war rolls cost both combatants the winner's cycle amount instead of nothing."
-        />
-        <Toggle
-          checked={hidePpCounts}
-          onChange={v => setHidePpCounts(v)}
-          label="HIDE CYCLES"
-          description="Exact cycle totals are hidden — judge your rivals by the bar alone."
-        />
-        <Toggle
-          checked={reducedMotion}
-          onChange={v => setReducedMotion(v)}
-          label="REDUCE ANIMATIONS"
-          description="Disables card art tweens, scanlines, and panel wipe animations."
-        />
-
-        <button
-          onClick={onClose}
+        <div
+          onClick={e => e.stopPropagation()}
+          className={closing ? 'opt-fold' : 'opt-unfold'}
           style={{
-            marginTop: '0.5rem',
-            width: '100%',
-            background: 'transparent',
             border: '1px solid #00ffcc33',
-            color: '#446655',
-            fontFamily: 'monospace',
-            fontSize: '0.65rem', letterSpacing: 3,
-            padding: '0.5rem',
-            cursor: 'pointer',
-            transition: 'all 0.15s',
+            background: 'rgba(5,10,20,0.98)',
+            padding: '2rem 2.5rem',
+            maxWidth: 400,
+            width: '90%',
+            color: '#00ffcc',
           }}
-          className="crg-btn-cyan"
         >
-          CLOSE
-        </button>
+          <div className={closing ? 'opt-out' : 'opt-in'} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ fontSize: '0.5rem', letterSpacing: 6, color: '#00ffcc44', marginBottom: '0.25rem' }}>
+              SYSTEM CONFIG
+            </div>
+            <h2 style={{ margin: '0 0 0.5rem', fontSize: '1rem', letterSpacing: 4, color: '#00ffcc' }}>
+              OPTIONS
+            </h2>
+
+            <Toggle
+              checked={deadMansSwitch}
+              onChange={v => setDeadMansSwitch(v)}
+              label="DEAD MAN'S SWITCH"
+              description="An eliminated player may play one last protocol card before they fall."
+            />
+            <Toggle
+              checked={warTiePenalty}
+              onChange={v => setWarTiePenalty(v)}
+              label="WAR TIE PENALTY"
+              description="Tied war rolls cost both combatants the winner's cycle amount instead of nothing."
+            />
+            <Toggle
+              checked={hidePpCounts}
+              onChange={v => setHidePpCounts(v)}
+              label="HIDE CYCLES"
+              description="Exact cycle totals are hidden — judge your rivals by the bar alone."
+            />
+            <Toggle
+              checked={reducedMotion}
+              onChange={v => setReducedMotion(v)}
+              label="REDUCE ANIMATIONS"
+              description="Disables card art tweens, scanlines, and panel wipe animations."
+            />
+
+            <button
+              onClick={handleClose}
+              style={{
+                marginTop: '0.5rem',
+                width: '100%',
+                background: 'transparent',
+                border: '1px solid #00ffcc33',
+                color: '#446655',
+                fontFamily: 'monospace',
+                fontSize: '0.65rem', letterSpacing: 3,
+                padding: '0.5rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              className="crg-btn-cyan"
+            >
+              CLOSE
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
