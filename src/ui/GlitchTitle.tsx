@@ -13,7 +13,7 @@ const CSS = `
     text-shadow:
       -2px 0 rgba(255, 0, 80, 0.8),
        2px 0 rgba(0, 255, 200, 0.5);
-    animation: cr-glitch-base 7s infinite;
+    animation: cr-glitch-base 12s infinite;
     user-select: none;
   }
 
@@ -50,13 +50,13 @@ const CSS = `
     text-align: center;
     color: inherit;
     opacity: 0;
-    animation: cr-leet-show 7s infinite;
+    animation: cr-leet-show 12s infinite;
   }
 
   /* The leet digit */
   .cr-leet > span {
     display: inline-block;
-    animation: cr-leet-hide 7s infinite;
+    animation: cr-leet-hide 12s infinite;
   }
 
   /* Letter fades IN during glitch bursts */
@@ -166,8 +166,8 @@ const CSS = `
 // Wire the named keyframes to the pseudo-elements via a second <style> block
 // because React can't inline ::before/::after animation names without a class.
 const CSS_ANIM = `
-  .cr-glitch::before { animation: cr-glitch-before 7s infinite; }
-  .cr-glitch::after  { animation: cr-glitch-after  7s infinite; }
+  .cr-glitch::before { animation: cr-glitch-before 12s infinite; }
+  .cr-glitch::after  { animation: cr-glitch-after  12s infinite; }
 `;
 
 /** Wraps a single leet-speak character so it glitches back to its real letter. */
