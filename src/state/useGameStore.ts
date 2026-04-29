@@ -801,14 +801,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pickCard('Data Harvest'),
     ];
 
-    // Place The Corruption at deck index 8 so the human draws it on turn 5.
-    // Draws interleave: human[0], ai[1], human[2], ai[3], human[4], ai[5], human[6], ai[7], human[8].
-    const corruptionIdx = fullDeck.findIndex(c => c.name === 'The Corruption');
-    if (corruptionIdx !== -1 && corruptionIdx !== 8) {
-      const [corruptionCard] = fullDeck.splice(corruptionIdx, 1);
-      fullDeck.splice(8, 0, corruptionCard);
-    }
-
     const tutorialPlayers: PlayerState[] = [
       {
         id: 'player_0', name: playerName.toUpperCase(), isHuman: true,
@@ -2023,11 +2015,35 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   powerCycleRevealComplete: () => { set({ powerCycleReveal: null }); },
   warCancelledRevealComplete: () => {
-    const { tutorialStep } = get();
-    set({
-      warCancelledReveal: null,
-      ...(tutorialStep === 9 ? { tutorialStep: 10, tutorialModalOpen: true } : {}),
-    });
+    const state = get();
+    const { tutorialStep } = state;
+    if (tutorialStep !== 9) {
+      set({ warCancelledReveal: null });
+      return;
+    }
+
+    // Guarantee The Corruption is the next card the human draws.
+    // It may be in the deck OR in the AI's hand (if the player used Firewall Surge as a
+    // counter, shifting draw counts so the AI consumed deck slot 8 instead).
+    let deck = [...state.deck];
+    let players = state.players;
+
+    const deckIdx = deck.findIndex(c => c.name === 'The Corruption');
+    if (deckIdx > 0) {
+      const [card] = deck.splice(deckIdx, 1);
+      deck = [card, ...deck];
+    } else if (deckIdx === -1) {
+      const ai = players.find(p => !p.isHuman);
+      const cardInAiHand = ai?.hand.find(c => c.name === 'The Corruption');
+      if (cardInAiHand) {
+        players = players.map(p =>
+          p.isHuman ? p : { ...p, hand: p.hand.filter(c => c.name !== 'The Corruption') }
+        );
+        deck = [cardInAiHand, ...deck];
+      }
+    }
+
+    set({ warCancelledReveal: null, tutorialStep: 10, tutorialModalOpen: true, deck, players });
   },
 
   rollComplete: () => {
