@@ -190,6 +190,7 @@ export class GameScene extends Phaser.Scene {
     let prevWarIncomingReveal: import('../../types/gameState').GameState['warIncomingReveal'] = null;
     let prevHandSortMode = useGameStore.getState().handSortMode;
     let prevHandSortReverse = useGameStore.getState().handSortReverse;
+    let prevTutorialModalOpen = useGameStore.getState().tutorialModalOpen;
 
     this.unsubscribeStore = useGameStore.subscribe(state => {
       const { players, selectedCardId } = state;
@@ -523,6 +524,12 @@ export class GameScene extends Phaser.Scene {
       if (turnNumber !== prevTurnNumber) {
         prevTurnNumber = turnNumber;
         this.centreZone?.setTurn(turnNumber);
+      }
+
+      // ── Tutorial modal open/close — re-grey cards when modal appears ──────
+      if (state.tutorialModalOpen !== prevTutorialModalOpen) {
+        prevTutorialModalOpen = state.tutorialModalOpen;
+        if (!rebuilt && !handUpdated) this.applyCardApplicability();
       }
     });
 
