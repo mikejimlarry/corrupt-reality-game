@@ -44,7 +44,8 @@ export class GameScene extends Phaser.Scene {
   private humanDaemonBoard?: DaemonBoard;
   private aiDaemonBoards = new Map<string, DaemonBoard>();
   private aiCardBackObjects = new Map<string, CardBack[]>();
-  private overclockVisual?: Phaser.GameObjects.Container;
+  private overclockVisual?:   Phaser.GameObjects.Container;
+  private quarantineVisual?:  Phaser.GameObjects.Container;
   private staticGfx?:     Phaser.GameObjects.Graphics;
   private staticTimer?:   Phaser.Time.TimerEvent;
   private humanZoneBaseY  = 0;
@@ -90,7 +91,8 @@ export class GameScene extends Phaser.Scene {
     this.aiCardBackObjects.clear();
     this.aiPlayerSeat.clear();
     this.humanZoneShifted = false;
-    this.overclockVisual = undefined;
+    this.overclockVisual  = undefined;
+    this.quarantineVisual = undefined;
     // Static overlay is destroyed by removeAll; clear references so rebuildScene can recreate it
     this.staticTimer?.remove(false);
     this.staticTimer = undefined;
@@ -184,6 +186,7 @@ export class GameScene extends Phaser.Scene {
       useGameStore.getState().players.map(p => [p.id, p.credits])
     );
     let prevPendingOverclockCard: import('../../types/cards').Card | null = null;
+    let prevHumanQuarantineCard:  import('../../types/cards').Card | null = null;
     let prevWarRollDisplay: import('../../types/gameState').GameState['warRollDisplay'] = null;
     let prevPowerCycleReveal: import('../../types/gameState').GameState['powerCycleReveal'] = null;
     let prevWarCancelledReveal: import('../../types/gameState').GameState['warCancelledReveal'] = null;
@@ -444,6 +447,22 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
+      // ── Quarantine card visual ───────────────────────────────────────────────
+      const humanQCard = state.players.find(p => p.isHuman)?.quarantineCard ?? null;
+      if (humanQCard !== prevHumanQuarantineCard) {
+        const oldQCard = prevHumanQuarantineCard;
+        prevHumanQuarantineCard = humanQCard;
+        if (humanQCard) {
+          this.time.delayedCall(340, () => this.showQuarantineCard(humanQCard, w, h));
+        } else if (oldQCard) {
+          const discardWX = w / 2 + DISCARD_LOCAL_CX;
+          const discardWY = h * 0.46 + DISCARD_LOCAL_CY;
+          this.hideQuarantineCard(oldQCard, discardWX, discardWY);
+        } else {
+          this.hideQuarantineCard();
+        }
+      }
+
       // ── WAR dice roll — fires after conflict card resolves ──────────────────
       if (state.warRollDisplay && !prevWarRollDisplay) {
         prevWarRollDisplay = state.warRollDisplay;
@@ -620,6 +639,10 @@ export class GameScene extends Phaser.Scene {
     // Restore overclock visual on rebuild (e.g. window resize)
     const pendingOC = useGameStore.getState().pendingOverclockCard;
     if (pendingOC) this.showOverclockCard(pendingOC, width, height);
+
+    // Restore quarantine visual on rebuild
+    const humanQC = useGameStore.getState().players.find(p => p.isHuman)?.quarantineCard ?? null;
+    if (humanQC) this.showQuarantineCard(humanQC, width, height);
   }
 
   // ── Player dim — fades inactive player zones and card backs ─────────────
@@ -1102,6 +1125,103 @@ export class GameScene extends Phaser.Scene {
 
     if (card && discardX !== undefined && discardY !== undefined) {
       // Fly to the discard pile then reveal the card face
+      this.tweens.add({
+        targets: con,
+        x: discardX, y: discardY,
+        scaleX: 0.55, scaleY: 0.55,
+        alpha: 0,
+        duration: 380, ease: 'Quad.easeIn',
+        onComplete: () => {
+          con.destroy();
+          this.centreZone?.setDiscardTop(card);
+        },
+      });
+    } else {
+      this.tweens.add({
+        targets: con,
+        alpha: 0,
+        scaleX: 0.65, scaleY: 0.65,
+        duration: 280, ease: 'Quad.easeIn',
+        onComplete: () => con.destroy(),
+      });
+    }
+  }
+
+  // ── Quarantine card visual — shown on table while a Quarantine block is armed ─
+  private showQuarantineCard(cardData: import('../../types/cards').Card, width: number, height: number) {
+    if (this.quarantineVisual) {
+      this.tweens.killTweensOf(this.quarantineVisual);
+      this.quarantineVisual.destroy();
+      this.quarantineVisual = undefined;
+    }
+
+    const cx = width * 0.30;
+    const cy = height * 0.73;
+    const W = 118, H = 64;
+
+    const con = this.add.container(cx, cy);
+    con.setDepth(12);
+    con.setAlpha(0);
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x060c18, 0.96);
+    bg.fillRoundedRect(-W / 2, -H / 2, W, H, 6);
+    bg.lineStyle(1.5, 0x00ffcc, 0.75);
+    bg.strokeRoundedRect(-W / 2, -H / 2, W, H, 6);
+    con.add(bg);
+
+    const glow = this.add.graphics();
+    glow.lineStyle(3, 0x00ffcc, 0.35);
+    glow.strokeRoundedRect(-W / 2 - 2, -H / 2 - 2, W + 4, H + 4, 8);
+    con.add(glow);
+    this.tweens.add({
+      targets: glow,
+      alpha: { from: 0.25, to: 1 },
+      duration: 900, repeat: -1, yoyo: true,
+      ease: 'Sine.easeInOut',
+    });
+
+    const dpr = window.devicePixelRatio;
+    con.add(this.add.text(0, -H / 2 + 13, '⊘  QUARANTINE', {
+      fontFamily: 'monospace', fontSize: '10px', color: '#00ffcc',
+      fontStyle: 'bold', resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, -H / 2 + 27, cardData.name.toUpperCase(), {
+      fontFamily: 'monospace', fontSize: '8px', color: '#4a8870',
+      resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, -H / 2 + 41, 'ARMED — NEXT CONFLICT', {
+      fontFamily: 'monospace', fontSize: '7px', color: '#334455',
+      resolution: dpr,
+    }).setOrigin(0.5));
+
+    con.add(this.add.text(0, -H / 2 + 53, 'AUTO-CANCELS ATTACK', {
+      fontFamily: 'monospace', fontSize: '7px', color: '#00ffcc55',
+      resolution: dpr,
+    }).setOrigin(0.5));
+
+    this.tweens.add({
+      targets: con,
+      alpha: 1,
+      scaleX: { from: 0.55, to: 1 },
+      scaleY: { from: 0.55, to: 1 },
+      duration: 320,
+      ease: 'Back.easeOut',
+    });
+
+    this.quarantineVisual = con;
+  }
+
+  private hideQuarantineCard(card?: CardData, discardX?: number, discardY?: number) {
+    if (!this.quarantineVisual) return;
+    const con = this.quarantineVisual;
+    this.quarantineVisual = undefined;
+    this.tweens.killTweensOf(con);
+    con.list.forEach(child => this.tweens.killTweensOf(child));
+
+    if (card && discardX !== undefined && discardY !== undefined) {
       this.tweens.add({
         targets: con,
         x: discardX, y: discardY,
