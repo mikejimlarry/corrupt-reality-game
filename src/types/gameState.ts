@@ -30,6 +30,8 @@ export interface PlayerState {
   tacticalBonus: number;
   /** Set by Quarantine — blocks the next incoming WAR or Digital Crusade targeting this player. */
   negotiating: boolean;
+  /** Non-null when Quarantine has been played but not yet triggered — held off the discard pile until consumed. */
+  quarantineCard: Card | null;
 }
 
 export interface LogEntry {

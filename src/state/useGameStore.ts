@@ -59,6 +59,7 @@ type CardEffectResult = {
   daemonImmunityBlockedBy: string | null;
   warRollResult: WarRollSnapshot | null;
   lastTargetName: string | null;
+  consumedQuarantineCard: Card | null;
 };
 
 // ── AI turn pacing (ms) ───────────────────────────────────────────────────────
@@ -97,6 +98,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
     daemonImmunityBlockedBy: null,
     warRollResult: null,
     lastTargetName: null,
+    consumedQuarantineCard: null,
   });
 
   const liveOpponents = players
@@ -136,7 +138,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       }
       // NEGOTIATE — arm a standing block on the actor (proactive Quarantine)
       if (pos.effect === 'NEGOTIATE') {
-        return noFx(players.map((p, i) => i === actorIndex ? { ...p, negotiating: true } : p));
+        return noFx(players.map((p, i) => i === actorIndex ? { ...p, negotiating: true, quarantineCard: card } : p));
       }
       return noFx(players.map((p, i) =>
         i === actorIndex ? { ...p, credits: Math.min(200, p.credits + pos.amount) } : p
@@ -247,10 +249,12 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       const lastTargetName = players[ti].name;
       // Cease & Desist — target's diplomatic block cancels the war entirely
       if (players[ti].negotiating) {
+        const consumedQuarantineCard = players[ti].quarantineCard;
         return {
-          ...noFx(players.map((p, i) => i === ti ? { ...p, negotiating: false } : p)),
+          ...noFx(players.map((p, i) => i === ti ? { ...p, negotiating: false, quarantineCard: null } : p)),
           negotiateBlockedBy: players[ti].name,
           lastTargetName,
+          consumedQuarantineCard,
         };
       }
       // Roll 1d6 for each side; Firewall Surge (tacticalBonus) adds +N to each player's roll.
@@ -728,6 +732,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       overclocked: false,
       tacticalBonus: 0,
       negotiating: false,
+      quarantineCard: null,
     }));
 
     // Deal 5 cards to each player (round-robin so distribution is fair)
@@ -796,16 +801,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pickCard('Data Harvest'),
     ];
 
+    // Place The Corruption at deck index 8 so the human draws it on turn 5.
+    // Draws interleave: human[0], ai[1], human[2], ai[3], human[4], ai[5], human[6], ai[7], human[8].
+    const corruptionIdx = fullDeck.findIndex(c => c.name === 'The Corruption');
+    if (corruptionIdx !== -1 && corruptionIdx !== 8) {
+      const [corruptionCard] = fullDeck.splice(corruptionIdx, 1);
+      fullDeck.splice(8, 0, corruptionCard);
+    }
+
     const tutorialPlayers: PlayerState[] = [
       {
         id: 'player_0', name: playerName.toUpperCase(), isHuman: true,
         credits: 50, hand: humanHand, daemons: [], eliminated: false,
-        quarantined: false, overclocked: false, tacticalBonus: 0, negotiating: false,
+        quarantined: false, overclocked: false, tacticalBonus: 0, negotiating: false, quarantineCard: null,
       },
       {
         id: 'player_1', name: 'GHOST', isHuman: false, personality: 'BALANCED' as const,
         credits: 50, hand: aiHand, daemons: [], eliminated: false,
-        quarantined: false, overclocked: false, tacticalBonus: 0, negotiating: false,
+        quarantined: false, overclocked: false, tacticalBonus: 0, negotiating: false, quarantineCard: null,
       },
     ];
 
@@ -1217,7 +1230,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       actor.isHuman &&
       card.category === 'EVENT_POSITIVE' &&
       (card as PositiveEventCard).effect === 'OVERCLOCK';
-    let discard = isHumanOverclock ? [...state.discard] : [...state.discard, card];
+    const isNegotiate =
+      card.category === 'EVENT_POSITIVE' &&
+      (card as PositiveEventCard).effect === 'NEGOTIATE';
+    let discard = (isHumanOverclock || isNegotiate) ? [...state.discard] : [...state.discard, card];
+    if (fx.consumedQuarantineCard) discard = [...discard, fx.consumedQuarantineCard];
 
     // ── Dead Man's Switch — players who just hit 0 may fire one last negative card ──
     // AI players auto-pick; the human player gets a choice overlay.
@@ -1344,15 +1361,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const nextTutorialStep = computeNextTutorialStep(state.tutorialStep, card.name);
-    // Keep the human in MAIN at step 3 so they can still play Firewall after Data Harvest
-    const tutorialKeepMain = isHuman && nextTutorialStep === 3;
 
     set({
       players, discard, globalCorruptionMode, winnerId,
       extraPlayPending: newExtraPlays,
       eliminationOrder: elim2.eliminationOrder,
       recordSaved: winnerId ? true : state.recordSaved,
-      phase: alive.length <= 1 ? 'GAME_OVER' : (moreExtraPlays ? 'MAIN' : ((isHuman && !tutorialKeepMain) ? 'END_TURN' : 'MAIN')),
+      phase: alive.length <= 1 ? 'GAME_OVER' : (moreExtraPlays ? 'MAIN' : (isHuman ? 'END_TURN' : 'MAIN')),
       selectedCardId: null,
       pendingCardId: null,
       validTargetIds: [],
@@ -1453,6 +1468,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         gameStats: winnerId
           ? { ...state.gameStats, eliminationOrder: elim.eliminationOrder }
           : state.gameStats,
+        ...(state.tutorialStep === 10 ? { tutorialStep: 11, tutorialModalOpen: true } : {}),
       });
       return;
     }
@@ -1760,6 +1776,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }, 0);
     const capturedWarRoll = warFx.warRollResult;
     const negotiateBlockedBy = warFx.negotiateBlockedBy;
+    if (warFx.consumedQuarantineCard) discard = [...discard, warFx.consumedQuarantineCard];
 
     const warCardLog = cardLogText(warCard, state.players[actorIndex].name, warFx.lastTargetName, warFx.warRollResult);
     if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Quarantine cancelled the attack!`, 'effect');
@@ -1952,10 +1969,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (wrappedAround) trackEvent('turn_played', { turn_number: newTurnNumber });
     const roll: [number, number] = [Math.ceil(random() * 6), Math.ceil(random() * 6)];
 
-    // Tutorial: advance step when human's turn comes back (steps 3→4, 5→6)
+    // Tutorial: advance step when human's turn comes back (steps 3→4, 5→6, 7→8)
     const { tutorialStep } = state;
     const nextTutorialStep =
-      (tutorialStep === 4 || tutorialStep === 6) && nextIndex === 0
+      (tutorialStep === 3 || tutorialStep === 5 || tutorialStep === 7) && nextIndex === 0
         ? tutorialStep + 1
         : tutorialStep;
     const tutorialStepAdvanced = nextTutorialStep !== tutorialStep;
@@ -2009,7 +2026,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { tutorialStep } = get();
     set({
       warCancelledReveal: null,
-      ...(tutorialStep === 8 ? { tutorialStep: 9, tutorialModalOpen: true } : {}),
+      ...(tutorialStep === 9 ? { tutorialStep: 10, tutorialModalOpen: true } : {}),
     });
   },
 

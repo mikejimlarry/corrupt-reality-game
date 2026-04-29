@@ -108,7 +108,7 @@ export const WarPreOverlay: React.FC = () => {
         </div>
 
         {/* Eligible cards */}
-        {eligibleCards.length === 0 ? (
+        {surgeCards.length === 0 ? (
           <div style={{
             fontSize: '0.65rem', color: '#442233', letterSpacing: 1,
             textAlign: 'center', padding: '1rem',

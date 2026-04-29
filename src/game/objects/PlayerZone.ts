@@ -145,12 +145,12 @@ export class PlayerZone extends Phaser.GameObjects.Container {
       this.add(this.cardCountText);
     }
 
-    this.buildDaemonRow(p.daemons);
+    this.buildDaemonRow(p.daemons, p.negotiating);
     this.displayedCredits = p.credits;
     this.setSize(W, H);
   }
 
-  private buildDaemonRow(daemons: DaemonType[]) {
+  private buildDaemonRow(daemons: DaemonType[], negotiating = false) {
     // Destroy previous daemon row items
     this.daemonItems.forEach(item => {
       this.remove(item, true);
@@ -165,23 +165,30 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     const barH = 8;
     const impY = barY + barH + 22;
 
-    if (daemons.length > 0) {
+    const pills: string[] = [
+      ...daemons.map(d => IMP_LABEL[d] ?? d),
+      ...(negotiating ? ['[QT] QUARANTINE'] : []),
+    ];
+
+    if (pills.length > 0) {
       const PILL_W = 70, PILL_GAP = 6;
-      const rowWidth = daemons.length * PILL_W + (daemons.length - 1) * PILL_GAP;
+      const rowWidth = pills.length * PILL_W + (pills.length - 1) * PILL_GAP;
       const startX = -rowWidth / 2;
-      daemons.forEach((imp, i) => {
-        const label = IMP_LABEL[imp] ?? imp;
+      pills.forEach((label, i) => {
+        const isQuarantine = label === '[QT] QUARANTINE';
+        const pillAccent = isQuarantine ? 0x00ccff : accent;
+        const pillAccentHex = isQuarantine ? '#00ccff' : accentHex;
         const pill = this.scene.add.graphics();
         const pillX = startX + i * (PILL_W + PILL_GAP);
-        pill.fillStyle(accent, 0.12);
+        pill.fillStyle(pillAccent, 0.12);
         pill.fillRoundedRect(pillX, impY, PILL_W, 16, 3);
-        pill.lineStyle(0.5, accent, 0.5);
+        pill.lineStyle(0.5, pillAccent, 0.5);
         pill.strokeRoundedRect(pillX, impY, PILL_W, 16, 3);
         this.add(pill);
         this.daemonItems.push(pill);
 
         const impText = this.txt(pillX + PILL_W / 2, impY + 8, label, {
-          fontFamily: 'monospace', fontSize: '6px', color: accentHex,
+          fontFamily: 'monospace', fontSize: '6px', color: pillAccentHex,
         }).setOrigin(0.5);
         this.add(impText);
         this.daemonItems.push(impText);
@@ -217,7 +224,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
   refresh(player: PlayerState) {
     const prevCredits = this.player.credits;
     this.player = player;
-    this.buildDaemonRow(player.daemons);
+    this.buildDaemonRow(player.daemons, player.negotiating);
     if (this.cardCountText) {
       this.cardCountText.setText(`[${player.hand.length}] CARDS`);
     }
