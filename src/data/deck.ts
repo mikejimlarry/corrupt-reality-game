@@ -7,19 +7,19 @@ let _id = 0;
 const uid = () => `card_${++_id}`;
 const common  = (n: number): CardRarity => n <= 3 ? 'COMMON' : n <= 5 ? 'UNCOMMON' : n <= 7 ? 'RARE' : 'LEGENDARY';
 
-// ── CREDITS (12) ─────────────────────────────────────────────────────────────
+// ── CYCLES (12) ──────────────────────────────────────────────────────────────
 
-const creditCards: Card[] = [
+const cycleCards: Card[] = [
   // Data Harvest ×6 — P&P Fertility (+5)
   ...Array(6).fill(null).map(() => ({
-    id: uid(), name: 'Data Harvest', category: 'CREDITS' as const,
+    id: uid(), name: 'Data Harvest', category: 'CYCLES' as const,
     description: 'Extract raw data from the grid. Gain +5 cycles.',
     rarity: 'COMMON' as const, amount: 5,
     flavourText: 'The net provides. Always.',
   })),
   // Neural Uplink ×6 — P&P Plenty (+10)
   ...Array(6).fill(null).map(() => ({
-    id: uid(), name: 'Neural Uplink', category: 'CREDITS' as const,
+    id: uid(), name: 'Neural Uplink', category: 'CYCLES' as const,
     description: 'Synchronise node clusters. Gain +10 cycles.',
     rarity: 'UNCOMMON' as const, amount: 10,
     flavourText: 'Every mind a server. Every server, a weapon.',
@@ -146,7 +146,7 @@ const negativeEvents: Card[] = [
     rarity: 'LEGENDARY' as const, effect: 'POWER_CYCLE', amount: 0, targetsOther: true,
     flavourText: 'Have you tried turning it off and on again?',
   },
-  // M.A.D. ×2 — new card (both actor and target lose 15 credits)
+  // M.A.D. ×2 — new card (both actor and target lose 15 cycles)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'M.A.D.', category: 'EVENT_NEGATIVE' as const,
     description: 'Mutually Assured Destruction. You and the target each lose -15 cycles.',
@@ -236,7 +236,7 @@ const daemonCards: Card[] = [
 
 export const generateDeck = (): Card[] => {
   const all = [
-    ...creditCards,    // 12
+    ...cycleCards,    // 12
     ...positiveEvents, //  6
     ...negativeEvents, // 31
     ...warCards,       //  7

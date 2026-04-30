@@ -408,7 +408,7 @@ export function HUD() {
           {/* Mini scoreboard */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {players.map(p => {
-              const pct = Math.max(0, Math.min(100, (p.credits / startingPop) * 100));
+              const pct = Math.max(0, Math.min(100, (p.cycles / startingPop) * 100));
               const isCurrent = p.id === currentPlayer?.id;
               const nameColor = p.eliminated ? '#334455'
                 : p.isHuman ? ACCENT
@@ -446,7 +446,7 @@ export function HUD() {
                   {/* Count */}
                   {!hidePpCounts && (
                     <span style={{ fontSize: 9, color: nameColor, letterSpacing: 0, width: 22, textAlign: 'right', flexShrink: 0 }}>
-                      {p.credits}
+                      {p.cycles}
                     </span>
                   )}
                 </div>

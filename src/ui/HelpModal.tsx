@@ -321,8 +321,8 @@ function TabOptions() {
         </div>
       </Section>
 
-      <Section title="HIDE CREDITS">
-        <P>When enabled, the exact credit total for all players is hidden — only the bar is visible. You'll have to judge your rivals' strength by how full their bar is, not the number.</P>
+      <Section title="HIDE CYCLES">
+        <P>When enabled, the exact cycle total for all players is hidden — only the bar is visible. You'll have to judge your rivals' strength by how full their bar is, not the number.</P>
         <P>Adds a layer of bluffing and uncertainty to every decision.</P>
       </Section>
 

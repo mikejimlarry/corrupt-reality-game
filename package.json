@@ -1,13 +1,14 @@
 {
   "name": "corrupt-reality-game",
   "private": true,
-  "version": "0.9.5",
+  "version": "0.9.6",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "publish": "npm run build && butler push dist mikejimlarry/corrupt-reality:html"
   },
   "dependencies": {
     "phaser": "^3.90.0",

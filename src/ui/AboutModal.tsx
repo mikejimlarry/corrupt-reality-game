@@ -87,9 +87,9 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
 
             <div style={{ borderBottom: '1px solid #00ffcc11', marginBottom: '1.5rem' }} />
 
-            {/* Credits */}
+            {/* Cycles */}
             <div style={{ fontSize: '0.5rem', letterSpacing: 4, color: '#00ffcc33', marginBottom: '0.75rem' }}>
-              CREDITS
+              CYCLES
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', marginBottom: '1.5rem' }}>

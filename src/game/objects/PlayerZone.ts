@@ -13,7 +13,7 @@ const AI_COLOR     = 0xff3366;
 const BAR_BG_COLOR = 0x1a1a2e;
 const BAR_FG_COLOR_HUMAN = 0x00ffcc;
 const BAR_FG_COLOR_AI    = 0xff3366;
-const MAX_CREDITS = 200;
+const MAX_CYCLES = 200;
 
 const IMP_LABEL: Record<string, string> = {
   FIREWALL:      '[FW] FIREWALL',
@@ -36,9 +36,9 @@ export class PlayerZone extends Phaser.GameObjects.Container {
   // AI card count label — updated on refresh
   private cardCountText?: Phaser.GameObjects.Text;
   private statusDotTween?: Phaser.Tweens.Tween;
-  // Animated credit display — tracks the currently rendered value mid-tween
-  private displayedCredits = 0;
-  private creditTween?: Phaser.Tweens.Tween;
+  // Animated cycle display — tracks the currently rendered value mid-tween
+  private displayedCycles = 0;
+  private cycleTween?: Phaser.Tweens.Tween;
 
   constructor(scene: Phaser.Scene, x: number, y: number, player: PlayerState, hidePop = false) {
     super(scene, x, y);
@@ -111,11 +111,11 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     this.add(barBg);
 
     this.popBar = this.scene.add.graphics();
-    this.drawBar(p.credits);
+    this.drawBar(p.cycles);
     this.add(this.popBar);
 
     // ── Population label ──────────────────────────────────────────────────────
-    this.popLabel = this.txt(left + W - PAD, barY + barH / 2, this.hidePop ? '???' : `${p.credits}`, {
+    this.popLabel = this.txt(left + W - PAD, barY + barH / 2, this.hidePop ? '???' : `${p.cycles}`, {
       fontFamily: 'monospace', fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(1, 0.5);
     this.add(this.popLabel);
@@ -146,7 +146,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     }
 
     this.buildDaemonRow(p.daemons, p.negotiating);
-    this.displayedCredits = p.credits;
+    this.displayedCycles = p.cycles;
     this.setSize(W, H);
   }
 
@@ -209,7 +209,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     const barY = -H / 2 + 42;
     const barW = W - PAD * 2 - 36;
     const barH = 8;
-    const fillW = Math.max(2, (Math.min(pop, MAX_CREDITS) / MAX_CREDITS) * barW);
+    const fillW = Math.max(2, (Math.min(pop, MAX_CYCLES) / MAX_CYCLES) * barW);
 
     this.popBar.clear();
     this.popBar.fillStyle(accent, 0.9);
@@ -222,7 +222,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
   }
 
   refresh(player: PlayerState) {
-    const prevCredits = this.player.credits;
+    const prevCredits = this.player.cycles;
     this.player = player;
     this.buildDaemonRow(player.daemons, player.negotiating);
     if (this.cardCountText) {
@@ -235,8 +235,8 @@ export class PlayerZone extends Phaser.GameObjects.Container {
       this.statusDot.setAlpha(0.25);
     }
 
-    const delta = player.credits - prevCredits;
-    if (delta !== 0) this.animateCreditChange(player.credits, delta);
+    const delta = player.cycles - prevCredits;
+    if (delta !== 0) this.animateCreditChange(player.cycles, delta);
   }
 
   /** Animate the bar and counter from the current displayed value to the new target. */
@@ -260,23 +260,23 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     // Credit label colour — restored after animation
     if (!this.hidePop) this.popLabel.setStyle({ color });
 
-    // Kill any in-progress credit tween so we animate from wherever the bar is now
-    this.creditTween?.stop();
+    // Kill any in-progress cycle tween so we animate from wherever the bar is now
+    this.cycleTween?.stop();
 
-    const proxy = { value: this.displayedCredits };
-    this.creditTween = this.scene.tweens.add({
+    const proxy = { value: this.displayedCycles };
+    this.cycleTween = this.scene.tweens.add({
       targets: proxy,
       value: target,
       duration: 600,
       ease: 'Quad.easeOut',
       onUpdate: () => {
         const v = Math.round(proxy.value);
-        this.displayedCredits = v;
+        this.displayedCycles = v;
         this.drawBar(v);
         if (!this.hidePop) this.popLabel.setText(`${v}`);
       },
       onComplete: () => {
-        this.displayedCredits = target;
+        this.displayedCycles = target;
         this.drawBar(target);
         if (!this.hidePop) {
           this.popLabel.setText(`${target}`);

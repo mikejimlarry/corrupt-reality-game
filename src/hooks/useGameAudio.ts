@@ -26,8 +26,8 @@ export function useGameAudio() {
   const prevRollTriggered = useRef(rollTriggered);
   const prevWarRoll       = useRef(warRollDisplay);
 
-  // Track per-player credits and daemon counts to detect changes
-  const prevCredits = useRef<Map<string, number>>(new Map());
+  // Track per-player cycles and daemon counts to detect changes
+  const prevCycles = useRef<Map<string, number>>(new Map());
   const prevDaemons = useRef<Map<string, number>>(new Map());
 
   // ── Phase changes ────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ export function useGameAudio() {
     } else if (top.category === 'EVENT_NEGATIVE') {
       sfxAttack();
     }
-    // Other categories: no play sound (credit gain SFX covers those via credit change)
+    // Other categories: no play sound (cycle gain SFX covers those via cycle change)
   }, [discard]);
 
   // ── Hand size increase → card drawn ─────────────────────────────────────
@@ -106,13 +106,13 @@ export function useGameAudio() {
     let playedDaemon = false;
 
     players.forEach(p => {
-      const prevC = prevCredits.current.get(p.id) ?? p.credits;
+      const prevC = prevCycles.current.get(p.id) ?? p.cycles;
       const prevD = prevDaemons.current.get(p.id) ?? p.daemons.length;
 
-      if (p.credits > prevC && !playedGain) {
+      if (p.cycles > prevC && !playedGain) {
         sfxGain();
         playedGain = true;
-      } else if (p.credits < prevC && !playedLoss) {
+      } else if (p.cycles < prevC && !playedLoss) {
         sfxLoss();
         playedLoss = true;
       }
@@ -124,7 +124,7 @@ export function useGameAudio() {
         sfxDaemonTerminated();
       }
 
-      prevCredits.current.set(p.id, p.credits);
+      prevCycles.current.set(p.id, p.cycles);
       prevDaemons.current.set(p.id, p.daemons.length);
     });
   }, [players]);

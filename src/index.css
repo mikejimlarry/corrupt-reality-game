@@ -31,7 +31,7 @@ html, body, #root {
 .crg-btn-dismiss-war:hover  { color: #885566 !important; border-color: #664455 !important; }
 
 /* ── Credits range slider ─────────────────────────────────────────────────── */
-.credits-slider {
+.cycles-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
@@ -43,7 +43,7 @@ html, body, #root {
   padding: 0;
   margin: 0;
 }
-.credits-slider::-webkit-slider-thumb {
+.cycles-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 14px;
@@ -55,7 +55,7 @@ html, body, #root {
   cursor: pointer;
   box-shadow: 0 0 6px #00ffcc88;
 }
-.credits-slider::-moz-range-thumb {
+.cycles-slider::-moz-range-thumb {
   width: 14px;
   height: 14px;
   background: #00ffcc;
@@ -64,7 +64,7 @@ html, body, #root {
   cursor: pointer;
   box-shadow: 0 0 6px #00ffcc88;
 }
-.credits-slider::-webkit-slider-runnable-track {
+.cycles-slider::-webkit-slider-runnable-track {
   height: 2px;
   background: linear-gradient(
     to right,
@@ -73,12 +73,12 @@ html, body, #root {
   );
   border-radius: 0;
 }
-.credits-slider::-moz-range-track {
+.cycles-slider::-moz-range-track {
   height: 2px;
   background: #00ffcc22;
   border-radius: 0;
 }
-.credits-slider::-moz-range-progress {
+.cycles-slider::-moz-range-progress {
   height: 2px;
   background: #00ffcc;
 }

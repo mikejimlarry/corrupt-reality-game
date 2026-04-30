@@ -1,7 +1,7 @@
 // src/state/useGameStore.ts
 import { create } from 'zustand';
 import type { GameState, PlayerState, LogEntry, AIPersonality } from '../types/gameState';
-import type { Card, CreditsCard, PositiveEventCard, NegativeEventCard, WarCard, DaemonCard, CounterCard } from '../types/cards';
+import type { Card, CyclesCard, PositiveEventCard, NegativeEventCard, WarCard, DaemonCard, CounterCard } from '../types/cards';
 import { initRNG, random } from '../lib/rng';
 import { generateDeck } from '../data/deck';
 import { TUTORIAL_REQUIRED_CARD, TUTORIAL_AI_CARD } from '../data/tutorial';
@@ -30,7 +30,7 @@ function markEliminations(
   let order = eliminationOrder;
   const updated = players.map(p => {
     if (p.eliminated) return p;
-    const shouldEliminate = p.credits <= 0 && (!keepHumanAlive || !p.isHuman);
+    const shouldEliminate = p.cycles <= 0 && (!keepHumanAlive || !p.isHuman);
     if (shouldEliminate) {
       if (!order.includes(p.id)) order = [...order, p.id];
       return { ...p, eliminated: true, daemons: [] };
@@ -113,10 +113,10 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
   };
 
   switch (card.category) {
-    case 'CREDITS':
+    case 'CYCLES':
       return noFx(players.map((p, i) =>
         i === actorIndex
-          ? { ...p, credits: Math.min(200, p.credits + (card as CreditsCard).amount) }
+          ? { ...p, cycles: Math.min(200, p.cycles + (card as CyclesCard).amount) }
           : p
       ));
 
@@ -126,10 +126,10 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         // All live opponents each lose `amount`; actor gains amount × opponent count
         const liveCount = liveOpponents.length;
         const drained = players.map((p, i) =>
-          (i === actorIndex || p.eliminated) ? p : { ...p, credits: Math.max(0, p.credits - pos.amount) }
+          (i === actorIndex || p.eliminated) ? p : { ...p, cycles: Math.max(0, p.cycles - pos.amount) }
         );
         return noFx(drained.map((p, i) =>
-          i === actorIndex ? { ...p, credits: Math.min(200, p.credits + pos.amount * liveCount) } : p
+          i === actorIndex ? { ...p, cycles: Math.min(200, p.cycles + pos.amount * liveCount) } : p
         ));
       }
       // OVERCLOCK — mark actor so their next Stability Roll is doubled
@@ -141,7 +141,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         return noFx(players.map((p, i) => i === actorIndex ? { ...p, negotiating: true, quarantineCard: card } : p));
       }
       return noFx(players.map((p, i) =>
-        i === actorIndex ? { ...p, credits: Math.min(200, p.credits + pos.amount) } : p
+        i === actorIndex ? { ...p, cycles: Math.min(200, p.cycles + pos.amount) } : p
       ));
     }
 
@@ -154,7 +154,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
           if (i === actorIndex || p.eliminated) return p;
           const imps = [...p.daemons];
           if (imps.length > 0) imps.splice(Math.floor(random() * imps.length), 1);
-          return { ...p, credits: Math.max(0, p.credits - neg.amount), daemons: imps };
+          return { ...p, cycles: Math.max(0, p.cycles - neg.amount), daemons: imps };
         }));
       }
 
@@ -189,8 +189,8 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       if (neg.effect === 'STEAL') {
         return {
           ...noFx(players.map((p, i) => {
-            if (i === actorIndex) return { ...p, credits: Math.min(200, p.credits + neg.amount) };
-            if (i === ti)         return { ...p, credits: Math.max(0, p.credits - neg.amount) };
+            if (i === actorIndex) return { ...p, cycles: Math.min(200, p.cycles + neg.amount) };
+            if (i === ti)         return { ...p, cycles: Math.max(0, p.cycles - neg.amount) };
             return p;
           })),
           lastTargetName,
@@ -202,7 +202,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         return {
           ...noFx(players.map((p, i) => {
             if (i === actorIndex || i === ti)
-              return { ...p, credits: Math.max(0, p.credits - neg.amount) };
+              return { ...p, cycles: Math.max(0, p.cycles - neg.amount) };
             return p;
           })),
           lastTargetName,
@@ -231,7 +231,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
 
       // Standard single-target damage (with optional daemon removal)
       let next = players.map((p, i) =>
-        i === ti ? { ...p, credits: Math.max(0, p.credits - neg.amount) } : p
+        i === ti ? { ...p, cycles: Math.max(0, p.cycles - neg.amount) } : p
       );
       if (neg.effect === 'DAMAGE_DAEMON' && next[ti].daemons.length > 0) {
         const imps = [...next[ti].daemons];
@@ -280,10 +280,10 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       return {
         ...noFx(players.map((p, i) => {
           if (i === actorIndex) {
-            return { ...p, credits: Math.max(0, p.credits - actorLoss), tacticalBonus: 0 };
+            return { ...p, cycles: Math.max(0, p.cycles - actorLoss), tacticalBonus: 0 };
           }
           if (i === ti) {
-            return { ...p, credits: Math.max(0, p.credits - targetLoss), tacticalBonus: 0 };
+            return { ...p, cycles: Math.max(0, p.cycles - targetLoss), tacticalBonus: 0 };
           }
           return p;
         })),
@@ -348,12 +348,12 @@ function pickAiCard(
 
   // Richest live opponent — target for Power Cycle
   const richestOpponent = liveOpponents.length > 0
-    ? liveOpponents.reduce((best, p) => p.credits > best.credits ? p : best, liveOpponents[0])
+    ? liveOpponents.reduce((best, p) => p.cycles > best.cycles ? p : best, liveOpponents[0])
     : null;
 
   // Power Cycle score: how much benefit vs resetting them to startingPop
   const powerCycleScore = richestOpponent
-    ? Math.max(0, richestOpponent.credits - startingPop) + richestOpponent.daemons.length * 10
+    ? Math.max(0, richestOpponent.cycles - startingPop) + richestOpponent.daemons.length * 10
     : 0;
 
   // Is there a high-impact follow-up card for after Multitask?
@@ -372,7 +372,7 @@ function pickAiCard(
     case 'AGGRESSIVE': {
       // Use Power Cycle if target is significantly ahead AND has daemons
       if (powerCycleCard && richestOpponent &&
-          richestOpponent.credits > startingPop * 1.3 &&
+          richestOpponent.cycles > startingPop * 1.3 &&
           richestOpponent.daemons.length > 0) {
         return powerCycleCard;
       }
@@ -382,20 +382,20 @@ function pickAiCard(
     }
     case 'CAUTIOUS': {
       // Self near-death: shift from building to stealing/attacking
-      if (ai.credits <= startingPop * 0.3) {
+      if (ai.cycles <= startingPop * 0.3) {
         return ai.hand.find(c => c.category === 'EVENT_NEGATIVE')
           ?? ai.hand.find(c => c.category === 'WAR')
-          ?? ai.hand.find(c => c.category === 'CREDITS')
+          ?? ai.hand.find(c => c.category === 'CYCLES')
           ?? nonCounterHand[0] ?? ai.hand[0];
       }
       return ai.hand.find(c => c.category === 'DAEMON')
         ?? ai.hand.find(c => c.category === 'EVENT_POSITIVE' && (c as PositiveEventCard).effect === 'NEGOTIATE')
-        ?? ai.hand.find(c => c.category === 'CREDITS')
+        ?? ai.hand.find(c => c.category === 'CYCLES')
         ?? nonCounterHand[0] ?? ai.hand[0];
     }
     case 'TACTICAL': {
       // Opponents close enough to finish off
-      const nearDeathOpponents = liveOpponents.filter(p => p.credits <= startingPop * 0.25);
+      const nearDeathOpponents = liveOpponents.filter(p => p.cycles <= startingPop * 0.25);
       // Richest daemon stash available to steal
       const maxOpponentDaemons = liveOpponents.reduce((m, p) => Math.max(m, p.daemons.length), 0);
 
@@ -406,7 +406,7 @@ function pickAiCard(
           if (neg.effect === 'POWER_CYCLE') return powerCycleScore;
           if (neg.effect === 'STEAL_DAEMON') return maxOpponentDaemons >= 2 ? 20 : maxOpponentDaemons === 1 ? 10 : 0;
           // Finisher bonus: this card can eliminate a near-death opponent
-          const canFinish = nearDeathOpponents.some(p => p.credits <= neg.amount);
+          const canFinish = nearDeathOpponents.some(p => p.cycles <= neg.amount);
           return neg.amount + 5 + (canFinish ? 25 : 0);
         }
         if (c.category === 'EVENT_POSITIVE') {
@@ -415,16 +415,16 @@ function pickAiCard(
           if (pos.effect === 'NEGOTIATE') return ai.negotiating ? 0 : 10; // skip if block already armed
           return pos.amount;
         }
-        if (c.category === 'CREDITS') return (c as CreditsCard).amount;
+        if (c.category === 'CYCLES') return (c as CyclesCard).amount;
         if (c.category === 'DAEMON') return 8;
         return 0; // COUNTER cards score 0 — effectively excluded from proactive picks
       };
       return [...ai.hand].sort((a, b) => score(b) - score(a))[0];
     }
     case 'BALANCED': {
-      // Desperate recovery: critically low credits → prioritise income first
-      if (ai.credits < 15) {
-        return ai.hand.find(c => c.category === 'CREDITS')
+      // Desperate recovery: critically low cycles → prioritise income first
+      if (ai.cycles < 15) {
+        return ai.hand.find(c => c.category === 'CYCLES')
           ?? ai.hand.find(c =>
               c.category === 'EVENT_POSITIVE' &&
               (c as PositiveEventCard).effect !== 'OVERCLOCK' &&
@@ -437,10 +437,10 @@ function pickAiCard(
       // Multitask when a high-damage follow-up exists
       if (multiThreadCard && hasGoodFollowUp && random() < 0.5) return multiThreadCard;
       // Adaptive: if behind → build resources; if ahead → press the attack
-      const isAhead = richestOpponent ? ai.credits >= richestOpponent.credits : true;
+      const isAhead = richestOpponent ? ai.cycles >= richestOpponent.cycles : true;
       if (!isAhead) {
         return ai.hand.find(c => c.category === 'DAEMON')
-          ?? ai.hand.find(c => c.category === 'CREDITS')
+          ?? ai.hand.find(c => c.category === 'CYCLES')
           ?? ai.hand.find(c => c.category === 'EVENT_POSITIVE')
           ?? nonCounterHand[0] ?? ai.hand[0];
       }
@@ -464,7 +464,7 @@ function pickAiTarget(
   card: Card,
   startingPop: number,
 ): number | undefined {
-  if (card.category === 'CREDITS' || card.category === 'DAEMON' || card.category === 'COUNTER') return undefined;
+  if (card.category === 'CYCLES' || card.category === 'DAEMON' || card.category === 'COUNTER') return undefined;
   if (card.category === 'EVENT_POSITIVE') return undefined; // self-target or all-opponents
   if (card.category === 'EVENT_NEGATIVE' && !(card as NegativeEventCard).targetsOther) return undefined;
 
@@ -487,17 +487,17 @@ function pickAiTarget(
   }
 
   const threatScore = (p: PlayerState): number => {
-    const base = p.credits + p.daemons.length * 12;
+    const base = p.cycles + p.daemons.length * 12;
     // Finishing blow: card eliminates this target — strongly prefer
-    if (cardDamage > 0 && p.credits <= cardDamage) return base + 40;
+    if (cardDamage > 0 && p.cycles <= cardDamage) return base + 40;
     // Near-death but not finishable: waste of a targeted card, deprioritise
-    if (p.credits <= eliminationFloor) return base - 60;
+    if (p.cycles <= eliminationFloor) return base - 60;
     return base;
   };
 
   // MUTUAL_DAMAGE: prefer targets richer than the AI so the AI gains relative ground
   if (card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).effect === 'MUTUAL_DAMAGE') {
-    const richerPool = liveOpponents.filter(({ p }) => p.credits > ai.credits);
+    const richerPool = liveOpponents.filter(({ p }) => p.cycles > ai.cycles);
     const pool = richerPool.length > 0 ? richerPool : liveOpponents;
     return [...pool].sort((a, b) => threatScore(b.p) - threatScore(a.p))[0].i;
   }
@@ -508,8 +508,8 @@ function pickAiTarget(
 
 function cardLogText(card: Card, actorName: string, lastTargetName: string | null, warRollResult: WarRollSnapshot | null): string {
   switch (card.category) {
-    case 'CREDITS':
-      return `${actorName} ran ${card.name} (+${(card as CreditsCard).amount} cycles)`;
+    case 'CYCLES':
+      return `${actorName} ran ${card.name} (+${(card as CyclesCard).amount} cycles)`;
     case 'EVENT_POSITIVE': {
       const pos = card as PositiveEventCard;
       if (pos.effect === 'DRAIN_ALL')
@@ -724,7 +724,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       name: i === 0 ? playerName.toUpperCase() : AI_NAMES[i] ?? `AGENT ${i}`,
       isHuman: i === 0,
       personality: i === 0 ? undefined : AI_PERSONALITIES[(i - 1) % AI_PERSONALITIES.length],
-      credits: startingPop,
+      cycles: startingPop,
       hand: [],
       daemons: [],
       eliminated: false,
@@ -804,12 +804,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const tutorialPlayers: PlayerState[] = [
       {
         id: 'player_0', name: playerName.toUpperCase(), isHuman: true,
-        credits: 50, hand: humanHand, daemons: [], eliminated: false,
+        cycles: 50, hand: humanHand, daemons: [], eliminated: false,
         quarantined: false, overclocked: false, tacticalBonus: 0, negotiating: false, quarantineCard: null,
       },
       {
         id: 'player_1', name: 'GHOST', isHuman: false, personality: 'BALANCED' as const,
-        credits: 50, hand: aiHand, daemons: [], eliminated: false,
+        cycles: 50, hand: aiHand, daemons: [], eliminated: false,
         quarantined: false, overclocked: false, tacticalBonus: 0, negotiating: false, quarantineCard: null,
       },
     ];
@@ -973,7 +973,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             ?? liveOps[Math.floor(random() * liveOps.length)].i;
           corruptionTargetIdx = ti;
           players = players.map((p, i) =>
-            i === ti ? { ...p, credits: Math.max(0, p.credits - 10) } : p
+            i === ti ? { ...p, cycles: Math.max(0, p.cycles - 10) } : p
           );
         }
         set({ deck, discard, players, phase: 'MAIN', corruptionReveal: true, globalCorruptionMode: true, postCorruptionTargetIndex: corruptionTargetIdx });
@@ -1139,7 +1139,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       i === actorIndex ? { ...p, hand: handAfter } : p
     );
 
-    // ── Power Cycle — hard reset: target's credits, daemons, and hand ────────
+    // ── Power Cycle — hard reset: target's cycles, daemons, and hand ────────
     if (card.category === 'EVENT_NEGATIVE' && (card as NegativeEventCard).effect === 'POWER_CYCLE') {
       const liveOppIndices = state.players
         .map((p, i) => ({ p, i }))
@@ -1166,7 +1166,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           newHand.push(drawn);
         }
         players = players.map((p, i) => {
-          if (i === ti) return { ...p, credits: state.startingPop, daemons: [], hand: newHand };
+          if (i === ti) return { ...p, cycles: state.startingPop, daemons: [], hand: newHand };
           return p;
         });
         const elim0 = markEliminations(players, state.eliminationOrder);
@@ -1201,12 +1201,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    const creditsBefore = players.map(p => p.credits);
+    const cyclesBefore = players.map(p => p.cycles);
     const fx = applyCardEffect(card, players, actorIndex, targetIndex);
     players = fx.players;
-    const damageByCard = creditsBefore.reduce((sum, before, i) => {
+    const damageByCard = cyclesBefore.reduce((sum, before, i) => {
       if (i === actorIndex) return sum;
-      return sum + Math.max(0, before - players[i].credits);
+      return sum + Math.max(0, before - players[i].cycles);
     }, 0);
     const newDamageDealt = damageByCard > 0
       ? { ...prevStats.damageDealt, [actor.id]: (prevStats.damageDealt[actor.id] ?? 0) + damageByCard }
@@ -1235,7 +1235,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.deadMansSwitch) {
       for (let i = 0; i < players.length; i++) {
         const wasAlive = !state.players[i].eliminated;
-        if (!wasAlive || players[i].credits > 0) continue;
+        if (!wasAlive || players[i].cycles > 0) continue;
 
         const eligibleCards = players[i].hand.filter(
           c => c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).targetsOther
@@ -1430,7 +1430,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const actorIndex = state.currentPlayerIndex;
       const targetName = state.players[targetIndex].name;
       let players = state.players.map((p, i) =>
-        i === targetIndex ? { ...p, credits: Math.max(0, p.credits - 10) } : p
+        i === targetIndex ? { ...p, cycles: Math.max(0, p.cycles - 10) } : p
       );
       get().addLog(`${state.players[actorIndex].name} unleashed The Corruption — ${targetName} loses 10¢`, 'effect');
       const elim = markEliminations(players, state.eliminationOrder);
@@ -1759,12 +1759,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let discard = state.discard;
     const prevStatsWar = state.gameStats;
 
-    const warCreditsBefore = players.map(p => p.credits);
+    const warCreditsBefore = players.map(p => p.cycles);
     const warFx = applyCardEffect(warCard, players, p1Index, p2Index, state.warTiePenalty);
     players = warFx.players;
     const warDamageByCard = warCreditsBefore.reduce((sum, before, i) => {
       if (i === p1Index) return sum;
-      return sum + Math.max(0, before - players[i].credits);
+      return sum + Math.max(0, before - players[i].cycles);
     }, 0);
     const capturedWarRoll = warFx.warRollResult;
     const negotiateBlockedBy = warFx.negotiateBlockedBy;
@@ -1801,7 +1801,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.deadMansSwitch) {
       for (let i = 0; i < players.length; i++) {
         const wasAlive = !state.players[i].eliminated;
-        if (!wasAlive || players[i].credits > 0) continue;
+        if (!wasAlive || players[i].cycles > 0) continue;
         const eligibleCards = players[i].hand.filter(
           c => c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).targetsOther
         ) as NegativeEventCard[];
@@ -2101,13 +2101,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (finalAmount > 0 || (inCorruption && rawBase > 0)) {
       if (inCorruption) {
         players = players.map((p, i) =>
-          i === actorIndex ? { ...p, credits: Math.max(0, p.credits - finalAmount) } : p
+          i === actorIndex ? { ...p, cycles: Math.max(0, p.cycles - finalAmount) } : p
         );
         const lossNote = finalAmount === 0 ? 'losses fully absorbed' : `lost ${finalAmount} cycles`;
         get().addLog(`${rollLabel} — ${lossNote}. (${r1}+${r2}=${total})${overclock}${daemonNote}`, 'effect');
       } else {
         players = players.map((p, i) =>
-          i === actorIndex ? { ...p, credits: Math.min(200, p.credits + finalAmount) } : p
+          i === actorIndex ? { ...p, cycles: Math.min(200, p.cycles + finalAmount) } : p
         );
         get().addLog(`${rollLabel} — gained ${finalAmount} cycles. (${r1}+${r2}=${total})${overclock}${daemonNote}`, 'effect');
       }
@@ -2123,7 +2123,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const actor = players[actorIndex];
 
     // ── Actor eliminated by this roll — skip draw, handle DMS / game-over ────
-    if (actor.credits <= 0) {
+    if (actor.cycles <= 0) {
       let discard = [...state.discard];
       let humanDmsPending: { playerIndex: number; eligibleCards: NegativeEventCard[] } | null = null;
 
@@ -2150,7 +2150,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (humanDmsPending) {
         players = players.map(p => ({
           ...p,
-          eliminated: p.eliminated || (!p.isHuman && p.credits <= 0),
+          eliminated: p.eliminated || (!p.isHuman && p.cycles <= 0),
         }));
         set({ players, discard, rollTriggered: false, phase: 'MAIN', deadMansSwitchPending: humanDmsPending });
         return;

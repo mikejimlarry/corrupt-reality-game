@@ -71,13 +71,13 @@ export function GameOverScreen() {
   const ACCENT  = corruption ? '#ff1e3c' : '#00ffcc';
   const DIM     = corruption ? '#661020' : '#00ffcc22';
 
-  // Sort: winner first, then by credits descending, eliminated last
+  // Sort: winner first, then by cycles descending, eliminated last
   const ranked = [...players].sort((a, b) => {
     if (a.id === winnerId) return -1;
     if (b.id === winnerId) return 1;
     if (a.eliminated && !b.eliminated) return 1;
     if (!a.eliminated && b.eliminated) return -1;
-    return b.credits - a.credits;
+    return b.cycles - a.cycles;
   });
 
   // Elimination order for display (losers only, in order)
@@ -227,7 +227,7 @@ export function GameOverScreen() {
 
                 {/* Cycles */}
                 <span style={{ fontSize: '0.8rem', color: isWinner ? ACCENT : rowAccent, letterSpacing: 1, width: 44, textAlign: 'right', fontWeight: isWinner ? 'bold' : 'normal' }}>
-                  {p.credits}⟳
+                  {p.cycles}⟳
                 </span>
 
                 {/* Status badge */}

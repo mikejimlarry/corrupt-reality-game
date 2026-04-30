@@ -4,7 +4,7 @@ import { useGameStore } from '../state/useGameStore';
 import type { Card as CardData, CardCategory, CardRarity } from '../types/cards';
 
 const CAT_COLOR: Record<CardCategory, string> = {
-  CREDITS:        '#00ff88',
+  CYCLES:        '#00ff88',
   EVENT_POSITIVE: '#00ccff',
   EVENT_NEGATIVE: '#ff3355',
   WAR:            '#ff8800',
@@ -13,7 +13,7 @@ const CAT_COLOR: Record<CardCategory, string> = {
 };
 
 const CAT_LABEL: Record<CardCategory, string> = {
-  CREDITS:        'DATA HARVEST',
+  CYCLES:        'DATA HARVEST',
   EVENT_POSITIVE: 'SYSTEM EVENT',
   EVENT_NEGATIVE: 'HACK PROTOCOL',
   WAR:            'WARFARE',
@@ -75,7 +75,7 @@ function CircuitArt({ seed, color }: { seed: number; color: string }) {
 
 function statText(card: CardData): string | null {
   switch (card.category) {
-    case 'CREDITS':        return `+${card.amount}`;
+    case 'CYCLES':        return `+${card.amount}`;
     case 'EVENT_POSITIVE': return card.amount > 0 ? `+${card.amount}` : null;
     case 'EVENT_NEGATIVE': return card.amount > 0 ? `-${card.amount}` : null;
     case 'WAR':            return `W -${card.winnerLoses}`;

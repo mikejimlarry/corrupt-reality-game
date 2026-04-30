@@ -60,7 +60,7 @@ export const TUTORIAL_STEPS: Record<number, TutorialStep> = {
   },
   11: {
     title: 'TUTORIAL COMPLETE',
-    body: 'You\'ve seen every core mechanic: rolling, drawing, credits, daemons, attacks, counters, Quarantine blocks, and Corruption. Ready to run the net for real?',
+    body: 'You\'ve seen every core mechanic: rolling, drawing, cycles, daemons, attacks, counters, Quarantine blocks, and Corruption. Ready to run the net for real?',
   },
 };
 

@@ -36,7 +36,7 @@ export const WarPreOverlay: React.FC = () => {
         {player.name}
       </div>
       <div style={{ fontSize: '0.55rem', color: '#ff336688', marginBottom: 3 }}>
-        {player.credits}⟳
+        {player.cycles}⟳
         {player.tacticalBonus > 0 && (
           <span style={{ color: '#ff9955', marginLeft: 6 }}>+{player.tacticalBonus} roll</span>
         )}
@@ -84,7 +84,7 @@ export const WarPreOverlay: React.FC = () => {
           {warCard.name.toUpperCase()}
         </h2>
 
-        {/* Matchup with credits and daemons */}
+        {/* Matchup with cycles and daemons */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: 12, marginBottom: '1.2rem', marginTop: '0.5rem',

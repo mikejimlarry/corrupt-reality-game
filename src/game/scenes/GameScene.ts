@@ -15,7 +15,7 @@ import type { PlayerState } from '../../types/gameState';
 
 
 const CATEGORY_SORT_ORDER: Record<string, number> = {
-  CREDITS: 0, EVENT_POSITIVE: 1, EVENT_NEGATIVE: 2, WAR: 3, DAEMON: 4, COUNTER: 5,
+  CYCLES: 0, EVENT_POSITIVE: 1, EVENT_NEGATIVE: 2, WAR: 3, DAEMON: 4, COUNTER: 5,
 };
 
 function sortHand(hand: CardData[], mode: HandSortMode, reverse: boolean): CardData[] {
@@ -181,9 +181,9 @@ export class GameScene extends Phaser.Scene {
     let prevCorruptionReveal = false;
     let prevCurrentPlayerIndex = useGameStore.getState().currentPlayerIndex;
     let prevCorruption = useGameStore.getState().globalCorruptionMode;
-    // Track per-player credits for delta animation
-    const prevCreditsMap = new Map<string, number>(
-      useGameStore.getState().players.map(p => [p.id, p.credits])
+    // Track per-player cycles for delta animation
+    const prevCyclesMap = new Map<string, number>(
+      useGameStore.getState().players.map(p => [p.id, p.cycles])
     );
     let prevPendingOverclockCard: import('../../types/cards').Card | null = null;
     let prevHumanQuarantineCard:  import('../../types/cards').Card | null = null;
@@ -197,10 +197,10 @@ export class GameScene extends Phaser.Scene {
 
     this.unsubscribeStore = useGameStore.subscribe(state => {
       const { players, selectedCardId } = state;
-      // Snapshot human credits BEFORE the player block updates prevCreditsMap,
+      // Snapshot human cycles BEFORE the player block updates prevCyclesMap,
       // so we can detect whether this tick reduced the human's total.
       const humanSnap = players.find(p => p.isHuman);
-      const humanCreditsBefore = prevCreditsMap.get(humanSnap?.id ?? '') ?? (humanSnap?.credits ?? 0);
+      const humanCyclesBefore = prevCyclesMap.get(humanSnap?.id ?? '') ?? (humanSnap?.cycles ?? 0);
 
       // ── Corruption mode — shift background from near-black to dark red ──
       const { width: w, height: h } = this.scale;
@@ -244,16 +244,16 @@ export class GameScene extends Phaser.Scene {
             }
           }
 
-          const newPopImpStr = players.map(p => `${p.id}:${p.credits}:${p.daemons.join('|')}`).join(';');
+          const newPopImpStr = players.map(p => `${p.id}:${p.cycles}:${p.daemons.join('|')}`).join(';');
           if (newPopImpStr !== prevPopImpStr && !state.warRollDisplay) {
             prevPopImpStr = newPopImpStr;
             players.forEach(player => {
               const zone = this.playerZoneMap.get(player.id);
               // Credit delta — trigger flash before refresh (which also flashes, but
               // we want the world-space floating number from the zone method)
-              const prev = prevCreditsMap.get(player.id);
-              if (prev !== undefined) prevCreditsMap.set(player.id, player.credits);
-              else prevCreditsMap.set(player.id, player.credits);
+              const prev = prevCyclesMap.get(player.id);
+              if (prev !== undefined) prevCyclesMap.set(player.id, player.cycles);
+              else prevCyclesMap.set(player.id, player.cycles);
               if (zone) zone.refresh(player);
               // Refresh daemon boards for all players
               if (player.isHuman) {
@@ -408,13 +408,13 @@ export class GameScene extends Phaser.Scene {
           const effectiveTotal = inCorruption
             ? Math.max(2, afterDaemons + overclockShift)
             : Math.min(12, afterDaemons + overclockShift);
-          const creditDelta =
+          const cycleDelta =
             effectiveTotal <= 3  ? 0  :
             effectiveTotal <= 5  ? 5  :
             effectiveTotal <= 8  ? 10 :
             effectiveTotal <= 11 ? 15 : 20;
           this.ledDisplay?.roll(
-            r1, r2, currentPlayer.name, creditDelta, inCorruption,
+            r1, r2, currentPlayer.name, cycleDelta, inCorruption,
             () => { useGameStore.getState().rollComplete(); },
             undefined, undefined, undefined, undefined, undefined,
             daemonCount > 0 ? daemonCount : undefined,
@@ -529,10 +529,10 @@ export class GameScene extends Phaser.Scene {
           const topCard = state.discard[state.discard.length - 1];
           this.animateAiCardPlay(actor.id, topCard, w, h);
 
-          // Show attack warning if the human's credits went down this tick,
+          // Show attack warning if the human's cycles went down this tick,
           // but not during a war — the dice overlay handles that reveal.
           const humanNow = state.players.find(p => p.isHuman);
-          if (humanNow && humanNow.credits < humanCreditsBefore && !state.warRollDisplay) {
+          if (humanNow && humanNow.cycles < humanCyclesBefore && !state.warRollDisplay) {
             this.time.delayedCall(380, () => {
               this.flashIncomingAttack(actor.name, w, h);
             });
@@ -1546,7 +1546,7 @@ export class GameScene extends Phaser.Scene {
   // ── AI card reveal banner — brief overlay showing which card the AI played ──
   private flashAiCardBanner(card: CardData, x: number, y: number) {
     const CAT_COLORS: Record<string, number> = {
-      CREDITS:        0x00ff88,
+      CYCLES:         0x00ff88,
       EVENT_POSITIVE: 0x00ccff,
       EVENT_NEGATIVE: 0xff3355,
       WAR:            0xff8800,
@@ -1554,7 +1554,7 @@ export class GameScene extends Phaser.Scene {
       DAEMON:         0x00ffcc,
     };
     const CAT_LABELS: Record<string, string> = {
-      CREDITS:        'DATA HARVEST',
+      CYCLES:         'DATA HARVEST',
       EVENT_POSITIVE: 'SYSTEM EVENT',
       EVENT_NEGATIVE: 'HACK PROTOCOL',
       WAR:            'WARFARE',
@@ -1876,7 +1876,7 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // ── Incoming-attack warning — fired when an AI card costs the human credits ──
+  // ── Incoming-attack warning — fired when an AI card costs the human cycles ──
   private flashIncomingAttack(attackerName: string, width: number, height: number) {
     this._incomingAttackEndsAt = Date.now() + 2400 + 320;
     const dpr = window.devicePixelRatio;

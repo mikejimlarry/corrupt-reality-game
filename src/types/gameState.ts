@@ -18,7 +18,7 @@ export interface PlayerState {
   name: string;
   isHuman: boolean;
   personality?: AIPersonality;
-  credits: number;
+  cycles: number;
   hand: Card[];
   daemons: DaemonType[];
   eliminated: boolean;
@@ -51,9 +51,9 @@ export interface GameState {
   winnerId: string | null;
   log: LogEntry[];
   gameSeed: number;
-  /** Starting credit count for every player (30 / 50 / 70). */
+  /** Starting cycle count for every player (30 / 50 / 70). */
   startingPop: number;
-  /** When true the numeric credit total is hidden in player zones — bars only. */
+  /** When true the numeric cycle total is hidden in player zones — bars only. */
   hidePpCounts: boolean;
   /** When true a player who just hits 0 may play one last negative card before elimination. */
   deadMansSwitch: boolean;
@@ -83,7 +83,7 @@ export interface GameState {
     cardsPlayed: Record<string, number>;
     /** Player ids in order of elimination (first eliminated = index 0). */
     eliminationOrder: string[];
-    /** Total credits dealt as damage to other players, keyed by player id. */
+    /** Total cycles dealt as damage to other players, keyed by player id. */
     damageDealt: Record<string, number>;
   };
   /** Non-null when a WAR card just resolved — scene shows a dice-roll animation then clears this. */

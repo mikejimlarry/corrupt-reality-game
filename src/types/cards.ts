@@ -1,7 +1,7 @@
 // src/types/cards.ts
 
 export type CardCategory =
-  | 'CREDITS'
+  | 'CYCLES'
   | 'EVENT_POSITIVE'
   | 'EVENT_NEGATIVE'
   | 'WAR'
@@ -20,8 +20,8 @@ export interface BaseCard {
   cardNumber?: number;
 }
 
-export interface CreditsCard extends BaseCard {
-  category: 'CREDITS';
+export interface CyclesCard extends BaseCard {
+  category: 'CYCLES';
   amount: number;
 }
 
@@ -63,7 +63,7 @@ export interface DaemonCard extends BaseCard {
 }
 
 export type Card =
-  | CreditsCard
+  | CyclesCard
   | PositiveEventCard
   | NegativeEventCard
   | WarCard

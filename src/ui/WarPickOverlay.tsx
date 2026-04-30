@@ -27,7 +27,7 @@ function CombatantCard({ playerIndex, label, active }: { playerIndex: number; la
         {player ? player.name : '— select —'}
       </div>
       <div style={{ fontSize: '0.55rem', color: active ? '#ff336677' : '#331122', marginBottom: 2 }}>
-        {player ? `${player.credits}⟳` : '—'}
+        {player ? `${player.cycles}⟳` : '—'}
       </div>
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', minHeight: 14 }}>
         {player && player.daemons.length > 0
@@ -176,7 +176,7 @@ export const WarPickOverlay: React.FC = () => {
                 <span style={{ color: '#ff336688', minWidth: 14 }}>{label}</span>
                 <span style={{ flex: 1 }}>{name}</span>
                 <span style={{ fontSize: '0.6rem', color: '#ff336666', marginLeft: 8 }}>
-                  {player?.credits ?? 0}⟳
+                  {player?.cycles ?? 0}⟳
                 </span>
                 {player?.daemons && player.daemons.length > 0 && (
                   <span style={{ display: 'flex', gap: 3 }}>

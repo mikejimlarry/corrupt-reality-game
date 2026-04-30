@@ -14,7 +14,7 @@ const RADIUS = 8;
 
 // ── Colour palettes ──────────────────────────────────────────────────────────
 const CAT_COLOR: Record<CardCategory, number> = {
-  CREDITS:       0x00ff88,
+  CYCLES:       0x00ff88,
   EVENT_POSITIVE:0x00ccff,
   EVENT_NEGATIVE:0xff3355,
   WAR:           0xff8800,
@@ -23,7 +23,7 @@ const CAT_COLOR: Record<CardCategory, number> = {
 };
 
 const CAT_LABEL: Record<CardCategory, string> = {
-  CREDITS:       'DATA HARVEST',
+  CYCLES:       'DATA HARVEST',
   EVENT_POSITIVE:'SYSTEM EVENT',
   EVENT_NEGATIVE:'HACK PROTOCOL',
   WAR:           'WARFARE',
@@ -477,7 +477,7 @@ export class Card extends Phaser.GameObjects.Container {
     if (!reduced) {
       // ── Scan line sweeping top → bottom ───────────────────────────────
       const scanDurations: Partial<Record<CardCategory, number>> = {
-        WAR: 650, EVENT_NEGATIVE: 580, CREDITS: 1100,
+        WAR: 650, EVENT_NEGATIVE: 580, CYCLES: 1100,
         EVENT_POSITIVE: 1000, COUNTER: 1300, DAEMON: 1900,
       };
       const scanDuration = scanDurations[this.cardData.category] ?? 1100;
@@ -604,7 +604,7 @@ export class Card extends Phaser.GameObjects.Container {
   // ── Stat text helper ────────────────────────────────────────────────────
   private getStatText(d: CardData): string | null {
     switch (d.category) {
-      case 'CREDITS':        return `+${d.amount}`;
+      case 'CYCLES':        return `+${d.amount}`;
       case 'EVENT_POSITIVE': return d.amount > 0 ? `+${d.amount}` : null;
       case 'EVENT_NEGATIVE': return d.amount > 0 ? `-${d.amount}` : null;
       case 'WAR':            return `W -${d.winnerLoses}`;
@@ -615,7 +615,7 @@ export class Card extends Phaser.GameObjects.Container {
   private getStatAnimData(): { prefix: string; value: number } | null {
     const d = this.cardData;
     switch (d.category) {
-      case 'CREDITS':        return { prefix: '+', value: d.amount };
+      case 'CYCLES':        return { prefix: '+', value: d.amount };
       case 'EVENT_POSITIVE': return d.amount > 0 ? { prefix: '+', value: d.amount } : null;
       case 'EVENT_NEGATIVE': return d.amount > 0 ? { prefix: '-', value: d.amount } : null;
       default:               return null;

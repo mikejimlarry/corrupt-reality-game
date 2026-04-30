@@ -239,8 +239,8 @@ export const SetupScreen: React.FC = () => {
   const [name, setName]                     = useState(() => localStorage.getItem('crg-handle') ?? '');
   const [nameFocused, setNameFocused]       = useState(false);
   const [count, setCount]                   = useState(() => Number(localStorage.getItem('crg-count') ?? '1'));
-  const [startingPop, setStartingPop]       = useState(() => Number(localStorage.getItem('crg-credits') ?? '50'));
-  const [hidePpCounts, setHidePpCounts]     = useState(() => localStorage.getItem('crg-hide-credits') === 'true');
+  const [startingPop, setStartingPop]       = useState(() => Number(localStorage.getItem('crg-cycles') ?? '50'));
+  const [hidePpCounts, setHidePpCounts]     = useState(() => localStorage.getItem('crg-hide-cycles') === 'true');
   const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
   const [warTiePenalty, setWarTiePenalty]   = useState(() => localStorage.getItem('crg-war-tie-penalty') === 'true');
   const [musicOn, setMusicOn]               = useState(() => getMusicEnabled());
@@ -261,11 +261,11 @@ export const SetupScreen: React.FC = () => {
   const handleStart = () => {
     localStorage.setItem('crg-handle', name.trim() || 'Ghost');
     localStorage.setItem('crg-count', String(count));
-    localStorage.setItem('crg-credits', String(startingPop));
-    localStorage.setItem('crg-hide-credits', String(hidePpCounts));
+    localStorage.setItem('crg-cycles', String(startingPop));
+    localStorage.setItem('crg-hide-cycles', String(hidePpCounts));
     localStorage.setItem('crg-dead-mans-switch', String(deadMansSwitch));
     localStorage.setItem('crg-war-tie-penalty', String(warTiePenalty));
-    trackEvent('game_start', { player_count: count + 1, starting_credits: startingPop });
+    trackEvent('game_start', { player_count: count + 1, starting_cycles: startingPop });
     sfxConnect();
     startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch, warTiePenalty);
   };
@@ -437,7 +437,7 @@ export const SetupScreen: React.FC = () => {
 
         <div style={SEP} />
 
-        {/* Starting credits */}
+        {/* Starting cycles */}
         <div>
           <div style={{ ...LABEL, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <span>STARTING CYCLES</span>
@@ -445,7 +445,7 @@ export const SetupScreen: React.FC = () => {
           </div>
           <input
             type="range"
-            className="credits-slider"
+            className="cycles-slider"
             min={30}
             max={100}
             step={5}
