@@ -20,7 +20,7 @@ export const TutorialOverlay: React.FC = () => {
   const step = TUTORIAL_STEPS[tutorialStep];
   if (!step) return null;
 
-  const isComplete = tutorialStep === 11;
+  const isComplete = tutorialStep === 12;
 
   const handleNext = () => {
     sfxNavClick();

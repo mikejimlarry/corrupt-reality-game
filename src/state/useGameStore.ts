@@ -70,15 +70,15 @@ const AI_ADVANCE_DELAY = 1400; // pause after a card resolves before the next tu
 
 // ── localStorage win/loss record ──────────────────────────────────────────────
 
-interface _SessionRecord { date: string; humanWon: boolean; turns: number; playerCount: number; corrupted: boolean; }
+interface _SessionRecord { date: string; humanWon: boolean; turns: number; playerCount: number; corrupted: boolean; seed: number; }
 interface _GameRecords   { wins: number; losses: number; history: _SessionRecord[]; }
 
-function saveGameRecord(humanWon: boolean, turns: number, playerCount: number, corrupted: boolean): void {
+function saveGameRecord(humanWon: boolean, turns: number, playerCount: number, corrupted: boolean, seed: number): void {
   try {
     const key = 'crg-records';
     const raw = localStorage.getItem(key);
     const existing: _GameRecords = raw ? JSON.parse(raw) : { wins: 0, losses: 0, history: [] };
-    const record: _SessionRecord = { date: new Date().toISOString(), humanWon, turns, playerCount, corrupted };
+    const record: _SessionRecord = { date: new Date().toISOString(), humanWon, turns, playerCount, corrupted, seed };
     const history = [record, ...existing.history].slice(0, 20);
     localStorage.setItem(key, JSON.stringify({
       wins: existing.wins + (humanWon ? 1 : 0),
@@ -116,7 +116,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
     case 'CYCLES':
       return noFx(players.map((p, i) =>
         i === actorIndex
-          ? { ...p, cycles: Math.min(200, p.cycles + (card as CyclesCard).amount) }
+          ? { ...p, cycles: p.cycles + (card as CyclesCard).amount }
           : p
       ));
 
@@ -129,7 +129,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
           (i === actorIndex || p.eliminated) ? p : { ...p, cycles: Math.max(0, p.cycles - pos.amount) }
         );
         return noFx(drained.map((p, i) =>
-          i === actorIndex ? { ...p, cycles: Math.min(200, p.cycles + pos.amount * liveCount) } : p
+          i === actorIndex ? { ...p, cycles: p.cycles + pos.amount * liveCount } : p
         ));
       }
       // OVERCLOCK — mark actor so their next Stability Roll is doubled
@@ -141,7 +141,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
         return noFx(players.map((p, i) => i === actorIndex ? { ...p, negotiating: true, quarantineCard: card } : p));
       }
       return noFx(players.map((p, i) =>
-        i === actorIndex ? { ...p, cycles: Math.min(200, p.cycles + pos.amount) } : p
+        i === actorIndex ? { ...p, cycles: p.cycles + pos.amount } : p
       ));
     }
 
@@ -189,7 +189,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       if (neg.effect === 'STEAL') {
         return {
           ...noFx(players.map((p, i) => {
-            if (i === actorIndex) return { ...p, cycles: Math.min(200, p.cycles + neg.amount) };
+            if (i === actorIndex) return { ...p, cycles: p.cycles + neg.amount };
             if (i === ti)         return { ...p, cycles: Math.max(0, p.cycles - neg.amount) };
             return p;
           })),
@@ -615,7 +615,7 @@ interface GameStore extends GameState {
   clearWarRollDisplay(): void;
   togglePause(): void;
   setReducedMotion(v: boolean): void;
-  startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean, warTiePenalty: boolean): void;
+  startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean, warTiePenalty: boolean, seed?: number, difficulty?: 'EASY' | 'MEDIUM' | 'HARD'): void;
   startTutorial(playerName?: string): void;
   dismissTutorialModal(): void;
   resetToSetup(): void;
@@ -690,7 +690,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   counterPending: null,
   paused: false,
   extraPlayPending: 0,
-  gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {} },
+  gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {}, warsWon: {}, warsLost: {}, daemonsLost: {}, biggestRoll: {} },
   warRollDisplay: null,
   postCorruptionTargetIndex: null,
   tutorialStep: null,
@@ -704,7 +704,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
 // ── Cyberpunk AI names & personalities ────────────────────────────────────────
 
 const AI_NAMES = ['GHOST', 'CIPHER', 'NULL.BYTE', 'PHANTOM'];
-const AI_PERSONALITIES: AIPersonality[] = ['AGGRESSIVE', 'CAUTIOUS', 'TACTICAL'];
+const AI_PERSONALITIES: AIPersonality[] = ['AGGRESSIVE', 'CAUTIOUS', 'TACTICAL', 'BALANCED'];
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
@@ -713,9 +713,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Persisted UI preference — intentionally NOT in defaultState so startGame never resets it.
   reducedMotion: localStorage.getItem('crg-reduced-motion') === 'true',
 
-  startGame: (playerCount: number, playerName = 'You', startingPop = 50, hidePpCounts = false, deadMansSwitch = false, warTiePenalty = false) => {
+  startGame: (playerCount: number, playerName = 'You', startingPop = 50, hidePpCounts = false, deadMansSwitch = false, warTiePenalty = false, replaySeed?: number, difficulty: 'EASY' | 'MEDIUM' | 'HARD' = 'MEDIUM') => {
     cancelAllAiTimers();
-    const seed = initRNG();
+    const seed = initRNG(replaySeed);
+
+    const DIFFICULTY_PERSONALITIES: Record<'EASY' | 'MEDIUM' | 'HARD', AIPersonality[]> = {
+      EASY:   ['CAUTIOUS', 'CAUTIOUS', 'CAUTIOUS'],
+      MEDIUM: AI_PERSONALITIES,
+      HARD:   ['AGGRESSIVE', 'TACTICAL', 'AGGRESSIVE'],
+    };
+    const personalityPool = DIFFICULTY_PERSONALITIES[difficulty];
 
     // Deal initial hands
     const deck = generateDeck();
@@ -723,7 +730,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       id: `player_${i}`,
       name: i === 0 ? playerName.toUpperCase() : AI_NAMES[i] ?? `AGENT ${i}`,
       isHuman: i === 0,
-      personality: i === 0 ? undefined : AI_PERSONALITIES[(i - 1) % AI_PERSONALITIES.length],
+      personality: i === 0 ? undefined : personalityPool[(i - 1) % personalityPool.length],
       cycles: startingPop,
       hand: [],
       daemons: [],
@@ -766,7 +773,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       warTiePenalty,
       eliminationOrder: [],
       recordSaved: false,
-      gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {} },
+      gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {}, warsWon: {}, warsLost: {}, daemonsLost: {}, biggestRoll: {} },
     });
 
     get().addLog('Game started. Welcome to Corrupt Reality.', 'turn');
@@ -789,6 +796,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pickCard('Data Harvest'),
       pickCard('Firewall'),
       pickCard('Memory Leak'),
+      pickCard('Skirmish'),
       pickCard('Quarantine'),
       pickCard('Firewall Surge'),
     ];
@@ -831,7 +839,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       startingPop: 50,
       tutorialStep: 0,
       tutorialModalOpen: true,
-      gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {} },
+      gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {}, warsWon: {}, warsLost: {}, daemonsLost: {}, biggestRoll: {} },
     });
 
     get().addLog('Tutorial mode. Follow the guide to learn the basics.', 'turn');
@@ -1092,7 +1100,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           pendingCardId: null,
           validTargetIds: [],
           daemonStealPending: { targetIndex, availableDaemons: [...targetDaemons] },
-          gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: prevStats.damageDealt },
+          gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: prevStats.damageDealt, warsWon: prevStats.warsWon, warsLost: prevStats.warsLost, daemonsLost: prevStats.daemonsLost, biggestRoll: prevStats.biggestRoll },
         });
         get().addLog(`${actor.name} played Backdoor — choose which daemon to steal.`, 'card');
         return;
@@ -1181,6 +1189,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             state.turnNumber,
             state.players.length,
             state.globalCorruptionMode,
+            state.gameSeed,
           );
         }
         set({
@@ -1194,6 +1203,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             cardsPlayed: newCardsPlayed,
             eliminationOrder: winnerId ? elim0.eliminationOrder : prevStats.eliminationOrder,
             damageDealt: prevStats.damageDealt,
+            warsWon: prevStats.warsWon, warsLost: prevStats.warsLost, daemonsLost: prevStats.daemonsLost, biggestRoll: prevStats.biggestRoll,
           },
         });
         if (!winnerId && !actor.isHuman) scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, AI_ADVANCE_DELAY);
@@ -1202,6 +1212,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const cyclesBefore = players.map(p => p.cycles);
+    const daemonsBefore = players.map(p => p.daemons.length);
     const fx = applyCardEffect(card, players, actorIndex, targetIndex);
     players = fx.players;
     const damageByCard = cyclesBefore.reduce((sum, before, i) => {
@@ -1212,6 +1223,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ? { ...prevStats.damageDealt, [actor.id]: (prevStats.damageDealt[actor.id] ?? 0) + damageByCard }
       : prevStats.damageDealt;
     const capturedWarRoll = fx.warRollResult;
+    // War wins / losses
+    let newWarsWon  = prevStats.warsWon;
+    let newWarsLost = prevStats.warsLost;
+    if (capturedWarRoll && !capturedWarRoll.isTie) {
+      const winnerId2 = capturedWarRoll.actorWins ? players[actorIndex].id : players[targetIndex ?? actorIndex].id;
+      const loserId2  = capturedWarRoll.actorWins ? players[targetIndex ?? actorIndex].id : players[actorIndex].id;
+      newWarsWon  = { ...newWarsWon,  [winnerId2]: (newWarsWon[winnerId2]   ?? 0) + 1 };
+      newWarsLost = { ...newWarsLost, [loserId2]:  (newWarsLost[loserId2]   ?? 0) + 1 };
+    }
+    // Daemons lost
+    let newDaemonsLost = prevStats.daemonsLost;
+    players.forEach((p, i) => {
+      const lost = daemonsBefore[i] - p.daemons.length;
+      if (lost > 0) newDaemonsLost = { ...newDaemonsLost, [p.id]: (newDaemonsLost[p.id] ?? 0) + lost };
+    });
     const blockedBy = fx.quarantineBlockedBy;
     const negotiateBlockedBy = fx.negotiateBlockedBy;
     const daemonBlockedBy = fx.daemonImmunityBlockedBy;
@@ -1279,7 +1305,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         deadMansSwitchPending: humanDmsPending,
         eliminationOrder: elim1.eliminationOrder,
         warRollDisplay: null,
-        gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: newDamageDealt },
+        gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: newDamageDealt, warsWon: newWarsWon, warsLost: newWarsLost, daemonsLost: newDaemonsLost, biggestRoll: prevStats.biggestRoll },
       });
       return; // advanceTurn fires after overlay resolves
     }
@@ -1308,7 +1334,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         deadMansSwitchPending: null,
         eliminationOrder: elim2.eliminationOrder,
         pendingOverclockCard: state.pendingOverclockCard,
-        gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: newDamageDealt },
+        gameStats: { cardsPlayed: newCardsPlayed, eliminationOrder: prevStats.eliminationOrder, damageDealt: newDamageDealt, warsWon: prevStats.warsWon, warsLost: prevStats.warsLost, daemonsLost: prevStats.daemonsLost, biggestRoll: prevStats.biggestRoll },
       });
       get().addLog(`${actor.name} activated Multitask — 2 extra plays granted!`, 'effect');
       // AI immediately picks a valid extra card (no redraw)
@@ -1349,6 +1375,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         state.turnNumber,
         state.players.length,
         state.globalCorruptionMode || isCorruption,
+        state.gameSeed,
       );
     }
 
@@ -1384,6 +1411,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         cardsPlayed: newCardsPlayed,
         eliminationOrder: winnerId ? elim2.eliminationOrder : prevStats.eliminationOrder,
         damageDealt: newDamageDealt,
+        warsWon: newWarsWon,
+        warsLost: newWarsLost,
+        daemonsLost: newDaemonsLost,
+        biggestRoll: prevStats.biggestRoll,
       },
     });
 
@@ -1444,6 +1475,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           state.turnNumber,
           state.players.length,
           state.globalCorruptionMode,
+          state.gameSeed,
         );
       }
       set({
@@ -1460,7 +1492,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         gameStats: winnerId
           ? { ...state.gameStats, eliminationOrder: elim.eliminationOrder }
           : state.gameStats,
-        ...(state.tutorialStep === 10 ? { tutorialStep: 11, tutorialModalOpen: true } : {}),
+        ...(state.tutorialStep === 11 ? { tutorialStep: 12, tutorialModalOpen: true } : {}),
       });
       return;
     }
@@ -1511,6 +1543,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         state.turnNumber,
         state.players.length,
         state.globalCorruptionMode,
+        state.gameSeed,
       );
     }
 
@@ -1563,6 +1596,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         state.turnNumber,
         state.players.length,
         state.globalCorruptionMode,
+        state.gameSeed,
       );
     }
 
@@ -1759,14 +1793,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let discard = state.discard;
     const prevStatsWar = state.gameStats;
 
-    const warCreditsBefore = players.map(p => p.cycles);
+    const warCyclesBefore  = players.map(p => p.cycles);
+    const warDaemonsBefore = players.map(p => p.daemons.length);
     const warFx = applyCardEffect(warCard, players, p1Index, p2Index, state.warTiePenalty);
     players = warFx.players;
-    const warDamageByCard = warCreditsBefore.reduce((sum, before, i) => {
+    const warDamageByCard = warCyclesBefore.reduce((sum, before, i) => {
       if (i === p1Index) return sum;
       return sum + Math.max(0, before - players[i].cycles);
     }, 0);
     const capturedWarRoll = warFx.warRollResult;
+    // War wins / losses
+    let warWarsWon  = prevStatsWar.warsWon;
+    let warWarsLost = prevStatsWar.warsLost;
+    if (capturedWarRoll && !capturedWarRoll.isTie) {
+      const wId = capturedWarRoll.actorWins ? players[p1Index].id : players[p2Index].id;
+      const lId = capturedWarRoll.actorWins ? players[p2Index].id : players[p1Index].id;
+      warWarsWon  = { ...warWarsWon,  [wId]: (warWarsWon[wId]   ?? 0) + 1 };
+      warWarsLost = { ...warWarsLost, [lId]: (warWarsLost[lId]  ?? 0) + 1 };
+    }
+    // Daemons lost during the war
+    let warDaemonsLost = prevStatsWar.daemonsLost;
+    players.forEach((p, i) => {
+      const lost = warDaemonsBefore[i] - p.daemons.length;
+      if (lost > 0) warDaemonsLost = { ...warDaemonsLost, [p.id]: (warDaemonsLost[p.id] ?? 0) + lost };
+    });
     const negotiateBlockedBy = warFx.negotiateBlockedBy;
     if (warFx.consumedQuarantineCard) discard = [...discard, warFx.consumedQuarantineCard];
 
@@ -1854,7 +1904,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         warLootPending,
         eliminationOrder: elim1.eliminationOrder,
         warRollDisplay: warDisplayPayload,
-        gameStats: { cardsPlayed: warCardsPlayed, eliminationOrder: prevStatsWar.eliminationOrder, damageDealt: warDamageDealt },
+        gameStats: { cardsPlayed: warCardsPlayed, eliminationOrder: prevStatsWar.eliminationOrder, damageDealt: warDamageDealt, warsWon: warWarsWon, warsLost: warWarsLost, daemonsLost: warDaemonsLost, biggestRoll: prevStatsWar.biggestRoll },
       });
       return;
     }
@@ -1871,9 +1921,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
         state.turnNumber,
         state.players.length,
         state.globalCorruptionMode,
+        state.gameSeed,
       );
     }
 
+    const isTutorialWarStep = state.tutorialStep === 7;
     set({
       players, discard, winnerId,
       phase: winnerId ? 'GAME_OVER' : 'END_TURN',
@@ -1891,7 +1943,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         cardsPlayed: warCardsPlayed,
         eliminationOrder: winnerId ? elim2.eliminationOrder : prevStatsWar.eliminationOrder,
         damageDealt: warDamageDealt,
+        warsWon: warWarsWon, warsLost: warWarsLost, daemonsLost: warDaemonsLost, biggestRoll: prevStatsWar.biggestRoll,
       },
+      ...(isTutorialWarStep ? { tutorialStep: 8, tutorialModalOpen: true } : {}),
     });
   },
 
@@ -1961,10 +2015,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (wrappedAround) trackEvent('turn_played', { turn_number: newTurnNumber });
     const roll: [number, number] = [Math.ceil(random() * 6), Math.ceil(random() * 6)];
 
-    // Tutorial: advance step when human's turn comes back (steps 3→4, 5→6, 7→8)
+    // Tutorial: advance step when human's turn comes back (steps 3→4, 5→6, 8→9)
     const { tutorialStep } = state;
     const nextTutorialStep =
-      (tutorialStep === 3 || tutorialStep === 5 || tutorialStep === 7) && nextIndex === 0
+      (tutorialStep === 3 || tutorialStep === 5 || tutorialStep === 8) && nextIndex === 0
         ? tutorialStep + 1
         : tutorialStep;
     const tutorialStepAdvanced = nextTutorialStep !== tutorialStep;
@@ -2017,7 +2071,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   warCancelledRevealComplete: () => {
     const state = get();
     const { tutorialStep } = state;
-    if (tutorialStep !== 9) {
+    if (tutorialStep !== 10) {
       set({ warCancelledReveal: null });
       return;
     }
@@ -2107,7 +2161,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         get().addLog(`${rollLabel} — ${lossNote}. (${r1}+${r2}=${total})${overclock}${daemonNote}`, 'effect');
       } else {
         players = players.map((p, i) =>
-          i === actorIndex ? { ...p, cycles: Math.min(200, p.cycles + finalAmount) } : p
+          i === actorIndex ? { ...p, cycles: p.cycles + finalAmount } : p
         );
         get().addLog(`${rollLabel} — gained ${finalAmount} cycles. (${r1}+${r2}=${total})${overclock}${daemonNote}`, 'effect');
       }
@@ -2118,9 +2172,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const ocDiscard = (isOverclocked && state.pendingOverclockCard)
       ? [...state.discard, state.pendingOverclockCard]
       : state.discard;
-    set({ rollTriggered: false, players, discard: ocDiscard, pendingOverclockCard: null });
-
     const actor = players[actorIndex];
+    const prevBiggest = state.gameStats.biggestRoll[actor?.id ?? ''] ?? 0;
+    const newBiggestRoll = (!inCorruption && finalAmount > prevBiggest && actor)
+      ? { ...state.gameStats.biggestRoll, [actor.id]: finalAmount }
+      : state.gameStats.biggestRoll;
+    set({ rollTriggered: false, players, discard: ocDiscard, pendingOverclockCard: null, gameStats: { ...state.gameStats, biggestRoll: newBiggestRoll } });
 
     // ── Actor eliminated by this roll — skip draw, handle DMS / game-over ────
     if (actor.cycles <= 0) {
@@ -2168,6 +2225,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           state.turnNumber,
           state.players.length,
           state.globalCorruptionMode,
+          state.gameSeed,
         );
       }
 

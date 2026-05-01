@@ -85,6 +85,14 @@ export interface GameState {
     eliminationOrder: string[];
     /** Total cycles dealt as damage to other players, keyed by player id. */
     damageDealt: Record<string, number>;
+    /** WAR cards won per player, keyed by player id. */
+    warsWon: Record<string, number>;
+    /** WAR cards lost per player, keyed by player id. */
+    warsLost: Record<string, number>;
+    /** Number of daemons lost per player, keyed by player id. */
+    daemonsLost: Record<string, number>;
+    /** Biggest single stability roll gain per player, keyed by player id. */
+    biggestRoll: Record<string, number>;
   };
   /** Non-null when a WAR card just resolved — scene shows a dice-roll animation then clears this. */
   warRollDisplay: { r1: number; r2: number; actorBonus: number; targetBonus: number; actorName: string; targetName: string; actorWins: boolean; isTie?: boolean; tieCycleLoss?: number; logText: string } | null;

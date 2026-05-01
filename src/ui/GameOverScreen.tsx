@@ -57,12 +57,18 @@ function readRecords(): GameRecords {
 export function GameOverScreen() {
   useInjectStyle(STYLE);
 
-  const players       = useGameStore(s => s.players);
-  const winnerId      = useGameStore(s => s.winnerId);
-  const turnNumber    = useGameStore(s => s.turnNumber);
-  const corruption    = useGameStore(s => s.globalCorruptionMode);
-  const gameStats     = useGameStore(s => s.gameStats);
-  const resetToSetup  = useGameStore(s => s.resetToSetup);
+  const players        = useGameStore(s => s.players);
+  const winnerId       = useGameStore(s => s.winnerId);
+  const turnNumber     = useGameStore(s => s.turnNumber);
+  const corruption     = useGameStore(s => s.globalCorruptionMode);
+  const gameStats      = useGameStore(s => s.gameStats);
+  const resetToSetup   = useGameStore(s => s.resetToSetup);
+  const startGame      = useGameStore(s => s.startGame);
+  const gameSeed       = useGameStore(s => s.gameSeed);
+  const startingPop    = useGameStore(s => s.startingPop);
+  const hidePpCounts   = useGameStore(s => s.hidePpCounts);
+  const deadMansSwitch = useGameStore(s => s.deadMansSwitch);
+  const warTiePenalty  = useGameStore(s => s.warTiePenalty);
 
   const winner   = players.find(p => p.id === winnerId);
   const human    = players.find(p => p.isHuman);
@@ -85,7 +91,8 @@ export function GameOverScreen() {
     .map(id => players.find(p => p.id === id)?.name)
     .filter(Boolean) as string[];
 
-  const hReboot = useHover();
+  const hReboot  = useHover();
+  const hReplay  = useHover();
 
   const [visible, setVisible] = useState(false);
   const [records, setRecords] = useState<GameRecords>({ wins: 0, losses: 0 });
@@ -185,7 +192,11 @@ export function GameOverScreen() {
           {ranked.map((p, i) => {
             const isWinner = p.id === winnerId;
             const rowAccent = isWinner ? ACCENT : p.eliminated ? '#334455' : '#556677';
-            const cardsPlayed = gameStats.cardsPlayed[p.id] ?? 0;
+            const cardsPlayed  = gameStats.cardsPlayed[p.id]  ?? 0;
+            const warsWon      = gameStats.warsWon[p.id]      ?? 0;
+            const warsLost     = gameStats.warsLost[p.id]     ?? 0;
+            const daemonsLost  = gameStats.daemonsLost[p.id]  ?? 0;
+            const biggestRoll  = gameStats.biggestRoll[p.id]  ?? 0;
             return (
               <div key={p.id} style={{
                 display: 'flex', alignItems: 'center', gap: '0.6rem',
@@ -220,9 +231,21 @@ export function GameOverScreen() {
                   {(gameStats.damageDealt[p.id] ?? 0) > 0 ? `${gameStats.damageDealt[p.id]}↯` : '--'}
                 </span>
 
-                {/* Daemons */}
-                <span style={{ fontSize: '0.6rem', color: rowAccent, letterSpacing: 1, width: 36, textAlign: 'center' }}>
-                  {p.daemons.length > 0 ? `[D]×${p.daemons.length}` : '--'}
+                {/* Wars W/L */}
+                <span style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 44, textAlign: 'center' }}>
+                  {(warsWon + warsLost) > 0 ? `${warsWon}W/${warsLost}L` : '--'}
+                </span>
+
+                {/* Daemons held / lost */}
+                <span style={{ fontSize: '0.6rem', color: rowAccent, letterSpacing: 1, width: 50, textAlign: 'center' }}>
+                  {p.daemons.length > 0 || daemonsLost > 0
+                    ? `[D]${p.daemons.length}${daemonsLost > 0 ? ` -${daemonsLost}` : ''}`
+                    : '--'}
+                </span>
+
+                {/* Biggest roll */}
+                <span style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 36, textAlign: 'center' }}>
+                  {biggestRoll > 0 ? `↑${biggestRoll}` : '--'}
                 </span>
 
                 {/* Cycles */}
@@ -256,8 +279,8 @@ export function GameOverScreen() {
           </div>
         )}
 
-        {/* Reboot button */}
-        <div className="go-fade-in-5" style={{ display: 'flex', justifyContent: 'center' }}>
+        {/* Reboot / Replay buttons */}
+        <div className="go-fade-in-5" style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button
             onClick={() => resetToSetup()}
             onMouseEnter={hReboot.onMouseEnter}
@@ -277,6 +300,27 @@ export function GameOverScreen() {
             }}
           >
             ↺ REBOOT GAME
+          </button>
+          <button
+            onClick={() => {
+              const human = players.find(p => p.isHuman);
+              startGame(players.length, human?.name ?? 'Ghost', startingPop, hidePpCounts, deadMansSwitch, warTiePenalty, gameSeed);
+            }}
+            onMouseEnter={hReplay.onMouseEnter}
+            onMouseLeave={hReplay.onMouseLeave}
+            style={{
+              padding: '0.75rem 2.5rem',
+              background: hReplay.hovered ? '#ffffff22' : '#ffffff0e',
+              border: '1px solid #ffffff44',
+              color: '#aabbcc',
+              fontFamily: 'monospace',
+              fontSize: '0.9rem',
+              letterSpacing: 5,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+          >
+            ⟳ REPLAY SEED
           </button>
         </div>
       </div>

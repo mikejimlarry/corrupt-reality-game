@@ -243,11 +243,23 @@ export const SetupScreen: React.FC = () => {
   const [hidePpCounts, setHidePpCounts]     = useState(() => localStorage.getItem('crg-hide-cycles') === 'true');
   const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
   const [warTiePenalty, setWarTiePenalty]   = useState(() => localStorage.getItem('crg-war-tie-penalty') === 'true');
+  const [difficulty, setDifficulty]         = useState<'EASY' | 'MEDIUM' | 'HARD'>(() => (localStorage.getItem('crg-difficulty') as 'EASY' | 'MEDIUM' | 'HARD') ?? 'MEDIUM');
   const [musicOn, setMusicOn]               = useState(() => getMusicEnabled());
   const [musicTrack, setMusicTrack]         = useState(() => getMusicTrack());
   const reducedMotion    = useGameStore(s => s.reducedMotion);
   const setReducedMotion = useGameStore(s => s.setReducedMotion);
-  const prevCredits = useRef(startingPop);
+  const prevCycles = useRef(startingPop);
+
+  const isPortraitMobile = () => window.innerWidth < 600 && window.innerWidth < window.innerHeight;
+  const [portraitMobile, setPortraitMobile] = useState(isPortraitMobile);
+  useEffect(() => {
+    const check = () => setPortraitMobile(isPortraitMobile());
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  useEffect(() => {
+    if (portraitMobile && count > 1) setCount(1);
+  }, [portraitMobile]);
   const hConnect = useHover();
 
   const [showHelp, setShowHelp]       = useState(false);
@@ -265,9 +277,10 @@ export const SetupScreen: React.FC = () => {
     localStorage.setItem('crg-hide-cycles', String(hidePpCounts));
     localStorage.setItem('crg-dead-mans-switch', String(deadMansSwitch));
     localStorage.setItem('crg-war-tie-penalty', String(warTiePenalty));
-    trackEvent('game_start', { player_count: count + 1, starting_cycles: startingPop });
+    localStorage.setItem('crg-difficulty', difficulty);
+    trackEvent('game_start', { player_count: count + 1, starting_cycles: startingPop, difficulty });
     sfxConnect();
-    startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch, warTiePenalty);
+    startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch, warTiePenalty, undefined, difficulty);
   };
 
   // Small helper so all meta-buttons share the same look; pass active=true to light it up
@@ -425,11 +438,30 @@ export const SetupScreen: React.FC = () => {
 
         {/* Number of AI agents */}
         <div>
-          <div style={LABEL}>NUMBER OF AGENTS</div>
+          <div style={{ ...LABEL, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span>NUMBER OF AGENTS</span>
+            {portraitMobile && <span style={{ fontSize: '0.55rem', color: '#446655', letterSpacing: 1 }}>1V1 ONLY IN PORTRAIT</span>}
+          </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {[1, 2, 3].map(n => (
-              <SegmentButton key={n} active={count === n} onClick={() => { resumeAudio(); sfxNavClick(); setCount(n); }}>
-                {n}
+              <SegmentButton
+                key={n}
+                active={count === n}
+                onClick={() => { if (portraitMobile && n > 1) return; resumeAudio(); sfxNavClick(); setCount(n); }}
+              >
+                <span style={portraitMobile && n > 1 ? { opacity: 0.25 } : undefined}>{n}</span>
+              </SegmentButton>
+            ))}
+          </div>
+        </div>
+
+        {/* Difficulty */}
+        <div>
+          <div style={LABEL}>DIFFICULTY</div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {(['EASY', 'MEDIUM', 'HARD'] as const).map(d => (
+              <SegmentButton key={d} active={difficulty === d} onClick={() => { resumeAudio(); sfxNavClick(); setDifficulty(d); }}>
+                {d}
               </SegmentButton>
             ))}
           </div>
@@ -453,8 +485,8 @@ export const SetupScreen: React.FC = () => {
             onChange={e => {
               const v = Number(e.target.value);
               resumeAudio();
-              if (v > prevCredits.current) sfxSliderUp(); else sfxSliderDown();
-              prevCredits.current = v;
+              if (v > prevCycles.current) sfxSliderUp(); else sfxSliderDown();
+              prevCycles.current = v;
               setStartingPop(v);
             }}
             style={{
