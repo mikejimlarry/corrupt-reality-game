@@ -95,7 +95,9 @@ export interface GameState {
     biggestRoll: Record<string, number>;
   };
   /** Non-null when a WAR card just resolved — scene shows a dice-roll animation then clears this. */
-  warRollDisplay: { r1: number; r2: number; actorBonus: number; targetBonus: number; actorName: string; targetName: string; actorWins: boolean; isTie?: boolean; tieCycleLoss?: number; logText: string } | null;
+  warRollDisplay: { r1: number; r2: number; actorBonus: number; targetBonus: number; actorName: string; targetName: string; actorWins: boolean; isTie?: boolean; tieCycleLoss?: number; logText: string; humanInvolved: boolean; humanIsActor: boolean; humanCycleLoss: number; opponentCycleLoss: number } | null;
+  /** Non-null after the war dice animation when the human was a combatant — cleared by dismissWarResult(). */
+  warResultPending: { humanWon: boolean; isTie: boolean; actorName: string; targetName: string; actorRoll: number; actorBonus: number; targetRoll: number; targetBonus: number; humanIsActor: boolean; humanCycleLoss: number; opponentCycleLoss: number; tieCycleLoss?: number } | null;
   /** When set, the next advanceTurn call routes to this player index (first turn after Corruption card). */
   postCorruptionTargetIndex: number | null;
   /**

@@ -15,6 +15,7 @@ import { GameOverScreen } from './ui/GameOverScreen';
 import { CardPreview } from './ui/CardPreview';
 import { UpdateBanner } from './ui/UpdateBanner';
 import { TutorialOverlay } from './ui/TutorialOverlay';
+import { WarResultOverlay } from './ui/WarResultOverlay';
 import { useGameAudio } from './hooks/useGameAudio';
 import { resumeAudio, stopMusic, sfxHover } from './lib/audio';
 import { trackEvent } from './lib/analytics';
@@ -152,6 +153,7 @@ function App() {
       <CardPreview />
       <UpdateBanner />
       <TutorialOverlay />
+      <WarResultOverlay />
     </>
   );
 }

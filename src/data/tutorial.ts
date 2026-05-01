@@ -41,29 +41,33 @@ export const TUTORIAL_STEPS: Record<number, TutorialStep> = {
     hint: 'Click the card, click PLAY, then click the target.',
   },
   7: {
+    title: 'AI AGENT\'S TURN',
+    body: 'The AI agent takes another turn. After it finishes, you\'ll launch your first WAR.',
+  },
+  8: {
     title: 'LAUNCH A WAR',
     body: 'You have a SKIRMISH card. WAR cards force two players into a dice-off — higher roll wins, both sides take cycle losses. Before the roll, each combatant can play FIREWALL SURGE to boost their result. Play SKIRMISH now.',
     hint: 'With only one opponent, the combatants are picked automatically.',
   },
-  8: {
-    title: 'INCOMING CONFLICT',
-    body: 'The AI is launching a Conflict. A counter window will appear — use FIREWALL SURGE for +1 to your roll, or decline to proceed.',
-  },
   9: {
+    title: 'AI AGENT\'S TURN',
+    body: 'The AI agent takes another turn. After it finishes, you\'ll arm a Quarantine block to protect yourself.',
+  },
+  10: {
     title: 'ARM A QUARANTINE',
     body: 'Roll and draw, then play QUARANTINE to arm a standing block. The next conflict targeting you is automatically cancelled.',
     hint: 'Quarantine arms on you — no target selection needed.',
   },
-  10: {
+  11: {
     title: 'QUARANTINE ARMED',
     body: 'The AI is attacking again. Your Quarantine block will fire automatically — no action needed.',
   },
-  11: {
+  12: {
     title: 'THE CORRUPTION',
     body: 'This turn you\'ll draw THE CORRUPTION — a Legendary card that triggers automatically when drawn. It deals -10 cycles to a target you choose, then permanently shifts all Stability Rolls to Corruption Rolls that drain cycles instead of earning them. Daemons now shield you from corruption damage.',
     hint: 'Roll and draw. The Corruption triggers automatically and will prompt you to pick a target.',
   },
-  12: {
+  13: {
     title: 'TUTORIAL COMPLETE',
     body: 'You\'ve seen every core mechanic: rolling, drawing, cycles, daemons, attacks, counters, WAR dice-offs, Quarantine blocks, and Corruption. Ready to run the net for real?',
   },
@@ -74,14 +78,15 @@ export const TUTORIAL_REQUIRED_CARD: Record<number, string | undefined> = {
   2: 'Data Harvest',
   4: 'Firewall',
   6: 'Memory Leak',
-  7: 'Skirmish',
-  9: 'Quarantine',
+  8: 'Skirmish',
+  10: 'Quarantine',
 };
 
 /** Cards the AI is scripted to play at each step (undefined = normal AI logic). */
 export const TUTORIAL_AI_CARD: Record<number, string | undefined> = {
   3: 'Neural Uplink',
   5: 'Data Harvest',
-  8: 'Skirmish',
-  10: 'Skirmish',
+  7: 'Data Harvest',
+  9: 'Hardened Node',
+  11: 'Skirmish',
 };

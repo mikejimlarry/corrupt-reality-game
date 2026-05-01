@@ -9,18 +9,20 @@ export const TutorialOverlay: React.FC = () => {
   const tutorialModalOpen = useGameStore(s => s.tutorialModalOpen);
   const counterPending    = useGameStore(s => s.counterPending);
   const warIncomingReveal = useGameStore(s => s.warIncomingReveal);
+  const warRollDisplay    = useGameStore(s => s.warRollDisplay);
+  const warResultPending  = useGameStore(s => s.warResultPending);
   const dismissTutorialModal = useGameStore(s => s.dismissTutorialModal);
   const resetToSetup         = useGameStore(s => s.resetToSetup);
 
   if (tutorialStep === null) return null;
   if (!tutorialModalOpen) return null;
-  // Let the counter window have full focus
-  if (counterPending !== null || warIncomingReveal !== null) return null;
+  // Let other overlays have full focus
+  if (counterPending !== null || warIncomingReveal !== null || warRollDisplay !== null || warResultPending !== null) return null;
 
   const step = TUTORIAL_STEPS[tutorialStep];
   if (!step) return null;
 
-  const isComplete = tutorialStep === 12;
+  const isComplete = tutorialStep === 13;
 
   const handleNext = () => {
     sfxNavClick();
@@ -52,7 +54,7 @@ export const TutorialOverlay: React.FC = () => {
         {/* Step counter */}
         {!isComplete && (
           <div style={{ fontSize: '0.45rem', letterSpacing: 6, color: '#00ffcc33' }}>
-            TUTORIAL · STEP {tutorialStep + 1} / 11
+            TUTORIAL · STEP {tutorialStep + 1} / 13
           </div>
         )}
         {isComplete && (

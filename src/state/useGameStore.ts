@@ -613,6 +613,7 @@ interface GameStore extends GameState {
   handSortReverse: boolean;
   setHandSort(mode: HandSortMode, reverse: boolean): void;
   clearWarRollDisplay(): void;
+  dismissWarResult(): void;
   togglePause(): void;
   setReducedMotion(v: boolean): void;
   startGame(playerCount: number, playerName: string, startingPop: number, hidePpCounts: boolean, deadMansSwitch: boolean, warTiePenalty: boolean, seed?: number, difficulty?: 'EASY' | 'MEDIUM' | 'HARD'): void;
@@ -692,6 +693,7 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   extraPlayPending: 0,
   gameStats: { cardsPlayed: {}, eliminationOrder: [], damageDealt: {}, warsWon: {}, warsLost: {}, daemonsLost: {}, biggestRoll: {} },
   warRollDisplay: null,
+  warResultPending: null,
   postCorruptionTargetIndex: null,
   tutorialStep: null,
   tutorialModalOpen: false,
@@ -798,8 +800,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pickCard('Memory Leak'),
       pickCard('Skirmish'),
       pickCard('Quarantine'),
-      pickCard('Firewall Surge'),
     ];
+    // Firewall Surge stays in the deck — drawn naturally, available for the step-8 counter window
 
     const aiHand: Card[] = [
       pickCard('Neural Uplink'),
@@ -807,6 +809,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pickCard('Skirmish'),
       pickCard('Data Harvest'),
       pickCard('Data Harvest'),
+      pickCard('Hardened Node'),
     ];
 
     const tutorialPlayers: PlayerState[] = [
@@ -1397,16 +1400,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
       warCancelledReveal: negotiateBlockedBy
         ? { attackerName: actor.name, defenderName: negotiateBlockedBy }
         : null,
-      warRollDisplay: capturedWarRoll ? {
-        r1: capturedWarRoll.actorBase,
-        r2: capturedWarRoll.targetBase,
-        actorBonus: capturedWarRoll.actorBonus,
-        targetBonus: capturedWarRoll.targetBonus,
-        actorName: actor.name,
-        targetName: capturedWarRoll.targetName,
-        actorWins: capturedWarRoll.actorWins,
-        logText: cardLog,
-      } : null,
+      warRollDisplay: capturedWarRoll ? (() => {
+        const warTargetIsHuman = targetIndex !== undefined && (state.players[targetIndex]?.isHuman ?? false);
+        const warHumanIsActor = isHuman;
+        const warHumanInvolved = warHumanIsActor || warTargetIsHuman;
+        const warHumanCycleLoss = warHumanIsActor
+          ? Math.max(0, cyclesBefore[actorIndex] - players[actorIndex].cycles)
+          : (targetIndex !== undefined ? Math.max(0, cyclesBefore[targetIndex] - players[targetIndex].cycles) : 0);
+        const warOpponentCycleLoss = warHumanIsActor
+          ? (targetIndex !== undefined ? Math.max(0, cyclesBefore[targetIndex] - players[targetIndex].cycles) : 0)
+          : Math.max(0, cyclesBefore[actorIndex] - players[actorIndex].cycles);
+        return {
+          r1: capturedWarRoll.actorBase,
+          r2: capturedWarRoll.targetBase,
+          actorBonus: capturedWarRoll.actorBonus,
+          targetBonus: capturedWarRoll.targetBonus,
+          actorName: actor.name,
+          targetName: capturedWarRoll.targetName,
+          actorWins: capturedWarRoll.actorWins,
+          isTie: capturedWarRoll.isTie,
+          tieCycleLoss: capturedWarRoll.tieCycleLoss,
+          logText: cardLog,
+          humanInvolved: warHumanInvolved,
+          humanIsActor: warHumanIsActor,
+          humanCycleLoss: warHumanCycleLoss,
+          opponentCycleLoss: warOpponentCycleLoss,
+        };
+      })() : null,
       gameStats: {
         cardsPlayed: newCardsPlayed,
         eliminationOrder: winnerId ? elim2.eliminationOrder : prevStats.eliminationOrder,
@@ -1492,7 +1512,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         gameStats: winnerId
           ? { ...state.gameStats, eliminationOrder: elim.eliminationOrder }
           : state.gameStats,
-        ...(state.tutorialStep === 11 ? { tutorialStep: 12, tutorialModalOpen: true } : {}),
+        ...(state.tutorialStep === 12 ? { tutorialStep: 13, tutorialModalOpen: true } : {}),
       });
       return;
     }
@@ -1870,18 +1890,32 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
 
-    const warDisplayPayload = capturedWarRoll ? {
-      r1: capturedWarRoll.actorBase,
-      r2: capturedWarRoll.targetBase,
-      actorBonus: capturedWarRoll.actorBonus,
-      targetBonus: capturedWarRoll.targetBonus,
-      actorName: state.players[actorIndex].name,
-      targetName: capturedWarRoll.targetName,
-      actorWins: capturedWarRoll.actorWins,
-      isTie: capturedWarRoll.isTie,
-      tieCycleLoss: capturedWarRoll.tieCycleLoss,
-      logText: warCardLog,
-    } : null;
+    const warDisplayPayload = capturedWarRoll ? (() => {
+      const warHumanIsActor = state.players[p1Index].isHuman;
+      const warHumanInvolved = state.players[p1Index].isHuman || state.players[p2Index].isHuman;
+      const warHumanCycleLoss = warHumanIsActor
+        ? Math.max(0, warCyclesBefore[p1Index] - players[p1Index].cycles)
+        : Math.max(0, warCyclesBefore[p2Index] - players[p2Index].cycles);
+      const warOpponentCycleLoss = warHumanIsActor
+        ? Math.max(0, warCyclesBefore[p2Index] - players[p2Index].cycles)
+        : Math.max(0, warCyclesBefore[p1Index] - players[p1Index].cycles);
+      return {
+        r1: capturedWarRoll.actorBase,
+        r2: capturedWarRoll.targetBase,
+        actorBonus: capturedWarRoll.actorBonus,
+        targetBonus: capturedWarRoll.targetBonus,
+        actorName: state.players[actorIndex].name,
+        targetName: capturedWarRoll.targetName,
+        actorWins: capturedWarRoll.actorWins,
+        isTie: capturedWarRoll.isTie,
+        tieCycleLoss: capturedWarRoll.tieCycleLoss,
+        logText: warCardLog,
+        humanInvolved: warHumanInvolved,
+        humanIsActor: warHumanIsActor,
+        humanCycleLoss: warHumanCycleLoss,
+        opponentCycleLoss: warOpponentCycleLoss,
+      };
+    })() : null;
 
     const actorId = state.players[actorIndex]?.id;
     const warCardsPlayed = actorId
@@ -1925,7 +1959,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       );
     }
 
-    const isTutorialWarStep = state.tutorialStep === 7;
+    const isTutorialWarStep = state.tutorialStep === 8;
     set({
       players, discard, winnerId,
       phase: winnerId ? 'GAME_OVER' : 'END_TURN',
@@ -1945,7 +1979,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         damageDealt: warDamageDealt,
         warsWon: warWarsWon, warsLost: warWarsLost, daemonsLost: warDaemonsLost, biggestRoll: prevStatsWar.biggestRoll,
       },
-      ...(isTutorialWarStep ? { tutorialStep: 8, tutorialModalOpen: true } : {}),
+      ...(isTutorialWarStep ? { tutorialStep: 9, tutorialModalOpen: true } : {}),
     });
   },
 
@@ -2015,13 +2049,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (wrappedAround) trackEvent('turn_played', { turn_number: newTurnNumber });
     const roll: [number, number] = [Math.ceil(random() * 6), Math.ceil(random() * 6)];
 
-    // Tutorial: advance step when human's turn comes back (steps 3→4, 5→6, 8→9)
+    // Tutorial: advance step when human's turn comes back (steps 3→4, 5→6, 7→8, 9→10)
+    // Step 12 doesn't advance here, but its modal is opened when returning to the human.
     const { tutorialStep } = state;
     const nextTutorialStep =
-      (tutorialStep === 3 || tutorialStep === 5 || tutorialStep === 8) && nextIndex === 0
+      (tutorialStep === 3 || tutorialStep === 5 || tutorialStep === 7 || tutorialStep === 9) && nextIndex === 0
         ? tutorialStep + 1
         : tutorialStep;
     const tutorialStepAdvanced = nextTutorialStep !== tutorialStep;
+    const openCorruptionModal = tutorialStep === 12 && nextIndex === 0 && !state.tutorialModalOpen;
 
     set({
       currentPlayerIndex: nextIndex,
@@ -2032,7 +2068,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       selectedCardId: null,
       postCorruptionTargetIndex: null,
       tutorialStep: nextTutorialStep,
-      ...(tutorialStepAdvanced ? { tutorialModalOpen: true } : {}),
+      ...(tutorialStepAdvanced || openCorruptionModal ? { tutorialModalOpen: true } : {}),
     });
 
     const nextPlayer = players[nextIndex];
@@ -2071,7 +2107,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   warCancelledRevealComplete: () => {
     const state = get();
     const { tutorialStep } = state;
-    if (tutorialStep !== 10) {
+    if (tutorialStep !== 11) {
       set({ warCancelledReveal: null });
       return;
     }
@@ -2097,7 +2133,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
 
-    set({ warCancelledReveal: null, tutorialStep: 10, tutorialModalOpen: true, deck, players });
+    // Don't open the modal here — advanceTurn fires ~210ms later and opens it
+    // once the board has fully transitioned to the human's turn.
+    set({ warCancelledReveal: null, tutorialStep: 12, deck, players });
   },
 
   rollComplete: () => {
@@ -2258,8 +2296,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
     trackEvent('war_resolved', { winner_name: display?.actorWins ? display.actorName : display?.targetName ?? 'unknown' });
     // Flush the deferred WAR log entry now that the animation has finished
     if (display?.logText) get().addLog(display.logText, 'card');
-    set({ warRollDisplay: null });
+    // If human was a combatant (and no loot pick pending), show the result overlay before advancing
+    const humanInvolved = display?.humanInvolved ?? false;
+    const lootPending = get().warLootPending;
+    const warResult = (display && humanInvolved && !lootPending) ? {
+      humanWon: display.humanIsActor ? display.actorWins : !display.actorWins,
+      isTie: display.isTie ?? false,
+      actorName: display.actorName,
+      targetName: display.targetName,
+      actorRoll: display.r1,
+      actorBonus: display.actorBonus,
+      targetRoll: display.r2,
+      targetBonus: display.targetBonus,
+      humanIsActor: display.humanIsActor,
+      humanCycleLoss: display.humanCycleLoss,
+      opponentCycleLoss: display.opponentCycleLoss,
+      tieCycleLoss: display.tieCycleLoss,
+    } : null;
+    set({ warRollDisplay: null, warResultPending: warResult });
+    if (warResult) return; // dismissWarResult() handles the advance
     // If the human winner still needs to pick which daemon the loser loses, wait for that first
+    if (lootPending) return;
+    if (get().phase !== 'GAME_OVER') {
+      scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, 300);
+    }
+  },
+
+  dismissWarResult: () => {
+    set({ warResultPending: null });
     if (get().warLootPending) return;
     if (get().phase !== 'GAME_OVER') {
       scheduleAi(() => { if (!get().paused) get().advanceTurn(); }, 300);
