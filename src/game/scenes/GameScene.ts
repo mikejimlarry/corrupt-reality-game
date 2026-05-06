@@ -72,7 +72,6 @@ export class GameScene extends Phaser.Scene {
   /** Cached for lift/lower animation on DRAW phase. */
   private handBaseY       = 0;
   private handScale       = 1.25;
-  private handArcDrop     = 28;
   private handIsLifted    = false;
   /** Scroll-hint arrows — created lazily, reset on scene rebuild. */
   private handArrowLeft?:  Phaser.GameObjects.Text;
@@ -793,7 +792,6 @@ export class GameScene extends Phaser.Scene {
     const restingBaseY = height - CARD_H * SCALE * 0.20;
     this.handBaseY   = restingBaseY;  // always the true resting position
     this.handScale   = SCALE;
-    this.handArcDrop = 0;
     const liftOffset = this.handIsLifted ? CARD_H * SCALE * 0.28 : 0;
     const baseY      = restingBaseY - liftOffset;
 
@@ -928,7 +926,6 @@ export class GameScene extends Phaser.Scene {
     if (this.handIsLifted === lifted) return;
     this.handIsLifted = lifted;
     const liftDelta = CARD_H * this.handScale * 0.28;
-    const count = this.humanCardObjects.length;
     this.humanCardObjects.forEach((card, _i) => {
       const restY   = this.handBaseY;  // flat row — no arc in either state
       const targetY = lifted ? (this.handBaseY - liftDelta) : restY;
