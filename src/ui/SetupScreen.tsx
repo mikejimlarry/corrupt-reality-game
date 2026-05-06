@@ -1,6 +1,30 @@
 // src/ui/SetupScreen.tsx
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 
+// Show boot sequence once per page load; flag persists across re-renders
+let _bootSeen = false;
+
+const BOOT_LINES = [
+  'INITIALIZING CORRUPT_REALITY v2.7..',
+  'LOADING CARD PROTOCOLS.................. [OK]',
+  'MOUNTING DAEMON REGISTRY................ [OK]',
+  'VERIFYING ENTROPY SEED.................. [OK]',
+  'ESTABLISHING NEURAL LINK................ [OK]',
+  '> SYSTEM READY.',
+];
+
+const BOOT_CSS = `
+@keyframes boot-line-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+.boot-line { animation: boot-line-in 0.12s ease both; }
+@keyframes boot-fade-out {
+  to { opacity: 0; }
+}
+.boot-fading { animation: boot-fade-out 0.7s ease forwards; }
+`;
+
 function useHover() {
   const [hovered, setHovered] = useState(false);
   return {
@@ -234,8 +258,40 @@ function OptionsModal({
 // ── Setup screen ──────────────────────────────────────────────────────────────
 
 export const SetupScreen: React.FC = () => {
-  const startGame = useGameStore(s => s.startGame);
-  const startTutorial = useGameStore(s => s.startTutorial);
+  const startGame      = useGameStore(s => s.startGame);
+  const startTutorial  = useGameStore(s => s.startTutorial);
+  const reducedMotion  = useGameStore(s => s.reducedMotion);
+  const setReducedMotion = useGameStore(s => s.setReducedMotion);
+
+  // ── Boot sequence (all hooks must precede any early return) ─────────────────
+  const [bootDone,   setBootDone]   = useState(() => _bootSeen || reducedMotion);
+  const [bootLines,  setBootLines]  = useState<number[]>([]);
+  const [bootFading, setBootFading] = useState(false);
+
+  const skipBoot = useCallback(() => {
+    _bootSeen = true;
+    setBootFading(false);
+    setBootDone(true);
+  }, []);
+
+  useEffect(() => {
+    if (bootDone) return;
+    const LINE_DELAY = 480;   // ms between each line appearing
+    const HOLD      = 1400;   // ms to hold after last line before fading
+    const FADE      = 700;    // ms fade-out duration (matches CSS transition)
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    BOOT_LINES.forEach((_, i) => {
+      timers.push(setTimeout(() => setBootLines(prev => [...prev, i]), i * LINE_DELAY + 200));
+    });
+    const allIn = BOOT_LINES.length * LINE_DELAY + 200;
+    timers.push(setTimeout(() => setBootFading(true), allIn + HOLD));
+    timers.push(setTimeout(() => { _bootSeen = true; setBootDone(true); }, allIn + HOLD + FADE));
+    const onKey = () => skipBoot();
+    window.addEventListener('keydown', onKey, { once: true });
+    return () => { timers.forEach(clearTimeout); window.removeEventListener('keydown', onKey); };
+  }, [bootDone, skipBoot]);
+
+  // ── Normal setup state ──────────────────────────────────────────────────────
   const [name, setName]                     = useState(() => localStorage.getItem('crg-handle') ?? '');
   const [nameFocused, setNameFocused]       = useState(false);
   const [count, setCount]                   = useState(() => Number(localStorage.getItem('crg-count') ?? '1'));
@@ -246,8 +302,6 @@ export const SetupScreen: React.FC = () => {
   const [difficulty, setDifficulty]         = useState<'EASY' | 'MEDIUM' | 'HARD'>(() => (localStorage.getItem('crg-difficulty') as 'EASY' | 'MEDIUM' | 'HARD') ?? 'MEDIUM');
   const [musicOn, setMusicOn]               = useState(() => getMusicEnabled());
   const [musicTrack, setMusicTrack]         = useState(() => getMusicTrack());
-  const reducedMotion    = useGameStore(s => s.reducedMotion);
-  const setReducedMotion = useGameStore(s => s.setReducedMotion);
   const prevCycles = useRef(startingPop);
 
   const isPortraitMobile = () => window.innerWidth < 600 && window.innerWidth < window.innerHeight;
@@ -304,11 +358,57 @@ export const SetupScreen: React.FC = () => {
   );
 
   return (
+    <>
+    {/* Boot overlay — sits above setup screen so there's no flash on exit */}
+    {!bootDone && (
+      <>
+        <style>{BOOT_CSS}</style>
+        <div
+          onClick={skipBoot}
+          className={bootFading ? 'boot-fading' : ''}
+          style={{
+            position: 'fixed', inset: 0,
+            background: '#0a0a0f',
+            display: 'flex', flexDirection: 'column',
+            justifyContent: 'flex-start',
+            padding: '3rem 3.5rem',
+            fontFamily: 'monospace',
+            zIndex: 20,
+            cursor: 'default',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+            {bootLines.map(i => (
+              <div
+                key={i}
+                className="boot-line"
+                style={{
+                  fontSize: '0.72rem',
+                  letterSpacing: 1.5,
+                  color: i === BOOT_LINES.length - 1 ? '#00ffcc' : '#336655',
+                  fontWeight: i === BOOT_LINES.length - 1 ? 'bold' : 'normal',
+                }}
+              >
+                {BOOT_LINES[i]}
+              </div>
+            ))}
+          </div>
+          <div style={{
+            position: 'absolute', bottom: '1.5rem', right: '2rem',
+            fontSize: '0.5rem', color: '#1a2a22', letterSpacing: 2,
+          }}>
+            PRESS ANY KEY TO SKIP
+          </div>
+        </div>
+      </>
+    )}
+
+    {/* Setup screen — always in DOM, visible under/after boot overlay */}
     <div style={{
       position: 'fixed', inset: 0,
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(5,5,15,0.92)',
+      background: 'rgba(5,5,15,0.78)',
       zIndex: 10,
       fontFamily: 'monospace',
       color: '#00ffcc',
@@ -549,5 +649,6 @@ export const SetupScreen: React.FC = () => {
         </button>
       </div>
     </div>
+    </>
   );
 };

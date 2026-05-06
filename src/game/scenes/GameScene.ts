@@ -754,7 +754,7 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // ── Human hand (fan layout) — larger cards, clearly visible ──────────────
+  // ── Human hand (flat row) — larger cards, clearly visible ────────────────
   private updateHumanHand(hand: CardData[], width: number, height: number) {
     const { handSortMode, handSortReverse } = useGameStore.getState();
     hand = sortHand(hand, handSortMode, handSortReverse);
@@ -771,12 +771,10 @@ export class GameScene extends Phaser.Scene {
     const shouldDim = !isHuman || phase === 'PHASE_ROLL' || phase === 'DRAW';
     const targetAlpha = shouldDim ? 0.55 : 1;
 
-    // Fan layout constants — scale down on narrow viewports so all cards fit
+    // Flat-row layout constants — no rotation, no arc
     const isMobile = width < 768;
     const SCALE    = isMobile ? 0.85 : 1.25;
-    const OVERLAP  = CARD_W * SCALE * (isMobile ? 0.50 : 0.62);
-    const FAN_DEG  = isMobile ? 22 : 32;
-    const ARC_DROP = isMobile ? 16 : 28;
+    const OVERLAP  = CARD_W * SCALE * (isMobile ? 0.46 : 0.56);
     const count    = hand.length;
     const totalW   = (count - 1) * OVERLAP;
 
@@ -795,7 +793,7 @@ export class GameScene extends Phaser.Scene {
     const restingBaseY = height - CARD_H * SCALE * 0.20;
     this.handBaseY   = restingBaseY;  // always the true resting position
     this.handScale   = SCALE;
-    this.handArcDrop = ARC_DROP;
+    this.handArcDrop = 0;
     const liftOffset = this.handIsLifted ? CARD_H * SCALE * 0.28 : 0;
     const baseY      = restingBaseY - liftOffset;
 
@@ -855,12 +853,9 @@ export class GameScene extends Phaser.Scene {
     const nextCardObjects: Card[] = [];
 
     hand.forEach((cardData, i) => {
-      const t       = count > 1 ? i / (count - 1) : 0.5;
-      const c       = t - 0.5;
-      const targetX = startX + OVERLAP * i;
-      // Flat arc when lifted — no valley shape; full arc when resting
-      const targetY = baseY + (this.handIsLifted ? 0 : c * c * ARC_DROP * 4);
-      const targetAngle = c * FAN_DEG;
+      const targetX     = startX + OVERLAP * i;
+      const targetY     = baseY;   // flat row — no arc
+      const targetAngle = 0;       // flat row — no rotation
       const targetDepth = 10 + i;
 
       const existing = this.humanCardObjects.find(obj => obj.cardData.id === cardData.id);
@@ -934,11 +929,8 @@ export class GameScene extends Phaser.Scene {
     this.handIsLifted = lifted;
     const liftDelta = CARD_H * this.handScale * 0.28;
     const count = this.humanCardObjects.length;
-    this.humanCardObjects.forEach((card, i) => {
-      const t = count > 1 ? i / (count - 1) : 0.5;
-      const c = t - 0.5;
-      const restY  = this.handBaseY + c * c * this.handArcDrop * 4;
-      // Lifted state uses a flat arc (no valley) so all cards sit at the same height
+    this.humanCardObjects.forEach((card, _i) => {
+      const restY   = this.handBaseY;  // flat row — no arc in either state
       const targetY = lifted ? (this.handBaseY - liftDelta) : restY;
       card.updateRestY(targetY);
       // Kill any competing position tweens from updateHumanHand before adding ours

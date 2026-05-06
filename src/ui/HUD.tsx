@@ -7,6 +7,12 @@ import { sfxCardPlay, getMusicEnabled, setMusicEnabled, sfxToggleOn, sfxToggleOf
 import { trackEvent } from '../lib/analytics';
 
 const PULSE_STYLE = `
+@keyframes log-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.log-cursor { animation: log-cursor-blink 1s step-end infinite; }
+
 @keyframes hud-pulse {
   0%, 100% { box-shadow: 0 0 6px 1px rgba(0,255,204,0.25), 0 0 0 1px rgba(0,255,204,0.15); }
   50%       { box-shadow: 0 0 22px 4px rgba(0,255,204,0.65), 0 0 0 1px rgba(0,255,204,0.45); }
@@ -119,8 +125,21 @@ function btnDim(accent: string): React.CSSProperties {
   };
 }
 
+function fmtUptime(s: number) {
+  const h  = Math.floor(s / 3600);
+  const m  = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+}
+
 export function HUD() {
   useInjectStyle(PULSE_STYLE);
+  const [uptime, setUptime] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setUptime(s => s + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const phase               = useGameStore(s => s.phase);
   const allPlayers          = useGameStore(s => s.players);
   const warRollDisplay      = useGameStore(s => s.warRollDisplay);
@@ -398,8 +417,11 @@ export function HUD() {
 
         {/* Status panel + scoreboard */}
         <div style={panelStyle}>
-          <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 4 }}>
+          <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 2 }}>
             TURN {turnNumber} · {phase}
+          </div>
+          <div style={{ fontSize: 8, color: `${ACCENT}33`, letterSpacing: 2, marginBottom: 4, fontVariantNumeric: 'tabular-nums' }}>
+            SYS {fmtUptime(uptime)}
           </div>
           <div style={{ fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold', marginBottom: 10 }}>
             {isHuman ? '▶ YOUR TURN' : `◌ ${currentPlayer?.name ?? '...'}`}
@@ -656,6 +678,9 @@ export function HUD() {
                     paddingLeft: entry.type !== 'roll' ? 6 : 0,
                   }}>
                     {entry.text}
+                    {i === log.length - 1 && (
+                      <span className="log-cursor" style={{ color: ACCENT, marginLeft: 2 }}>█</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -684,8 +709,13 @@ export function HUD() {
                   maxWidth: isMobile ? 140 : 200,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   marginLeft: 8, flex: 1, textAlign: 'right',
+                  display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+                  gap: 2,
                 }}>
-                  {logTail[logTail.length - 1].text}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {logTail[logTail.length - 1].text}
+                  </span>
+                  <span className="log-cursor" style={{ color: ACCENT, flexShrink: 0 }}>█</span>
                 </span>
               )}
               <span style={{ color: `${ACCENT}33`, marginLeft: 10, flexShrink: 0 }}>

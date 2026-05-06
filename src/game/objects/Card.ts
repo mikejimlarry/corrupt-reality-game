@@ -687,41 +687,62 @@ export class Card extends Phaser.GameObjects.Container {
     this.dropoutTimer?.remove(false);
     this.dropoutTimer = undefined;
 
-    const spinDir = this.x < targetX ? 1 : -1;
-    const startX  = this.x;
+    const spinDir   = this.x < targetX ? 1 : -1;
+    const startX    = this.x;
+    const restSX    = this.restScale;
+    const reduced   = useGameStore.getState().reducedMotion;
 
-    // Chromatic aberration layers — red ghost left, cyan ghost right
-    const redLayer = this.scene.add.graphics();
-    redLayer.fillStyle(0xff2244, 0.28);
-    redLayer.fillRoundedRect(-CARD_W / 2 - 5, -CARD_H / 2, CARD_W, CARD_H, RADIUS);
-
-    const cyanLayer = this.scene.add.graphics();
-    cyanLayer.fillStyle(0x00eeff, 0.28);
-    cyanLayer.fillRoundedRect(-CARD_W / 2 + 5, -CARD_H / 2, CARD_W, CARD_H, RADIUS);
-
-    this.addAt(cyanLayer, 0);
-    this.addAt(redLayer, 0);
-
-    // Horizontal jitter sequence, then fly
-    this.x = startX + 7;
-    this.scene.time.delayedCall(40,  () => { if (this.active) this.x = startX - 6; });
-    this.scene.time.delayedCall(80,  () => { if (this.active) this.x = startX + 3; });
-    this.scene.time.delayedCall(120, () => {
+    // Inner: chromatic-aberration glitch + fly to discard
+    const glitchFly = () => {
       if (!this.active) return;
-      this.x = startX;
-      redLayer.destroy();
-      cyanLayer.destroy();
-      this.scene.tweens.add({
-        targets: this,
-        x: targetX, y: targetY,
-        scaleX: this.restScale * 0.55,
-        scaleY: this.restScale * 0.55,
-        alpha: 0,
-        angle: this.angle + spinDir * 20,
-        duration: 380,
-        ease: 'Quad.easeIn',
-        onComplete,
+
+      const redLayer = this.scene.add.graphics();
+      redLayer.fillStyle(0xff2244, 0.28);
+      redLayer.fillRoundedRect(-CARD_W / 2 - 5, -CARD_H / 2, CARD_W, CARD_H, RADIUS);
+
+      const cyanLayer = this.scene.add.graphics();
+      cyanLayer.fillStyle(0x00eeff, 0.28);
+      cyanLayer.fillRoundedRect(-CARD_W / 2 + 5, -CARD_H / 2, CARD_W, CARD_H, RADIUS);
+
+      this.addAt(cyanLayer, 0);
+      this.addAt(redLayer, 0);
+
+      this.x = startX + 7;
+      this.scene.time.delayedCall(40,  () => { if (this.active) this.x = startX - 6; });
+      this.scene.time.delayedCall(80,  () => { if (this.active) this.x = startX + 3; });
+      this.scene.time.delayedCall(120, () => {
+        if (!this.active) return;
+        this.x = startX;
+        redLayer.destroy();
+        cyanLayer.destroy();
+        this.scene.tweens.add({
+          targets: this,
+          x: targetX, y: targetY,
+          scaleX: restSX * 0.55,
+          scaleY: restSX * 0.55,
+          alpha: 0,
+          angle: this.angle + spinDir * 20,
+          duration: 380,
+          ease: 'Quad.easeIn',
+          onComplete,
+        });
       });
+    };
+
+    if (reduced) { glitchFly(); return; }
+
+    // ── rotateY illusion: squash to edge-on, then snap back, then glitch-fly ──
+    this.scene.tweens.add({
+      targets: this, scaleX: 0,
+      duration: 70, ease: 'Quad.easeIn',
+      onComplete: () => {
+        if (!this.active) return;
+        this.scene.tweens.add({
+          targets: this, scaleX: restSX,
+          duration: 60, ease: 'Quad.easeOut',
+          onComplete: glitchFly,
+        });
+      },
     });
   }
 

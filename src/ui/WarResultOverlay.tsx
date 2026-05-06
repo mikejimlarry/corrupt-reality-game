@@ -1,6 +1,19 @@
 // src/ui/WarResultOverlay.tsx
 import React from 'react';
 import { useGameStore } from '../state/useGameStore';
+
+const WAR_RESULT_CSS = `
+@keyframes war-result-unfold {
+  0%   { opacity: 0; transform: perspective(900px) rotateX(-55deg) scaleY(0.6); }
+  60%  { opacity: 1; transform: perspective(900px) rotateX(6deg)   scaleY(1.01); }
+  80%  { transform: perspective(900px) rotateX(-3deg) scaleY(0.99); }
+  100% { opacity: 1; transform: perspective(900px) rotateX(0deg)   scaleY(1); }
+}
+.war-result-panel {
+  animation: war-result-unfold 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: top center;
+}
+`;
 import { sfxNavClick } from '../lib/audio';
 
 export const WarResultOverlay: React.FC = () => {
@@ -36,7 +49,11 @@ export const WarResultOverlay: React.FC = () => {
     dismissWarResult();
   };
 
+  const reducedMotion = useGameStore(s => s.reducedMotion);
+
   return (
+    <>
+    <style>{WAR_RESULT_CSS}</style>
     <div style={{
       position: 'fixed', inset: 0,
       background: 'rgba(2,4,12,0.88)',
@@ -52,18 +69,20 @@ export const WarResultOverlay: React.FC = () => {
         }} />
       )}
 
-      <div style={{
-        border: `1px solid ${baseAccent}55`,
-        background: 'rgba(4,8,18,0.99)',
-        padding: '2rem 2.5rem',
-        maxWidth: 400,
-        width: '90%',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.25rem',
-        boxShadow: `0 0 40px ${baseAccent}22`,
-        position: 'relative',
-      }}>
+      <div
+        className={reducedMotion ? undefined : 'war-result-panel'}
+        style={{
+          border: `1px solid ${baseAccent}55`,
+          background: 'rgba(4,8,18,0.99)',
+          padding: '2rem 2.5rem',
+          maxWidth: 400,
+          width: '90%',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1.25rem',
+          boxShadow: `0 0 40px ${baseAccent}22`,
+          position: 'relative',
+        }}>
 
         {/* Headline */}
         <div style={{ textAlign: 'center' }}>
@@ -180,5 +199,6 @@ export const WarResultOverlay: React.FC = () => {
         </button>
       </div>
     </div>
+    </>
   );
 };
