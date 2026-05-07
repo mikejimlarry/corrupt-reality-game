@@ -1346,8 +1346,6 @@ export class GameScene extends Phaser.Scene {
     const result: Array<{ x: number; y: number; angle: number }> = [];
 
     for (let i = 0; i < count; i++) {
-      const t = count > 1 ? i / (count - 1) : 0.5;
-      const c = t - 0.5;
       let x: number, y: number, angle: number;
 
       if (seat === 0) {
