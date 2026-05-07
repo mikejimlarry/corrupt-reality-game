@@ -660,11 +660,11 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: zone, alpha: target, duration: DURATION, ease: 'Sine.easeInOut' });
       }
 
-      // AI card backs
+      // AI card backs — always full alpha so overlapping cards are opaque
       if (!player.isHuman) {
         const backs = this.aiCardBackObjects.get(player.id) ?? [];
         backs.forEach(back => {
-          this.tweens.add({ targets: back, alpha: target, duration: DURATION, ease: 'Sine.easeInOut' });
+          this.tweens.add({ targets: back, alpha: 1, duration: DURATION, ease: 'Sine.easeInOut' });
         });
       }
     });
@@ -1301,35 +1301,34 @@ export class GameScene extends Phaser.Scene {
   // ── AI player zones: up to 3 seats (top / left / right) ──────────────────
   private placeAIZones(players: PlayerState[], width: number, height: number) {
     const midY = height * 0.46;
-    const [p1, p2, p3] = players;
-
     const { hidePpCounts: hidePop } = useGameStore.getState();
 
-    // Top: zone sits below the card peek strip
-    if (p1) {
-      const zone = new PlayerZone(this, width / 2, height * 0.18, p1, hidePop);
-      zone.setDepth(25);
-      this.playerZoneMap.set(p1.id, zone);
-      this.aiPlayerSeat.set(p1.id, 0);
-    }
+    // Seat assignment by AI count:
+    //   1 AI  → [top]
+    //   2 AIs → [right, top]
+    //   3 AIs → [right, top, left]
+    const seatOrder = [
+      [0],
+      [2, 0],
+      [2, 0, 1],
+    ][players.length - 1] ?? [0];
 
-    // Left: zone nudged away from edge so it's fully visible
-    if (p2) {
-      const zone = new PlayerZone(this, 130, midY, p2, hidePop);
-      zone.setAngle(-90);
-      zone.setDepth(25);
-      this.playerZoneMap.set(p2.id, zone);
-      this.aiPlayerSeat.set(p2.id, 1);
-    }
+    const seatConfigs: Record<number, { x: number; y: number; angle: number }> = {
+      0: { x: width / 2,      y: height * 0.18, angle:   0 },  // top
+      1: { x: 130,            y: midY,          angle: -90 },  // left
+      2: { x: width - 130,    y: midY,          angle:  90 },  // right
+    };
 
-    // Right: mirror of left
-    if (p3) {
-      const zone = new PlayerZone(this, width - 130, midY, p3, hidePop);
-      zone.setAngle(90);
+    players.forEach((p, i) => {
+      if (!p) return;
+      const seat = seatOrder[i];
+      const cfg  = seatConfigs[seat];
+      const zone = new PlayerZone(this, cfg.x, cfg.y, p, hidePop);
+      if (cfg.angle !== 0) zone.setAngle(cfg.angle);
       zone.setDepth(25);
-      this.playerZoneMap.set(p3.id, zone);
-      this.aiPlayerSeat.set(p3.id, 2);
-    }
+      this.playerZoneMap.set(p.id, zone);
+      this.aiPlayerSeat.set(p.id, seat);
+    });
   }
 
   // ── AI hands ──────────────────────────────────────────────────────────────
@@ -1395,12 +1394,7 @@ export class GameScene extends Phaser.Scene {
 
   private dealAIHands(players: PlayerState[], width: number, height: number) {
     const midY = height * 0.46;
-    const { currentPlayerIndex, players: allPlayers } = useGameStore.getState();
-    const DIM = 0.25;
-    const aiDealAlpha = (aiPlayer: PlayerState): number => {
-      const idx = allPlayers.findIndex(p => p.id === aiPlayer.id);
-      return idx === currentPlayerIndex ? 1 : DIM;
-    };
+    const aiDealAlpha = (_aiPlayer: PlayerState): number => 1;
 
     const staggerBase = [0, 120, 240];
     players.forEach((p, si) => {
@@ -1468,7 +1462,7 @@ export class GameScene extends Phaser.Scene {
         const back = new CardBack(this, pos.x, pos.y);
         back.setAngle(pos.angle);
         back.setDepth(5 + n);
-        back.dealIn(width / 2, midY, (n - existingCount) * 60, 0.25);
+        back.dealIn(width / 2, midY, (n - existingCount) * 60, 1);
         backs.push(back);
       }
     }
