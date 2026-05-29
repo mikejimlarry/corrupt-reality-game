@@ -53,6 +53,9 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
   private toastTxt!:      Phaser.GameObjects.Text;
   private daemonBonusTxt!: Phaser.GameObjects.Text;
   private standbyTween?:  Phaser.Tweens.Tween;
+  private toastY = 0;
+  private toastW = 0;
+  private toastH = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
@@ -167,10 +170,10 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     }).setOrigin(0.5).setAlpha(0);
     this.add(this.daemonBonusTxt);
 
-    // store layout refs for reuse in roll()
-    (this as any)._toastY = TOAST_Y;
-    (this as any)._toastW = TOAST_W;
-    (this as any)._toastH = TOAST_H;
+    // Store layout refs for reuse in roll().
+    this.toastY = TOAST_Y;
+    this.toastW = TOAST_W;
+    this.toastH = TOAST_H;
 
     // ── Scanlines (skipped in reduced-motion mode) ────────────────────────
     if (!useGameStore.getState().reducedMotion) {
@@ -506,9 +509,9 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
           this.statusTxt.setText(statusLabel).setColor(finalHex);
 
           // ── Credit toast ───────────────────────────────────────────────
-          const toastY = (this as any)._toastY as number;
-          const toastW = (this as any)._toastW as number;
-          const toastH = (this as any)._toastH as number;
+          const toastY = this.toastY;
+          const toastW = this.toastW;
+          const toastH = this.toastH;
 
           let toastLabel: string;
           let toastHex: string;

@@ -1,8 +1,7 @@
 // src/game/objects/Card.ts
 import Phaser from 'phaser';
 import type { Card as CardData, CardCategory, CardRarity } from '../../types/cards';
-import { useGameStore, mustPlayCorruptionFirst } from '../../state/useGameStore';
-import { TUTORIAL_REQUIRED_CARD } from '../../data/tutorial';
+import { useGameStore } from '../../state/useGameStore';
 import { sfxCardSelect, sfxGlitch } from '../../lib/audio';
 
 // ── Dimensions ───────────────────────────────────────────────────────────────
@@ -325,7 +324,8 @@ export class Card extends Phaser.GameObjects.Container {
   /**
    * Mark this card as inapplicable (unplayable in the current context).
    * Inapplicable cards are dimmed and pushed slightly below the fan baseline.
-   * Hover and click are both suppressed while inapplicable.
+   * Hover is suppressed while inapplicable, but click still selects the card
+   * so the HUD can explain why it cannot be played.
    */
   setInapplicable(v: boolean) {
     if (this.isInapplicable === v) return;
@@ -419,33 +419,11 @@ export class Card extends Phaser.GameObjects.Container {
   }
 
   private onClick() {
-    if (this.isInapplicable) return;
     // No isDealt guard here — selection should work immediately even during deal-in animation
     const store = useGameStore.getState();
     if (store.phase !== 'MAIN') return;
     const current = store.players[store.currentPlayerIndex];
     if (!current?.isHuman) return;
-
-    // Corruption-first: if the player must play The Corruption as their first card,
-    // block selection of every other card.
-    if (mustPlayCorruptionFirst(current, store.gameStats)) {
-      const isCorruptionCard = this.cardData.category === 'EVENT_NEGATIVE' &&
-        (this.cardData as import('../../types/cards').NegativeEventCard).effect === 'CORRUPTION';
-      if (!isCorruptionCard) return;
-    }
-
-    // Daemon cards: block selection if the player already has this type active
-    if (this.cardData.category === 'DAEMON') {
-      const daemonType = (this.cardData as import('../../types/cards').DaemonCard).daemonType;
-      if (daemonType && current.daemons.includes(daemonType)) return;
-    }
-
-    // Tutorial: block all selection while modal is open, or if card isn't the required one
-    if (store.tutorialStep !== null) {
-      if (store.tutorialModalOpen) return;
-      const required = TUTORIAL_REQUIRED_CARD[store.tutorialStep];
-      if (required && this.cardData.name !== required) return;
-    }
 
     const newId = store.selectedCardId === this.cardData.id ? null : this.cardData.id;
     if (newId !== null) sfxCardSelect();

@@ -95,17 +95,12 @@ export function GameOverScreen() {
   const hReplay  = useHover();
 
   const [visible, setVisible] = useState(false);
-  const [records, setRecords] = useState<GameRecords>({ wins: 0, losses: 0 });
+  const records = readRecords();
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 100);
     return () => clearTimeout(t);
   }, []);
-
-  useEffect(() => {
-    // Read updated records after the game record has been saved
-    setRecords(readRecords());
-  }, [winnerId]);
 
   if (!visible) return null;
 

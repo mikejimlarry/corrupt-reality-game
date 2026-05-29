@@ -20,6 +20,7 @@ export const WarResultOverlay: React.FC = () => {
   const result          = useGameStore(s => s.warResultPending);
   const corruption      = useGameStore(s => s.globalCorruptionMode);
   const dismissWarResult = useGameStore(s => s.dismissWarResult);
+  const reducedMotion = useGameStore(s => s.reducedMotion);
 
   if (!result) return null;
 
@@ -48,8 +49,6 @@ export const WarResultOverlay: React.FC = () => {
     sfxNavClick();
     dismissWarResult();
   };
-
-  const reducedMotion = useGameStore(s => s.reducedMotion);
 
   return (
     <>

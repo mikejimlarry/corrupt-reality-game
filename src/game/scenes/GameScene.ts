@@ -18,15 +18,19 @@ const CATEGORY_SORT_ORDER: Record<string, number> = {
   CYCLES: 0, EVENT_POSITIVE: 1, EVENT_NEGATIVE: 2, WAR: 3, DAEMON: 4, COUNTER: 5,
 };
 
+function cardSortValue(card: CardData): number {
+  if ('amount' in card) return card.amount;
+  if ('loserLoses' in card) return card.loserLoses;
+  return 0;
+}
+
 function sortHand(hand: CardData[], mode: HandSortMode, reverse: boolean): CardData[] {
   const sorted = [...hand];
   if (mode === 'TYPE') {
     sorted.sort((a, b) => (CATEGORY_SORT_ORDER[a.category] ?? 9) - (CATEGORY_SORT_ORDER[b.category] ?? 9));
   } else if (mode === 'VALUE') {
     sorted.sort((a, b) => {
-      const aVal = (a as any).amount ?? (a as any).loserLoses ?? 0;
-      const bVal = (b as any).amount ?? (b as any).loserLoses ?? 0;
-      return bVal - aVal;
+      return cardSortValue(b) - cardSortValue(a);
     });
   } else if (mode === 'ALPHA') {
     sorted.sort((a, b) => a.name.localeCompare(b.name));
@@ -399,7 +403,7 @@ export class GameScene extends Phaser.Scene {
           const rawTotal  = r1 + r2;
           const inCorruption = state.globalCorruptionMode;
           const daemonCount  = currentPlayer.daemons.length;
-          const isOverclocked = (currentPlayer as any).overclocked ?? false;
+          const isOverclocked = currentPlayer.overclocked ?? false;
           const afterDaemons = inCorruption
             ? Math.max(2, rawTotal - daemonCount)
             : Math.min(12, rawTotal + daemonCount);
@@ -430,7 +434,7 @@ export class GameScene extends Phaser.Scene {
       if (!state.corruptionReveal) prevCorruptionReveal = false;
 
       // ── Overclock card visual ────────────────────────────────────────────────
-      const pendingOC = (state as any).pendingOverclockCard ?? null;
+      const pendingOC = state.pendingOverclockCard ?? null;
       if (pendingOC !== prevPendingOverclockCard) {
         const oldCard = prevPendingOverclockCard;
         prevPendingOverclockCard = pendingOC;
@@ -688,7 +692,7 @@ export class GameScene extends Phaser.Scene {
 
   // ── Card applicability — dim/lower unplayable cards during MAIN phase ──────
   private applyCardApplicability() {
-    const { phase, players, currentPlayerIndex, gameStats } = useGameStore.getState();
+    const { phase, players, currentPlayerIndex, gameStats, extraPlayPending } = useGameStore.getState();
     const isHumanTurn = players[currentPlayerIndex]?.isHuman;
 
     if (phase !== 'MAIN' || !isHumanTurn) {
@@ -737,6 +741,11 @@ export class GameScene extends Phaser.Scene {
       } else {
         // COUNTER cards are reactive (WAR only) — never playable from hand
         if (d.category === 'COUNTER') bad = true;
+        if (extraPlayPending > 0) {
+          const isMultitask = d.category === 'EVENT_POSITIVE' &&
+            (d as import('../../types/cards').PositiveEventCard).effect === 'EXTRA_PLAY';
+          if (d.category === 'WAR' || d.category === 'COUNTER' || isMultitask) bad = true;
+        }
         // Tutorial: block all cards when modal is open; otherwise only allow the required card
         const { tutorialStep, tutorialModalOpen } = useGameStore.getState();
         if (tutorialStep !== null) {
@@ -826,7 +835,7 @@ export class GameScene extends Phaser.Scene {
             this.humanDaemonBoard?.refresh(imps);
           });
         } else {
-          const pendingOCId = (useGameStore.getState() as any).pendingOverclockCard?.id;
+          const pendingOCId = useGameStore.getState().pendingOverclockCard?.id;
           if (pendingOCId === cardData.id) {
             // Overclock — float up and fade; the overclockVisual takes over display
             this.tweens.add({
@@ -926,7 +935,7 @@ export class GameScene extends Phaser.Scene {
     if (this.handIsLifted === lifted) return;
     this.handIsLifted = lifted;
     const liftDelta = CARD_H * this.handScale * 0.28;
-    this.humanCardObjects.forEach((card, _i) => {
+    this.humanCardObjects.forEach(card => {
       const restY   = this.handBaseY;  // flat row — no arc in either state
       const targetY = lifted ? (this.handBaseY - liftDelta) : restY;
       card.updateRestY(targetY);
@@ -1240,10 +1249,8 @@ export class GameScene extends Phaser.Scene {
     const gfx = this.add.graphics().setDepth(188).setAlpha(0);
     this.staticGfx = gfx;
 
-    let frame = 0;
     const redraw = () => {
       if (!gfx.active) return;
-      frame++;
       gfx.clear();
       gfx.fillStyle(0xffffff, 0.9);
 
@@ -1394,15 +1401,12 @@ export class GameScene extends Phaser.Scene {
 
   private dealAIHands(players: PlayerState[], width: number, height: number) {
     const midY = height * 0.46;
-    const aiDealAlpha = (_aiPlayer: PlayerState): number => 1;
-
     const staggerBase = [0, 120, 240];
     players.forEach((p, si) => {
       if (!p) return;
       const seat      = this.aiPlayerSeat.get(p.id) ?? si;
       const cardCount = p.hand.length || 5;
       const positions = this.computeAiHandLayout(seat, cardCount, width, height);
-      const alpha     = aiDealAlpha(p);
       const pBacks: CardBack[] = [];
 
       for (let i = 0; i < cardCount; i++) {
@@ -1410,7 +1414,7 @@ export class GameScene extends Phaser.Scene {
         const back = new CardBack(this, pos.x, pos.y);
         back.setAngle(pos.angle);
         back.setDepth(5 + i);
-        back.dealIn(width / 2, midY, staggerBase[si] + i * 55, alpha);
+        back.dealIn(width / 2, midY, staggerBase[si] + i * 55, 1);
         pBacks.push(back);
       }
       this.aiCardBackObjects.set(p.id, pBacks);

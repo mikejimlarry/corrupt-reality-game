@@ -54,7 +54,6 @@ function cancelAllAiTimers(): void { _aiTimers.forEach(clearTimeout); _aiTimers.
 type WarRollSnapshot = { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; targetBase: number; targetBonus: number; actorWins: boolean; isTie?: boolean; tieCycleLoss?: number; targetName: string };
 type CardEffectResult = {
   players: PlayerState[];
-  quarantineBlockedBy: string | null;
   negotiateBlockedBy: string | null;
   daemonImmunityBlockedBy: string | null;
   warRollResult: WarRollSnapshot | null;
@@ -88,12 +87,35 @@ function saveGameRecord(humanWon: boolean, turns: number, playerCount: number, c
   } catch { /* localStorage unavailable */ }
 }
 
+export const CORRUPTION_DECK_WINDOW = { min: 0.25, max: 0.55 } as const;
+
+export function stageCorruptionForSession(deck: Card[], initialDealCount: number): Card[] {
+  const corruptionIndex = deck.findIndex(
+    c => c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).effect === 'CORRUPTION',
+  );
+  if (corruptionIndex === -1) return deck;
+
+  const corruptionCard = deck[corruptionIndex];
+  const withoutCorruption = deck.filter((_, i) => i !== corruptionIndex);
+  const dealt = withoutCorruption.slice(0, initialDealCount);
+  const remaining = withoutCorruption.slice(initialDealCount);
+  const minIndex = Math.floor(remaining.length * CORRUPTION_DECK_WINDOW.min);
+  const maxIndex = Math.max(minIndex, Math.floor(remaining.length * CORRUPTION_DECK_WINDOW.max));
+  const insertAt = minIndex + Math.floor(random() * (maxIndex - minIndex + 1));
+
+  return [
+    ...dealt,
+    ...remaining.slice(0, insertAt),
+    corruptionCard,
+    ...remaining.slice(insertAt),
+  ];
+}
+
 // targetIndex — when provided (human targeting), use it directly.
 // When omitted (AI turn), fall back to a random live opponent.
-function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number, targetIndex?: number, warTiePenalty?: boolean): CardEffectResult {
+export function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number, targetIndex?: number, warTiePenalty?: boolean): CardEffectResult {
   const noFx = (p: PlayerState[]): CardEffectResult => ({
     players: p,
-    quarantineBlockedBy: null,
     negotiateBlockedBy: null,
     daemonImmunityBlockedBy: null,
     warRollResult: null,
@@ -132,7 +154,7 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
           i === actorIndex ? { ...p, cycles: p.cycles + pos.amount * liveCount } : p
         ));
       }
-      // OVERCLOCK — mark actor so their next Stability Roll is doubled
+      // OVERCLOCK — mark actor so their next Stability/Corruption Roll shifts by 5
       if (pos.effect === 'OVERCLOCK') {
         return noFx(players.map((p, i) => i === actorIndex ? { ...p, overclocked: true } : p));
       }
@@ -163,19 +185,6 @@ function applyCardEffect(card: Card, players: PlayerState[], actorIndex: number,
       if (ti === -1) return noFx(players);
       const lastTargetName = players[ti].name;
 
-      // System Interrupt — the target's shield absorbs the attack and is consumed.
-      // Does NOT block Digital Crusade or M.A.D. (those require Cease & Desist or nothing).
-      if (
-        players[ti].quarantined &&
-        neg.name !== 'Digital Crusade' &&
-        neg.effect !== 'MUTUAL_DAMAGE'
-      ) {
-        return {
-          ...noFx(players.map((p, i) => i === ti ? { ...p, quarantined: false } : p)),
-          quarantineBlockedBy: players[ti].name,
-          lastTargetName,
-        };
-      }
       // Daemon immunity — target's daemon type blocks this specific card entirely
       if (neg.immuneDaemon && players[ti].daemons.includes(neg.immuneDaemon)) {
         return {
@@ -515,7 +524,7 @@ function cardLogText(card: Card, actorName: string, lastTargetName: string | nul
       if (pos.effect === 'DRAIN_ALL')
         return `${actorName} deployed ${card.name} (drained ${pos.amount} cycles from every opponent)`;
       if (pos.effect === 'OVERCLOCK')
-        return `${actorName} activated ${card.name} — next roll is doubled`;
+        return `${actorName} activated ${card.name} — next roll shifts by 5`;
       if (pos.effect === 'EXTRA_PLAY')
         return `${actorName} activated ${card.name} — plays an additional card this turn`;
       if (pos.effect === 'NEGOTIATE')
@@ -726,8 +735,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     };
     const personalityPool = DIFFICULTY_PERSONALITIES[difficulty];
 
-    // Deal initial hands
-    const deck = generateDeck();
+    // Deal initial hands. The Corruption is staged into the remaining deck so it
+    // cannot appear in opening hands, but still tends to surface mid-session.
+    const initialDealCount = playerCount * 5;
+    const deck = stageCorruptionForSession(generateDeck(), initialDealCount);
     const players: PlayerState[] = Array.from({ length: playerCount }, (_, i) => ({
       id: `player_${i}`,
       name: i === 0 ? playerName.toUpperCase() : AI_NAMES[i] ?? `AGENT ${i}`,
@@ -737,7 +748,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       hand: [],
       daemons: [],
       eliminated: false,
-      quarantined: false,
       overclocked: false,
       tacticalBonus: 0,
       negotiating: false,
@@ -816,12 +826,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       {
         id: 'player_0', name: playerName.toUpperCase(), isHuman: true,
         cycles: 50, hand: humanHand, daemons: [], eliminated: false,
-        quarantined: false, overclocked: false, tacticalBonus: 0, negotiating: false, quarantineCard: null,
+        overclocked: false, tacticalBonus: 0, negotiating: false, quarantineCard: null,
       },
       {
         id: 'player_1', name: 'GHOST', isHuman: false, personality: 'BALANCED' as const,
         cycles: 50, hand: aiHand, daemons: [], eliminated: false,
-        quarantined: false, overclocked: false, tacticalBonus: 0, negotiating: false, quarantineCard: null,
+        overclocked: false, tacticalBonus: 0, negotiating: false, quarantineCard: null,
       },
     ];
 
@@ -1241,7 +1251,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const lost = daemonsBefore[i] - p.daemons.length;
       if (lost > 0) newDaemonsLost = { ...newDaemonsLost, [p.id]: (newDaemonsLost[p.id] ?? 0) + lost };
     });
-    const blockedBy = fx.quarantineBlockedBy;
     const negotiateBlockedBy = fx.negotiateBlockedBy;
     const daemonBlockedBy = fx.daemonImmunityBlockedBy;
 
@@ -1288,7 +1297,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const cardLog = cardLogText(card, actor.name, fx.lastTargetName, fx.warRollResult);
-    if (blockedBy) get().addLog(`${blockedBy}'s System Interrupt absorbed the attack!`, 'effect');
     if (negotiateBlockedBy) get().addLog(`${negotiateBlockedBy}'s Quarantine cancelled the attack!`, 'effect');
     if (daemonBlockedBy) get().addLog(`${daemonBlockedBy} blocked the attack!`, 'effect');
     // WAR log deferred to clearWarRollDisplay() so it appears after the dice animation.

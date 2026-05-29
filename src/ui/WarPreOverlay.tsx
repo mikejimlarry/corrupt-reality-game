@@ -24,11 +24,11 @@ export const WarPreOverlay: React.FC = () => {
   ) as CounterCard[];
   const currentBonus = combatant.tacticalBonus;
 
-  const renderPlayer = (player: typeof players[0], _isActive: boolean) => (
+  const renderPlayer = (player: typeof players[0], isActive: boolean) => (
     <div style={{
       padding: '0.4rem 0.75rem',
-      background: 'rgba(255,51,102,0.14)',
-      border: '1px solid #ff336666',
+      background: isActive ? 'rgba(255,51,102,0.20)' : 'rgba(255,51,102,0.10)',
+      border: `1px solid ${isActive ? '#ff557799' : '#ff336666'}`,
       fontSize: '0.7rem', letterSpacing: 2,
       minWidth: 120,
     }}>

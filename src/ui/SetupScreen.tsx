@@ -312,8 +312,10 @@ export const SetupScreen: React.FC = () => {
     return () => window.removeEventListener('resize', check);
   }, []);
   useEffect(() => {
-    if (portraitMobile && count > 1) setCount(1);
-  }, [portraitMobile]);
+    if (!portraitMobile || count <= 1) return;
+    const t = setTimeout(() => setCount(1), 0);
+    return () => clearTimeout(t);
+  }, [portraitMobile, count]);
   const hConnect = useHover();
 
   const [showHelp, setShowHelp]       = useState(false);

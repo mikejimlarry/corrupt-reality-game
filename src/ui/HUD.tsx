@@ -2,6 +2,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useGameStore, mustPlayCorruptionFirst } from '../state/useGameStore';
 import type { HandSortMode } from '../state/useGameStore';
+import type { Card, DaemonCard, NegativeEventCard, PositiveEventCard } from '../types/cards';
+import { TUTORIAL_REQUIRED_CARD } from '../data/tutorial';
 import { HelpModal } from './HelpModal';
 import { sfxCardPlay, getMusicEnabled, setMusicEnabled, sfxToggleOn, sfxToggleOff, getMusicTrack, nextMusicTrack } from '../lib/audio';
 import { trackEvent } from '../lib/analytics';
@@ -132,6 +134,48 @@ function fmtUptime(s: number) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
 }
 
+function isCorruption(card: Card | null): boolean {
+  return !!card &&
+    card.category === 'EVENT_NEGATIVE' &&
+    (card as NegativeEventCard).effect === 'CORRUPTION';
+}
+
+function getDisabledReason(
+  card: Card | null,
+  humanPlayer: ReturnType<typeof useGameStore.getState>['players'][number] | undefined,
+  corruptionFirstActive: boolean,
+  extraPlayPending: number,
+  tutorialStep: number | null,
+  tutorialModalOpen: boolean,
+): string | null {
+  if (!card) return null;
+  if (corruptionFirstActive && !isCorruption(card)) {
+    return 'The Corruption must be played first.';
+  }
+  if (extraPlayPending > 0) {
+    const isMultitask = card.category === 'EVENT_POSITIVE' &&
+      (card as PositiveEventCard).effect === 'EXTRA_PLAY';
+    if (card.category === 'WAR') return 'Conflict cards cannot be played during Multitask.';
+    if (card.category === 'COUNTER') return 'Countermeasures are reactive and cannot be used for Multitask.';
+    if (isMultitask) return 'Multitask cannot chain into another Multitask.';
+  }
+  if (card.category === 'COUNTER') {
+    return 'Countermeasures trigger during conflicts, not from your hand.';
+  }
+  if (card.category === 'DAEMON') {
+    const daemonType = (card as DaemonCard).daemonType;
+    if (humanPlayer?.daemons.includes(daemonType)) {
+      return `${card.name} is already active. Discard it or choose another card.`;
+    }
+  }
+  if (tutorialStep !== null) {
+    if (tutorialModalOpen) return 'Dismiss the tutorial prompt to continue.';
+    const required = TUTORIAL_REQUIRED_CARD[tutorialStep];
+    if (required && card.name !== required) return `Tutorial step requires ${required}.`;
+  }
+  return null;
+}
+
 export function HUD() {
   useInjectStyle(PULSE_STYLE);
   const [uptime, setUptime] = useState(0);
@@ -161,6 +205,8 @@ export function HUD() {
   const paused              = useGameStore(s => s.paused);
   const extraPlayPending         = useGameStore(s => s.extraPlayPending);
   const corruptionPendingTarget  = useGameStore(s => s.corruptionPendingTarget);
+  const tutorialStep             = useGameStore(s => s.tutorialStep);
+  const tutorialModalOpen        = useGameStore(s => s.tutorialModalOpen);
   const anyOverlayActive         = useGameStore(s => !!(
     s.warPickPending || s.warPrePending ||
     s.daemonStealPending || s.warLootPending || s.deadMansSwitchPending
@@ -196,7 +242,10 @@ export function HUD() {
   // don't reveal the outcome before the result is shown.
   const [displayPlayers, setDisplayPlayers] = useState(allPlayers);
   useEffect(() => {
-    if (!warRollDisplay) setDisplayPlayers(allPlayers);
+    if (!warRollDisplay) {
+      const t = setTimeout(() => setDisplayPlayers(allPlayers), 0);
+      return () => clearTimeout(t);
+    }
   }, [allPlayers, warRollDisplay]);
   const players = displayPlayers;
 
@@ -209,10 +258,14 @@ export function HUD() {
   // Reset whenever the phase leaves PHASE_ROLL so stale events don't bleed through.
   const [rollReady, setRollReady] = useState(false);
   useEffect(() => {
-    if (phase !== 'PHASE_ROLL') { setRollReady(false); return; }
+    if (phase !== 'PHASE_ROLL') return;
+    const reset = setTimeout(() => setRollReady(false), 0);
     const handler = () => setRollReady(true);
     window.addEventListener('crg:led-open', handler);
-    return () => { window.removeEventListener('crg:led-open', handler); setRollReady(false); };
+    return () => {
+      clearTimeout(reset);
+      window.removeEventListener('crg:led-open', handler);
+    };
   }, [phase]);
 
   useEffect(() => {
@@ -230,7 +283,7 @@ export function HUD() {
     const human = useGameStore.getState().players.find(p => p.isHuman);
     if (!human) return;
     const corruptionCard = human.hand.find(
-      c => c.category === 'EVENT_NEGATIVE' && (c as any).effect === 'CORRUPTION',
+      c => c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).effect === 'CORRUPTION',
     );
     if (!corruptionCard) return;
     if ((useGameStore.getState().gameStats.cardsPlayed[human.id] ?? 0) !== 0) return;
@@ -246,18 +299,27 @@ export function HUD() {
   const currentPlayer = players[currentPlayerIndex];
   const isHuman = currentPlayer?.isHuman ?? false;
   const selectedCard = selectedCardId
-    ? players.find(p => p.isHuman)?.hand.find(c => c.id === selectedCardId)
+    ? (players.find(p => p.isHuman)?.hand.find(c => c.id === selectedCardId) ?? null)
     : null;
   const logTail = log.slice(-3);
 
   // Whether the selected card is a forced play (The Corruption) — no discard allowed
   const humanPlayer = players.find(p => p.isHuman);
   const corruptionFirstActive = isHuman && !!humanPlayer && mustPlayCorruptionFirst(humanPlayer, gameStats);
-  const isForced = (selectedCard as any)?.effect === 'CORRUPTION' || corruptionPendingTarget || corruptionFirstActive;
+  const isForced = isCorruption(selectedCard) || corruptionPendingTarget || corruptionFirstActive;
+  const disabledReason = getDisabledReason(
+    selectedCard,
+    humanPlayer,
+    corruptionFirstActive,
+    extraPlayPending,
+    tutorialStep,
+    tutorialModalOpen,
+  );
 
   // Already-installed daemon — can discard but not play
   const isDiscardOnly = selectedCard?.category === 'DAEMON' &&
-    !!humanPlayer?.daemons.includes((selectedCard as any).daemonType);
+    !!humanPlayer?.daemons.includes((selectedCard as DaemonCard).daemonType);
+  const canPlaySelected = !!selectedCard && disabledReason === null;
 
   const handleMusicToggle = () => {
     const next = !musicOn;
@@ -600,7 +662,7 @@ export function HUD() {
                 {selectedCard.name.toUpperCase()}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                {!isDiscardOnly && (
+                {canPlaySelected && !isDiscardOnly && (
                   <button
                     className={corruption ? 'corruption-pulse' : 'hud-pulse'}
                     style={{
@@ -628,6 +690,22 @@ export function HUD() {
                   </button>
                 )}
               </div>
+              {disabledReason && (
+                <div style={{
+                  maxWidth: isMobile ? 260 : 360,
+                  padding: '6px 10px',
+                  border: `1px solid ${ACCENT}22`,
+                  background: 'rgba(5,5,15,0.86)',
+                  color: corruptionFirstActive ? '#ff6677' : `${ACCENT}99`,
+                  fontSize: 9,
+                  letterSpacing: 1,
+                  lineHeight: 1.4,
+                  textAlign: 'center',
+                  fontFamily: 'monospace',
+                }}>
+                  {disabledReason.toUpperCase()}
+                </div>
+              )}
             </>
           )}
         </div>

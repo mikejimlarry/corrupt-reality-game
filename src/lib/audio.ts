@@ -5,9 +5,16 @@
 
 let _ctx: AudioContext | null = null;
 
+type WindowWithWebkitAudio = Window & {
+  webkitAudioContext?: typeof AudioContext;
+};
+
 function ctx(): AudioContext | null {
-  if (typeof AudioContext === 'undefined' && typeof (window as any).webkitAudioContext === 'undefined') return null;
-  if (!_ctx) _ctx = new (AudioContext || (window as any).webkitAudioContext)();
+  const AudioCtor = typeof AudioContext !== 'undefined'
+    ? AudioContext
+    : (window as WindowWithWebkitAudio).webkitAudioContext;
+  if (!AudioCtor) return null;
+  if (!_ctx) _ctx = new AudioCtor();
   if (_ctx.state === 'suspended') _ctx.resume();
   return _ctx;
 }
@@ -64,7 +71,7 @@ const MUSIC_FILES = [
   '/sfx/music_bg2.mp3',  // track 2 — ambient background
 ] as const;
 
-let _musicEls: (HTMLAudioElement | null)[] = [null, null];
+const _musicEls: (HTMLAudioElement | null)[] = [null, null];
 const MUSIC_KEY       = 'crg-music-enabled';
 const MUSIC_TRACK_KEY = 'crg-music-track';
 

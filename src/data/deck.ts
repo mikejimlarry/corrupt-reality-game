@@ -1,5 +1,5 @@
 // src/data/deck.ts
-// 70-card deck matching Plague & Pestilence card counts and mechanics.
+// 70-card deck matching Plague & Pestilence-inspired pacing and mechanics.
 import type { Card, CardRarity } from '../types/cards';
 import { random } from '../lib/rng';
 
@@ -26,7 +26,7 @@ const cycleCards: Card[] = [
   })),
 ];
 
-// ── EVENT_POSITIVE (9) ───────────────────────────────────────────────────────
+// ── EVENT_POSITIVE (8) ───────────────────────────────────────────────────────
 
 const positiveEvents: Card[] = [
   // Mass Assimilation ×2 — P&P Migration
@@ -36,7 +36,7 @@ const positiveEvents: Card[] = [
     rarity: 'RARE' as const, effect: 'DRAIN_ALL', amount: 5,
     flavourText: 'Resistance is a deprecated function.',
   })),
-  // Overclock ×2 — new card (doubles next Stability Roll gain)
+  // Overclock ×2 — shifts the next Stability/Corruption Roll by 5
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Overclock', category: 'EVENT_POSITIVE' as const,
     description: 'Push your systems to the limit. Adds +5 to your next Stability Roll or -5 to your next Corruption Roll.',
@@ -50,8 +50,8 @@ const positiveEvents: Card[] = [
     rarity: 'RARE' as const, effect: 'EXTRA_PLAY', amount: 0,
     flavourText: 'Two threads. One clock cycle.',
   })),
-  // Quarantine ×3 — proactive standing block (formerly NEGOTIATE counter)
-  ...Array(3).fill(null).map(() => ({
+  // Quarantine ×2 — proactive standing block (formerly NEGOTIATE counter)
+  ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Quarantine', category: 'EVENT_POSITIVE' as const,
     description: 'INSTANT — Arms a standing block. The next Conflict or Digital Crusade targeting you is automatically cancelled and this card is consumed.',
     rarity: 'UNCOMMON' as const, effect: 'NEGOTIATE', amount: 0,
@@ -59,7 +59,7 @@ const positiveEvents: Card[] = [
   })),
 ];
 
-// ── EVENT_NEGATIVE (30) ──────────────────────────────────────────────────────
+// ── EVENT_NEGATIVE (28) ──────────────────────────────────────────────────────
 
 const negativeEvents: Card[] = [
   // Signal Theft ×2 — P&P Pied Piper (STEAL: actor +15, target -15)
@@ -77,35 +77,35 @@ const negativeEvents: Card[] = [
     flavourText: 'Holy war, encoded.',
   })),
   // Data Drought ×3 — P&P Drought (10 damage to target; Firewall immune)
-  ...Array(3).fill(null).map(() => ({
+  ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Data Drought', category: 'EVENT_NEGATIVE' as const,
     description: 'Cut off a faction\'s data supply. Target loses -10 cycles. (Firewall immune)',
     rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true, immuneDaemon: 'FIREWALL' as const,
     flavourText: 'No packets. No future.',
   })),
   // System Quake ×3 — P&P Earthquake (5 damage + one daemon removed)
-  ...Array(3).fill(null).map(() => ({
+  ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'System Quake', category: 'EVENT_NEGATIVE' as const,
     description: 'Critical system failure. Target loses -5 cycles and one active daemon.',
     rarity: 'UNCOMMON' as const, effect: 'DAMAGE_DAEMON', amount: 5, targetsOther: true,
     flavourText: 'The ground shifts. The build crumbles.',
   })),
   // Data Famine ×3 — P&P Famine (10 damage to target)
-  ...Array(3).fill(null).map(() => ({
+  ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Data Famine', category: 'EVENT_NEGATIVE' as const,
     description: 'Starve a faction\'s resource cycles. Target loses -10 cycles.',
     rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true,
     flavourText: 'Hunger is a weapon when you control the supply chain.',
   })),
   // Sigterm ×3 — P&P Fire (10 damage + one daemon removed; Firewall immune)
-  ...Array(3).fill(null).map(() => ({
+  ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Sigterm', category: 'EVENT_NEGATIVE' as const,
     description: 'Torch a faction\'s daemons. Target loses -10 cycles and one active daemon. (Firewall immune)',
     rarity: 'UNCOMMON' as const, effect: 'DAMAGE_DAEMON', amount: 10, targetsOther: true, immuneDaemon: 'FIREWALL' as const,
     flavourText: 'Burn rate: maximum.',
   })),
   // Data Flood ×3 — P&P Flood (10 damage to target; Encryption immune)
-  ...Array(3).fill(null).map(() => ({
+  ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Data Flood', category: 'EVENT_NEGATIVE' as const,
     description: 'Overwhelm a faction\'s buffers with junk traffic. Target loses -10 cycles. (Encryption immune)',
     rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true, immuneDaemon: 'ENCRYPTION' as const,
@@ -119,7 +119,7 @@ const negativeEvents: Card[] = [
     flavourText: 'The storm does not choose its victims.',
   })),
   // Memory Leak ×6 — P&P Pestilence (5 damage to target)
-  ...Array(6).fill(null).map(() => ({
+  ...Array(4).fill(null).map(() => ({
     id: uid(), name: 'Memory Leak', category: 'EVENT_NEGATIVE' as const,
     description: 'Spread a slow-acting virus through a rival faction. Target loses -5 cycles.',
     rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 5, targetsOther: true,
@@ -182,12 +182,12 @@ const warCards: Card[] = [
   })),
 ];
 
-// ── COUNTER (6) ──────────────────────────────────────────────────────────────
-// P&P base: Tactical Advantage ×4 | New: System Interrupt ×2
+// ── COUNTER (5) ──────────────────────────────────────────────────────────────
+// P&P base: Tactical Advantage ×3 | New: System Interrupt ×2
 
 const counterCards: Card[] = [
-  // Firewall Surge ×4 — P&P Tactical Advantage (+1 to your war die roll)
-  ...Array(4).fill(null).map(() => ({
+  // Firewall Surge ×3 — P&P Tactical Advantage (+1 to your war die roll)
+  ...Array(3).fill(null).map(() => ({
     id: uid(), name: 'Firewall Surge', category: 'COUNTER' as const,
     description: 'INSTANT — Your next Conflict roll gets +1.',
     rarity: 'COMMON' as const, counterType: 'TACTICAL_ADVANTAGE' as const,
@@ -202,12 +202,12 @@ const counterCards: Card[] = [
   })),
 ];
 
-// ── DAEMONS (12) ─────────────────────────────────────────────────────────────
-// P&P: Aqueduct ×4, Sewers ×3, City Walls ×5
+// ── DAEMONS (10) ─────────────────────────────────────────────────────────────
+// P&P-inspired: Aqueduct ×3, Sewers ×3, City Walls ×4
 
 const daemonCards: Card[] = [
-  // Firewall ×4 — P&P Aqueduct (+1 Prosperity, -1 Plague; immune to Drought & Fire)
-  ...Array(4).fill(null).map((_, i) => ({
+  // Firewall ×3 — P&P Aqueduct (+1 Prosperity, -1 Plague; immune to Drought & Fire)
+  ...Array(3).fill(null).map((_, i) => ({
     id: uid(), name: 'Firewall', category: 'DAEMON' as const,
     description: '+1 to Stability Roll\n-1 to Corruption Roll\nImmunity to Data Drought and Sigterm.',
     rarity: common(i + 2) as CardRarity, daemonType: 'FIREWALL' as const,
@@ -222,8 +222,8 @@ const daemonCards: Card[] = [
     prosperityBonus: 1, corruptionPenalty: -1,
     flavourText: 'Unreadable. Untouchable.',
   })),
-  // Hardened Node ×5 — P&P City Walls (+1 Prosperity, -1 Plague; immune to Viking Raid & war losses)
-  ...Array(5).fill(null).map((_, i) => ({
+  // Hardened Node ×4 — P&P City Walls (+1 Prosperity, -1 Plague; immune to Viking Raid & war losses)
+  ...Array(4).fill(null).map((_, i) => ({
     id: uid(), name: 'Hardened Node', category: 'DAEMON' as const,
     description: '+1 to Stability Roll\n-1 to Corruption Roll\nImmunity to Node Rip.\nReduces war losses by 5.',
     rarity: common(i + 1) as CardRarity, daemonType: 'HARDENED_NODE' as const,
@@ -236,12 +236,12 @@ const daemonCards: Card[] = [
 
 export const generateDeck = (): Card[] => {
   const all = [
-    ...cycleCards,    // 12
-    ...positiveEvents, //  6
-    ...negativeEvents, // 31
+    ...cycleCards,     // 12
+    ...positiveEvents, //  8
+    ...negativeEvents, // 28
     ...warCards,       //  7
-    ...counterCards,   //  9
-    ...daemonCards,    // 12  → total: 77
+    ...counterCards,   //  5
+    ...daemonCards,    // 10  -> total: 70
   ];
   return shuffle(all);
 };

@@ -22,9 +22,7 @@ export interface PlayerState {
   hand: Card[];
   daemons: DaemonType[];
   eliminated: boolean;
-  /** Legacy flag — reserved for future use. */
-  quarantined: boolean;
-  /** Set by Overclock — doubles the gain on the player's next Stability Roll, then clears. */
+  /** Set by Overclock — shifts the player's next Stability/Corruption Roll, then clears. */
   overclocked: boolean;
   /** Set by Firewall Surge — adds +1 per stack to this player's next CONFLICT roll. */
   tacticalBonus: number;
