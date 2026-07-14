@@ -140,7 +140,6 @@ export function stopMusic(): void {
 const ALL_FILES = [
   'ncpd_warrant.wav',
   'deck_ui_typing.wav',
-  'deck_ui_default_activation.wav',
   'deck_ui_slider_up.wav',
   'deck_ui_slider_down.wav',
   'deck_ui_bumper_end_02.wav',
@@ -153,8 +152,6 @@ const ALL_FILES = [
   'deck_ui_hide_modal.wav',
   'deck_ui_navigation.wav',
   'deck_ui_show_modal.wav',
-  'deck_ui_out_of_game_detail.wav',
-  'deck_ui_launch_game.wav',
 ];
 
 /** Call on first pointer event to unblock AudioContext, kick off SFX preloading, and start music. */
@@ -239,11 +236,6 @@ export function sfxWarLoss() {
 /** Roll about to start. */
 export function sfxRollStart() {
   play('deck_ui_navigation.wav', 1.0);
-}
-
-/** Corruption mode activates. */
-export function sfxCorruption() {
-  play('deck_ui_side_menu_fly_out.wav', 1.0);
 }
 
 /** The Corruption card is revealed — shown centre-screen when drawn. */

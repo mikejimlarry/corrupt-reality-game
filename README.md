@@ -56,7 +56,7 @@ npm run lint    # ESLint
 
 ## AI personalities
 
-Each AI opponent is assigned one of three personalities that influence card selection: **Aggressive** (prefers WAR and damage cards), **Cautious** (prioritises daemons and credit income), **Tactical** (scores every card in hand and plays the highest-value option).
+Each AI opponent is assigned one of four personalities that influence card selection: **Aggressive** (prefers WAR and damage cards), **Cautious** (prioritises daemons and credit income), **Tactical** (scores every card in hand and plays the highest-value option), or **Balanced** (uses a general-purpose mix of choices).
 
 ## Architecture notes
 

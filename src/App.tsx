@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createGame, destroyGame } from './game';
 import { useGameStore } from './state/useGameStore';
 import { SetupScreen } from './ui/SetupScreen';
@@ -12,7 +12,6 @@ import { WarPreOverlay } from './ui/WarPreOverlay';
 import { CounterOpportunityOverlay } from './ui/CounterOpportunityOverlay';
 import { PauseOverlay } from './ui/PauseOverlay';
 import { GameOverScreen } from './ui/GameOverScreen';
-import { CardPreview } from './ui/CardPreview';
 import { UpdateBanner } from './ui/UpdateBanner';
 import { TutorialOverlay } from './ui/TutorialOverlay';
 import { WarResultOverlay } from './ui/WarResultOverlay';
@@ -34,6 +33,7 @@ function App() {
   const winnerId   = useGameStore(s => s.winnerId);
   const players    = useGameStore(s => s.players);
   const turnNumber = useGameStore(s => s.turnNumber);
+  const previousPhase = useRef(phase);
 
   useGameAudio();
 
@@ -76,7 +76,10 @@ function App() {
 
   // Stop music when the game ends or returns to setup; fire game_over event
   useEffect(() => {
-    if (phase === 'GAME_OVER') {
+    const phaseChanged = previousPhase.current !== phase;
+    previousPhase.current = phase;
+
+    if (phase === 'GAME_OVER' && phaseChanged) {
       stopMusic();
       const winner = players.find(p => p.id === winnerId);
       trackEvent('game_over', {
@@ -84,10 +87,10 @@ function App() {
         winner_name: winner?.name ?? 'unknown',
         turns: turnNumber,
       });
-    } else if (phase === 'SETUP') {
+    } else if (phase === 'SETUP' && phaseChanged) {
       stopMusic();
     }
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, players, winnerId, turnNumber]);
 
   // Track PWA install
   useEffect(() => {
@@ -150,7 +153,6 @@ function App() {
       <WarPreOverlay />
       <CounterOpportunityOverlay />
       <PauseOverlay />
-      <CardPreview />
       <UpdateBanner />
       <TutorialOverlay />
       <WarResultOverlay />

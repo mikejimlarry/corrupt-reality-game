@@ -601,8 +601,6 @@ export class Card extends Phaser.GameObjects.Container {
   }
 
   // ── Hover effects ───────────────────────────────────────────────────────
-  private tooltipTimer: ReturnType<typeof setTimeout> | null = null;
-
   private onHover() {
     if (this.isHovered || !this.isDealt || this.isInapplicable) return;
     const { phase, players, currentPlayerIndex, selectedCardId } = useGameStore.getState();
@@ -622,20 +620,11 @@ export class Card extends Phaser.GameObjects.Container {
       duration: 150, ease: 'Quad.easeOut',
     });
     this.setDepth(50);
-    // Delay the tooltip so quick mouse passes don't trigger it
-    this.tooltipTimer = setTimeout(() => {
-      // useGameStore.getState().setHoveredCard(this.cardData.id); // tooltip disabled
-    }, 450);
   }
 
   private onOut() {
     if (!this.isHovered || this.isSelected) return;
     this.isHovered = false;
-    if (this.tooltipTimer !== null) {
-      clearTimeout(this.tooltipTimer);
-      this.tooltipTimer = null;
-    }
-    // useGameStore.getState().setHoveredCard(null); // tooltip disabled
     this.scene.tweens.killTweensOf(this);
     this.scene.tweens.add({
       targets: this,

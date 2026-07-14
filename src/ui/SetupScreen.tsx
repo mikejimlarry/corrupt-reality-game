@@ -25,6 +25,21 @@ const BOOT_CSS = `
 .boot-fading { animation: boot-fade-out 0.7s ease forwards; }
 `;
 
+const DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD'] as const;
+type Difficulty = typeof DIFFICULTIES[number];
+
+function readStoredInteger(key: string, fallback: number, min: number, max: number, step = 1): number {
+  const value = Number(localStorage.getItem(key));
+  return Number.isInteger(value) && value >= min && value <= max && (value - min) % step === 0
+    ? value
+    : fallback;
+}
+
+function readStoredDifficulty(): Difficulty {
+  const value = localStorage.getItem('crg-difficulty');
+  return DIFFICULTIES.includes(value as Difficulty) ? value as Difficulty : 'MEDIUM';
+}
+
 function useHover() {
   const [hovered, setHovered] = useState(false);
   return {
@@ -294,12 +309,12 @@ export const SetupScreen: React.FC = () => {
   // ── Normal setup state ──────────────────────────────────────────────────────
   const [name, setName]                     = useState(() => localStorage.getItem('crg-handle') ?? '');
   const [nameFocused, setNameFocused]       = useState(false);
-  const [count, setCount]                   = useState(() => Number(localStorage.getItem('crg-count') ?? '1'));
-  const [startingPop, setStartingPop]       = useState(() => Number(localStorage.getItem('crg-cycles') ?? '50'));
+  const [count, setCount]                   = useState(() => readStoredInteger('crg-count', 1, 1, 4));
+  const [startingPop, setStartingPop]       = useState(() => readStoredInteger('crg-cycles', 50, 30, 100, 5));
   const [hidePpCounts, setHidePpCounts]     = useState(() => localStorage.getItem('crg-hide-cycles') === 'true');
   const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
   const [warTiePenalty, setWarTiePenalty]   = useState(() => localStorage.getItem('crg-war-tie-penalty') === 'true');
-  const [difficulty, setDifficulty]         = useState<'EASY' | 'MEDIUM' | 'HARD'>(() => (localStorage.getItem('crg-difficulty') as 'EASY' | 'MEDIUM' | 'HARD') ?? 'MEDIUM');
+  const [difficulty, setDifficulty]         = useState<Difficulty>(readStoredDifficulty);
   const [musicOn, setMusicOn]               = useState(() => getMusicEnabled());
   const [musicTrack, setMusicTrack]         = useState(() => getMusicTrack());
   const prevCycles = useRef(startingPop);

@@ -606,7 +606,6 @@ export type HandSortMode = 'DEFAULT' | 'TYPE' | 'VALUE' | 'ALPHA';
 
 interface GameStore extends GameState {
   selectedCardId: string | null;
-  hoveredCardId: string | null;
   turnNumber: number;
   rollResult: [number, number] | null;
   rollTriggered: boolean;
@@ -629,7 +628,6 @@ interface GameStore extends GameState {
   startTutorial(playerName?: string): void;
   dismissTutorialModal(): void;
   resetToSetup(): void;
-  setHoveredCard(id: string | null): void;
   addLog(text: string, type: LogEntry['type']): void;
   drawCard(): void;
   selectCard(id: string | null): void;
@@ -663,7 +661,7 @@ interface GameStore extends GameState {
 
 // ── Default state ──────────────────────────────────────────────────────────────
 
-const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[]; corruptionReveal: boolean; corruptionPendingTarget: boolean; eliminationOrder: string[]; recordSaved: boolean; handSortMode: HandSortMode; handSortReverse: boolean } = {
+const defaultState: GameState & { selectedCardId: string | null; turnNumber: number; rollResult: [number, number] | null; rollTriggered: boolean; pendingCardId: string | null; validTargetIds: string[]; corruptionReveal: boolean; corruptionPendingTarget: boolean; eliminationOrder: string[]; recordSaved: boolean; handSortMode: HandSortMode; handSortReverse: boolean } = {
   phase: 'SETUP',
   players: [],
   deck: [],
@@ -674,7 +672,6 @@ const defaultState: GameState & { selectedCardId: string | null; hoveredCardId: 
   log: [],
   gameSeed: 0,
   selectedCardId: null,
-  hoveredCardId: null,
   turnNumber: 1,
   rollResult: null,
   rollTriggered: false,
@@ -733,7 +730,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       MEDIUM: AI_PERSONALITIES,
       HARD:   ['AGGRESSIVE', 'TACTICAL', 'AGGRESSIVE'],
     };
-    const personalityPool = DIFFICULTY_PERSONALITIES[difficulty];
+    const personalityPool = DIFFICULTY_PERSONALITIES[difficulty] ?? DIFFICULTY_PERSONALITIES.MEDIUM;
 
     // Deal initial hands. The Corruption is staged into the remaining deck so it
     // cannot appear in opening hands, but still tends to surface mid-session.
@@ -873,7 +870,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  resetToSetup: () => { cancelAllAiTimers(); set({ ...defaultState, reducedMotion: get().reducedMotion, selectedCardId: null, hoveredCardId: null, turnNumber: 1 }); },
+  resetToSetup: () => { cancelAllAiTimers(); set({ ...defaultState, reducedMotion: get().reducedMotion, selectedCardId: null, turnNumber: 1 }); },
 
   setReducedMotion: (v: boolean) => {
     localStorage.setItem('crg-reduced-motion', String(v));
@@ -921,8 +918,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
   },
-
-  setHoveredCard: (id) => set({ hoveredCardId: id }),
 
   addLog: (text, type) => set(state => ({
     log: [...state.log, makeLogEntry(text, type)],
