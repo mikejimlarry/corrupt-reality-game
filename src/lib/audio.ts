@@ -9,6 +9,13 @@ type WindowWithWebkitAudio = Window & {
   webkitAudioContext?: typeof AudioContext;
 };
 
+// Public assets must be resolved relative to Vite's base URL. Itch.io hosts
+// HTML games below /html/<build-id>/, so an absolute /sfx/... URL points at the
+// itch domain root instead of this game's uploaded files.
+function assetUrl(file: string): string {
+  return new URL(`${import.meta.env.BASE_URL}sfx/${file}`, document.baseURI).href;
+}
+
 function ctx(): AudioContext | null {
   const AudioCtor = typeof AudioContext !== 'undefined'
     ? AudioContext
@@ -30,7 +37,8 @@ async function load(file: string): Promise<AudioBuffer | null> {
 
   const promise = (async () => {
     try {
-      const res  = await fetch(`/sfx/${file}`);
+      const res  = await fetch(assetUrl(file));
+      if (!res.ok) throw new Error(`HTTP ${res.status} while loading ${file}`);
       const data = await res.arrayBuffer();
       const c    = ctx();
       if (!c) return null;
@@ -67,8 +75,8 @@ function play(file: string, volume = 1.0) {
 // Two tracks available; the active track index is persisted to localStorage.
 
 const MUSIC_FILES = [
-  '/sfx/music_bg.mp3',   // track 1 — original
-  '/sfx/music_bg2.mp3',  // track 2 — ambient background
+  'music_bg.mp3',   // track 1 — original
+  'music_bg2.mp3',  // track 2 — ambient background
 ] as const;
 
 const _musicEls: (HTMLAudioElement | null)[] = [null, null];
@@ -106,7 +114,7 @@ export function nextMusicTrack(): void {
 function _playMusicEl(): void {
   const idx = getMusicTrack();
   if (!_musicEls[idx]) {
-    const el = new Audio(MUSIC_FILES[idx]);
+    const el = new Audio(assetUrl(MUSIC_FILES[idx]));
     el.loop   = true;
     el.volume = 0.35;
     _musicEls[idx] = el;
