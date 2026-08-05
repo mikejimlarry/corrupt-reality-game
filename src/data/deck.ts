@@ -1,5 +1,5 @@
 // src/data/deck.ts
-// 70-card deck matching Plague & Pestilence-inspired pacing and mechanics.
+// 70-card deck with a mix of resource, event, conflict, counter, and daemon cards.
 import type { Card, CardRarity } from '../types/cards';
 import { random } from '../lib/rng';
 
@@ -10,14 +10,14 @@ const common  = (n: number): CardRarity => n <= 3 ? 'COMMON' : n <= 5 ? 'UNCOMMO
 // ── CYCLES (12) ──────────────────────────────────────────────────────────────
 
 const cycleCards: Card[] = [
-  // Data Harvest ×6 — P&P Fertility (+5)
+  // Data Harvest ×6 (+5)
   ...Array(6).fill(null).map(() => ({
     id: uid(), name: 'Data Harvest', category: 'CYCLES' as const,
     description: 'Extract raw data from the grid. Gain +5 cycles.',
     rarity: 'COMMON' as const, amount: 5,
     flavourText: 'The net provides. Always.',
   })),
-  // Neural Uplink ×6 — P&P Plenty (+10)
+  // Neural Uplink ×6 (+10)
   ...Array(6).fill(null).map(() => ({
     id: uid(), name: 'Neural Uplink', category: 'CYCLES' as const,
     description: 'Synchronise node clusters. Gain +10 cycles.',
@@ -29,7 +29,7 @@ const cycleCards: Card[] = [
 // ── EVENT_POSITIVE (8) ───────────────────────────────────────────────────────
 
 const positiveEvents: Card[] = [
-  // Mass Assimilation ×2 — P&P Migration
+  // Mass Assimilation ×2
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Mass Assimilation', category: 'EVENT_POSITIVE' as const,
     description: 'Absorb unaligned factions. Each opponent loses -5 cycles; you gain +5 per opponent.',
@@ -62,77 +62,77 @@ const positiveEvents: Card[] = [
 // ── EVENT_NEGATIVE (28) ──────────────────────────────────────────────────────
 
 const negativeEvents: Card[] = [
-  // Signal Theft ×2 — P&P Pied Piper (STEAL: actor +15, target -15)
+  // Signal Theft ×2 (STEAL: actor +15, target -15)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Signal Theft', category: 'EVENT_NEGATIVE' as const,
     description: 'Siphon bandwidth from a target faction. They lose -15 cycles; you gain +15 cycles.',
     rarity: 'RARE' as const, effect: 'STEAL', amount: 15, targetsOther: true,
     flavourText: 'Their signal. Your growth.',
   })),
-  // Digital Crusade ×2 — P&P Crusade (10 damage to target)
+  // Digital Crusade ×2 (10 damage to target)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Digital Crusade', category: 'EVENT_NEGATIVE' as const,
     description: 'Launch a zealous network assault. Target loses -10 cycles.',
     rarity: 'UNCOMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true,
     flavourText: 'Holy war, encoded.',
   })),
-  // Data Drought ×3 — P&P Drought (10 damage to target; Firewall immune)
+  // Data Drought ×3 (10 damage to target; Firewall immune)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Data Drought', category: 'EVENT_NEGATIVE' as const,
     description: 'Cut off a faction\'s data supply. Target loses -10 cycles. (Firewall immune)',
     rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true, immuneDaemon: 'FIREWALL' as const,
     flavourText: 'No packets. No future.',
   })),
-  // System Quake ×3 — P&P Earthquake (5 damage + one daemon removed)
+  // System Quake ×3 (5 damage + one daemon removed)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'System Quake', category: 'EVENT_NEGATIVE' as const,
     description: 'Critical system failure. Target loses -5 cycles and one active daemon.',
     rarity: 'UNCOMMON' as const, effect: 'DAMAGE_DAEMON', amount: 5, targetsOther: true,
     flavourText: 'The ground shifts. The build crumbles.',
   })),
-  // Data Famine ×3 — P&P Famine (10 damage to target)
+  // Data Famine ×3 (10 damage to target)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Data Famine', category: 'EVENT_NEGATIVE' as const,
     description: 'Starve a faction\'s resource cycles. Target loses -10 cycles.',
     rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true,
     flavourText: 'Hunger is a weapon when you control the supply chain.',
   })),
-  // Sigterm ×3 — P&P Fire (10 damage + one daemon removed; Firewall immune)
+  // Sigterm ×3 (10 damage + one daemon removed; Firewall immune)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Sigterm', category: 'EVENT_NEGATIVE' as const,
     description: 'Torch a faction\'s daemons. Target loses -10 cycles and one active daemon. (Firewall immune)',
     rarity: 'UNCOMMON' as const, effect: 'DAMAGE_DAEMON', amount: 10, targetsOther: true, immuneDaemon: 'FIREWALL' as const,
     flavourText: 'Burn rate: maximum.',
   })),
-  // Data Flood ×3 — P&P Flood (10 damage to target; Encryption immune)
+  // Data Flood ×3 (10 damage to target; Encryption immune)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Data Flood', category: 'EVENT_NEGATIVE' as const,
     description: 'Overwhelm a faction\'s buffers with junk traffic. Target loses -10 cycles. (Encryption immune)',
     rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true, immuneDaemon: 'ENCRYPTION' as const,
     flavourText: 'Packet storm. Infinite loop.',
   })),
-  // Network Storm ×2 — P&P Mongol Raid (10 damage + daemon removed from ALL opponents)
+  // Network Storm ×2 (10 damage + daemon removed from ALL opponents)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Network Storm', category: 'EVENT_NEGATIVE' as const,
     description: 'Unleash chaos across all networks. Every opponent loses -10 cycles and one active daemon.',
     rarity: 'LEGENDARY' as const, effect: 'DAMAGE_ALL_DAEMON', amount: 10, targetsOther: false,
     flavourText: 'The storm does not choose its victims.',
   })),
-  // Memory Leak ×6 — P&P Pestilence (5 damage to target)
+  // Memory Leak ×6 (5 damage to target)
   ...Array(4).fill(null).map(() => ({
     id: uid(), name: 'Memory Leak', category: 'EVENT_NEGATIVE' as const,
     description: 'Spread a slow-acting virus through a rival faction. Target loses -5 cycles.',
     rarity: 'COMMON' as const, effect: 'DAMAGE', amount: 5, targetsOther: true,
     flavourText: 'Polymorphic. Persistent. Patient.',
   })),
-  // Node Rip ×2 — P&P Viking Raid (10 damage to target; Hardened Node immune)
+  // Node Rip ×2 (10 damage to target; Hardened Node immune)
   ...Array(2).fill(null).map(() => ({
     id: uid(), name: 'Node Rip', category: 'EVENT_NEGATIVE' as const,
     description: 'Strike fast and hard at a rival faction. Target loses -10 cycles. (Hardened Node immune)',
     rarity: 'UNCOMMON' as const, effect: 'DAMAGE', amount: 10, targetsOther: true, immuneDaemon: 'HARDENED_NODE' as const,
     flavourText: 'In and out before the firewall wakes.',
   })),
-  // The Corruption ×1 — P&P Death Ship (10 damage to target; triggers Corruption mode)
+  // The Corruption ×1 (10 damage to target; triggers Corruption mode)
   {
     id: uid(), name: 'The Corruption', category: 'EVENT_NEGATIVE' as const,
     description: 'Unleash the virus. Target loses -10 cycles. Corruption mode begins.',
@@ -163,17 +163,17 @@ const negativeEvents: Card[] = [
 ];
 
 // ── WAR (7) ──────────────────────────────────────────────────────────────────
-// P&P: Major War ×3 (winner -10, loser -20), Minor War ×4 (winner -5, loser -10)
+// Major conflicts ×3 (winner -10, loser -20), minor conflicts ×4 (winner -5, loser -10)
 
 const warCards: Card[] = [
-  // Total Siege ×3 — P&P Major War
+  // Total Siege ×3
   ...Array(3).fill(null).map(() => ({
     id: uid(), name: 'Total Siege', category: 'WAR' as const,
     description: 'Total network assault. Winner loses -10 cycles. Loser loses -20 cycles and one active daemon.',
     rarity: 'RARE' as const, winnerLoses: 10, loserLoses: 20, loserLosesImprovement: true,
     flavourText: 'Scorched silicon.',
   })),
-  // Skirmish ×4 — P&P Minor War
+  // Skirmish ×4
   ...Array(4).fill(null).map(() => ({
     id: uid(), name: 'Skirmish', category: 'WAR' as const,
     description: 'Instigate a localised engagement. Winner loses -5 cycles. Loser loses -10 cycles.',
@@ -183,10 +183,10 @@ const warCards: Card[] = [
 ];
 
 // ── COUNTER (5) ──────────────────────────────────────────────────────────────
-// P&P base: Tactical Advantage ×3 | New: System Interrupt ×2
+// Tactical Advantage ×3 | System Interrupt ×2
 
 const counterCards: Card[] = [
-  // Firewall Surge ×3 — P&P Tactical Advantage (+1 to your war die roll)
+  // Firewall Surge ×3 (+1 to your war die roll)
   ...Array(3).fill(null).map(() => ({
     id: uid(), name: 'Firewall Surge', category: 'COUNTER' as const,
     description: 'INSTANT — Your next Conflict roll gets +1.',
@@ -203,10 +203,10 @@ const counterCards: Card[] = [
 ];
 
 // ── DAEMONS (10) ─────────────────────────────────────────────────────────────
-// P&P-inspired: Aqueduct ×3, Sewers ×3, City Walls ×4
+// Defensive daemons: Firewall ×3, Encryption ×3, Hardened Node ×4
 
 const daemonCards: Card[] = [
-  // Firewall ×3 — P&P Aqueduct (+1 Prosperity, -1 Plague; immune to Drought & Fire)
+  // Firewall ×3 (+1 Stability, -1 Corruption; immune to Data Drought and Sigterm)
   ...Array(3).fill(null).map((_, i) => ({
     id: uid(), name: 'Firewall', category: 'DAEMON' as const,
     description: '+1 to Stability Roll\n-1 to Corruption Roll\nImmunity to Data Drought and Sigterm.',
@@ -214,7 +214,7 @@ const daemonCards: Card[] = [
     prosperityBonus: 1, corruptionPenalty: -1,
     flavourText: 'The first line of defence. And the last.',
   })),
-  // Encryption ×3 — P&P Sewers (+1 Prosperity, -1 Plague; immune to Flood)
+  // Encryption ×3 (+1 Stability, -1 Corruption; immune to Data Flood)
   ...Array(3).fill(null).map((_, i) => ({
     id: uid(), name: 'Encryption', category: 'DAEMON' as const,
     description: '+1 to Stability Roll\n-1 to Corruption Roll\nImmunity to Data Flood.',
@@ -222,7 +222,7 @@ const daemonCards: Card[] = [
     prosperityBonus: 1, corruptionPenalty: -1,
     flavourText: 'Unreadable. Untouchable.',
   })),
-  // Hardened Node ×4 — P&P City Walls (+1 Prosperity, -1 Plague; immune to Viking Raid & war losses)
+  // Hardened Node ×4 (+1 Stability, -1 Corruption; immune to Node Rip and reduces conflict losses)
   ...Array(4).fill(null).map((_, i) => ({
     id: uid(), name: 'Hardened Node', category: 'DAEMON' as const,
     description: '+1 to Stability Roll\n-1 to Corruption Roll\nImmunity to Node Rip.\nReduces war losses by 5.',

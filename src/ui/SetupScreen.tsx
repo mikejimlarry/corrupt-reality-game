@@ -516,7 +516,10 @@ export const SetupScreen: React.FC = () => {
           <span style={{ color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.9rem', marginRight: 6 }}>{'>'}</span>
           {/* Mirror + cursor: the invisible mirror span sizes itself to the typed text,
               the blinking _ sits immediately after it, the real input overlays everything. */}
-          <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+          <div style={{
+            position: 'relative', flex: 1, display: 'flex', alignItems: 'center',
+            minHeight: '1.4rem',
+          }}>
             <span style={{
               visibility: 'hidden', whiteSpace: 'pre',
               fontFamily: 'monospace', fontSize: '0.9rem', letterSpacing: 3,
@@ -543,11 +546,11 @@ export const SetupScreen: React.FC = () => {
               onFocus={() => setNameFocused(true)}
               onBlur={() => setNameFocused(false)}
               style={{
-                position: 'absolute', inset: 0, width: '100%',
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
                 background: 'transparent', border: 'none', outline: 'none',
                 color: '#00ffcc', fontFamily: 'monospace', fontSize: '0.9rem',
                 letterSpacing: 3, caretColor: 'transparent',
-                textTransform: 'uppercase', padding: 0,
+                textTransform: 'uppercase', padding: 0, lineHeight: '1.4rem',
               }}
             />
           </div>
