@@ -2,6 +2,7 @@
 import React from 'react';
 import { useGameStore } from '../state/useGameStore';
 import type { DaemonType } from '../types/cards';
+import { OverlayShell } from './OverlayShell';
 
 const DAEMON_LABELS: Record<DaemonType, string> = {
   FIREWALL:     'FIREWALL',
@@ -25,21 +26,16 @@ export const WarLootOverlay: React.FC = () => {
   const loser = players[pending.loserIndex];
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(10,0,5,0.94)',
-      zIndex: 200,
-      fontFamily: 'monospace',
-    }}>
-      <div style={{
+    <OverlayShell
+      ariaLabel="Choose conflict spoils"
+      background="rgba(10,0,5,0.94)"
+      maxWidth={460}
+      panelStyle={{
         border: '1px solid #ff336644',
         padding: '2rem',
-        maxWidth: 460,
-        width: '90%',
         background: 'rgba(15,0,10,0.90)',
-      }}>
+      }}
+    >
         <div style={{
           color: '#ff5566', letterSpacing: 6, fontSize: '0.6rem',
           textAlign: 'center', marginBottom: '0.4rem',
@@ -88,7 +84,6 @@ export const WarLootOverlay: React.FC = () => {
             </button>
           ))}
         </div>
-      </div>
-    </div>
+    </OverlayShell>
   );
 };

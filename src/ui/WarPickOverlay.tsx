@@ -1,6 +1,7 @@
 // src/ui/WarPickOverlay.tsx
 import React, { useState } from 'react';
 import { useGameStore } from '../state/useGameStore';
+import { OverlayShell } from './OverlayShell';
 
 const DAEMON_LABEL: Record<string, string> = {
   FIREWALL:     'FW',
@@ -86,21 +87,15 @@ export const WarPickOverlay: React.FC = () => {
   const canConfirm = p1Index !== null && p2Index !== null;
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(5,0,10,0.94)',
-      zIndex: 200,
-      fontFamily: 'monospace',
-    }}>
-      <div style={{
+    <OverlayShell
+      ariaLabel="Choose conflict combatants"
+      background="rgba(5,0,10,0.94)"
+      panelStyle={{
         border: '1px solid #ff336644',
         padding: '2rem',
-        maxWidth: 480,
-        width: '90%',
         background: 'rgba(15,0,10,0.90)',
-      }}>
+      }}
+    >
         {/* Header */}
         <div style={{
           color: '#ff3366', letterSpacing: 6, fontSize: '0.6rem',
@@ -237,7 +232,6 @@ export const WarPickOverlay: React.FC = () => {
         >
           ABORT
         </button>
-      </div>
-    </div>
+    </OverlayShell>
   );
 };

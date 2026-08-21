@@ -12,6 +12,7 @@ import type { HandSortMode } from '../../state/useGameStore';
 import { sfxCorruptionReveal, sfxWarIncoming, sfxWarCancelled, sfxLoss } from '../../lib/audio';
 import type { Card as CardData } from '../../types/cards';
 import type { PlayerState } from '../../types/gameState';
+import { getViewportLayout } from '../layout';
 
 
 const CATEGORY_SORT_ORDER: Record<string, number> = {
@@ -108,8 +109,15 @@ export class GameScene extends Phaser.Scene {
     this.handIsLifted    = false;
     this.children.removeAll(true);  // destroys everything including old ledDisplay
     this.buildTable(width, height);
+    const rebuiltSelection = useGameStore.getState().selectedCardId;
+    if (rebuiltSelection) {
+      const restoreDelay = Math.max(0, this._handDealEndsAt - Date.now()) + 10;
+      this.restoreSelectedCardAfterLayout(rebuiltSelection, restoreDelay);
+    }
+    this.shiftHumanZone(rebuiltSelection !== null);
     // Recreate LED display on top of the fresh scene
     this.ledDisplay = new LEDDisplay(this, width / 2, height / 2);
+    this.ledDisplay.setScale(getViewportLayout(width, height).ledScale);
     // Re-apply static overlay if corruption was already active before the rebuild
     if (useGameStore.getState().globalCorruptionMode) this.buildStaticNoise(width, height);
     // Re-apply hand lift if we rebuilt mid-turn (e.g. window resize during DRAW/MAIN)
@@ -292,8 +300,9 @@ export class GameScene extends Phaser.Scene {
       }
 
       // ── Selected card ───────────────────────────────────────────────────
-      // Skip when the hand was just updated — updateHumanHand clears selection
-      // state on remaining cards without killing their reposition tweens.
+      // updateHumanHand clears selection state while cards are re-ordered. Reapply
+      // the store selection after every hand update so resize/sort cannot leave
+      // the HUD selected while the Phaser card appears unselected.
       if (!rebuilt && !handUpdated && selectedCardId !== prevSelectedCardId) {
         prevSelectedCardId = selectedCardId;
         this.humanCardObjects.forEach(card => {
@@ -303,7 +312,10 @@ export class GameScene extends Phaser.Scene {
       }
       if (handUpdated) {
         prevSelectedCardId = selectedCardId;
-        this.shiftHumanZone(false);
+        if (selectedCardId) {
+          this.restoreSelectedCardAfterLayout(selectedCardId, 360);
+        }
+        this.shiftHumanZone(selectedCardId !== null);
       }
 
       // ── Active player changed — dim inactive players ────────────────────
@@ -443,7 +455,7 @@ export class GameScene extends Phaser.Scene {
         } else if (oldCard) {
           // Roll consumed the overclock — fly the visual to the discard pile
           const discardWX = w / 2 + DISCARD_LOCAL_CX;
-          const discardWY = h * 0.46 + DISCARD_LOCAL_CY;
+          const discardWY = h * getViewportLayout(w, h).centreYRatio + DISCARD_LOCAL_CY;
           this.hideOverclockCard(oldCard, discardWX, discardWY);
         } else {
           this.hideOverclockCard();
@@ -459,7 +471,7 @@ export class GameScene extends Phaser.Scene {
           this.time.delayedCall(340, () => this.showQuarantineCard(humanQCard, w, h));
         } else if (oldQCard) {
           const discardWX = w / 2 + DISCARD_LOCAL_CX;
-          const discardWY = h * 0.46 + DISCARD_LOCAL_CY;
+          const discardWY = h * getViewportLayout(w, h).centreYRatio + DISCARD_LOCAL_CY;
           this.hideQuarantineCard(oldQCard, discardWX, discardWY);
         } else {
           this.hideQuarantineCard();
@@ -566,6 +578,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buildTable(width: number, height: number) {
+    const layout = getViewportLayout(width, height);
     // ── 1. Background — always visible, even on the setup screen ──────────
     this.drawBackground(width, height);
 
@@ -582,10 +595,11 @@ export class GameScene extends Phaser.Scene {
     this.placeAIZones(aiPlayers, width, height);
 
     // ── 3. AI hands ────────────────────────────────────────────────────────
-    this.dealAIHands(aiPlayers, width, height);
+    if (!layout.compactLandscape) this.dealAIHands(aiPlayers, width, height);
 
     // ── 4. Centre zone ─────────────────────────────────────────────────────
-    const centre = new CentreZone(this, width / 2, height * 0.46);
+    const centre = new CentreZone(this, width / 2, height * layout.centreYRatio);
+    centre.setScale(layout.centreScale);
     centre.setDepth(1);
     this.centreZone = centre;
 
@@ -601,26 +615,31 @@ export class GameScene extends Phaser.Scene {
     const { hidePpCounts } = useGameStore.getState();
     this.humanZoneBaseY = height - 58;
     const humanZone = new PlayerZone(this, width / 2, this.humanZoneBaseY, human, hidePpCounts);
-    humanZone.setScale(1.3);
-    humanZone.setDepth(25);
+    humanZone.setScale(layout.compactLandscape ? 0.7 : 1.3);
+    humanZone.setDepth(5);
+    humanZone.setVisible(!layout.compactLandscape);
     this.playerZoneMap.set(human.id, humanZone);
 
     // ── 6. Improvement boards — one per player ─────────────────────────────
-    const midY = height * 0.46;
+    const midY = height * layout.centreYRatio;
     // Human: just above the player zone, below the hand (cyan to match human zone)
     this.humanDaemonBoard = new DaemonBoard(this, width / 2, height - 58 - 118, 0x00ffcc, '#00ffcc');
+    this.humanDaemonBoard.setVisible(!layout.compactLandscape);
 
     // AI boards — red/pink to match AI zone accent
     if (aiPlayers[0]) {
       const b = new DaemonBoard(this, width / 2, height * 0.30, 0x00ffcc, '#00ffcc');
+      b.setVisible(!layout.compactLandscape);
       this.aiDaemonBoards.set(aiPlayers[0].id, b);
     }
     if (aiPlayers[1]) {
       const b = new DaemonBoard(this, 250, midY, 0x00ffcc, '#00ffcc');
+      b.setVisible(!layout.compactLandscape);
       this.aiDaemonBoards.set(aiPlayers[1].id, b);
     }
     if (aiPlayers[2]) {
       const b = new DaemonBoard(this, width - 250, midY, 0x00ffcc, '#00ffcc');
+      b.setVisible(!layout.compactLandscape);
       this.aiDaemonBoards.set(aiPlayers[2].id, b);
     }
 
@@ -637,7 +656,7 @@ export class GameScene extends Phaser.Scene {
     this.updateHumanHand(human.hand, width, height);
 
     // ── 8. Table dividers ──────────────────────────────────────────────────
-    this.drawDividers(aiPlayers.length, width, height);
+    if (!layout.compactLandscape) this.drawDividers(aiPlayers.length, width, height);
 
     // Restore overclock visual on rebuild (e.g. window resize)
     const pendingOC = useGameStore.getState().pendingOverclockCard;
@@ -678,10 +697,12 @@ export class GameScene extends Phaser.Scene {
   private applyHandDim() {
     const { phase, players, currentPlayerIndex } = useGameStore.getState();
     const isHuman = players[currentPlayerIndex]?.isHuman;
+    const hideForCompactRoll = getViewportLayout(this.scale.width, this.scale.height).compactLandscape && phase === 'PHASE_ROLL';
     // Dim during AI turns and during PHASE_ROLL/DRAW on human turns
     const shouldDim = !isHuman || phase === 'PHASE_ROLL' || phase === 'DRAW';
     const targetAlpha = shouldDim ? 0.55 : 1;
     this.humanCardObjects.forEach(card => {
+      card.setVisible(!hideForCompactRoll);
       // Only add an alpha tween; don't kill other tweens (e.g. hover y/scale)
       this.tweens.add({
         targets: card, alpha: targetAlpha,
@@ -775,14 +796,15 @@ export class GameScene extends Phaser.Scene {
 
     // Determine target alpha — dim during AI turns and PHASE_ROLL/DRAW
     const { phase, players, currentPlayerIndex } = useGameStore.getState();
+    const layout   = getViewportLayout(width, height);
     const isHuman  = players[currentPlayerIndex]?.isHuman;
+    const hideForCompactRoll = layout.compactLandscape && phase === 'PHASE_ROLL';
     const shouldDim = !isHuman || phase === 'PHASE_ROLL' || phase === 'DRAW';
     const targetAlpha = shouldDim ? 0.55 : 1;
 
     // Flat-row layout constants — no rotation, no arc
-    const isMobile = width < 768;
-    const SCALE    = isMobile ? 0.85 : 1.25;
-    const OVERLAP  = CARD_W * SCALE * (isMobile ? 0.46 : 0.56);
+    const SCALE    = layout.handScale;
+    const OVERLAP  = CARD_W * SCALE * layout.handOverlapRatio;
     const count    = hand.length;
     const totalW   = (count - 1) * OVERLAP;
 
@@ -797,15 +819,20 @@ export class GameScene extends Phaser.Scene {
     this.handOverlapPx   = OVERLAP;
     const startX         = baseStartX + this.handPanX;
 
-    // Peek from bottom: keep ~70% of each card visible above the screen edge
-    const restingBaseY = height - CARD_H * SCALE * 0.20;
+    // Compact landscape keeps the complete hand above the activity strip. Taller
+    // screens retain the original bottom-edge card peek.
+    const restingBaseY = layout.compactLandscape
+      ? height - layout.activityLogHeight - CARD_H * SCALE * 0.5 - 4
+      : height - CARD_H * SCALE * 0.20;
     this.handBaseY   = restingBaseY;  // always the true resting position
     this.handScale   = SCALE;
-    const liftOffset = this.handIsLifted ? CARD_H * SCALE * 0.28 : 0;
+    const liftOffset = this.handIsLifted ? CARD_H * SCALE * layout.handLiftRatio : 0;
     const baseY      = restingBaseY - liftOffset;
 
     // Hand zone top — pointer events below this y are treated as hand drags
-    this.handZoneTopY = height - CARD_H * SCALE * 0.75;
+    this.handZoneTopY = layout.compactLandscape
+      ? restingBaseY - CARD_H * SCALE * 0.5
+      : height - CARD_H * SCALE * 0.75;
 
     // Determine whether this is a full deal (game start) or a partial draw.
     // Full deal: none of the incoming cards match an existing card object.
@@ -816,7 +843,7 @@ export class GameScene extends Phaser.Scene {
 
     // Animate out cards that are no longer in the hand (played / discarded)
     const zoneX        = width / 2;
-    const zoneY        = height * 0.46;
+    const zoneY        = height * layout.centreYRatio;
     const discardWorldX = zoneX + DISCARD_LOCAL_CX;
     const discardWorldY = zoneY + DISCARD_LOCAL_CY;
 
@@ -873,6 +900,7 @@ export class GameScene extends Phaser.Scene {
         // tween below is not cancelled by a simultaneous selectedCardId → null change.
         existing.clearSelectionState();
         existing.updateRestPosition(targetX, targetY, targetAngle);
+        existing.setVisible(!hideForCompactRoll);
         existing.setDepth(targetDepth);
         this.tweens.killTweensOf(existing);
         this.tweens.add({
@@ -887,12 +915,13 @@ export class GameScene extends Phaser.Scene {
       } else {
         // New card — create and deal in
         const card = new Card(this, targetX, targetY, cardData);
+        card.setVisible(!hideForCompactRoll);
         card.setScale(SCALE);
         card.setAngle(targetAngle);
         card.setDepth(targetDepth);
         // Stagger only on a full initial deal; single drawn cards arrive immediately
         const delay = isFullDeal ? newCardDealIndex * 70 : 0;
-        card.dealIn(width / 2, height * 0.46, delay, targetAlpha);
+        card.dealIn(width / 2, height * layout.centreYRatio, delay, targetAlpha);
         if (useGameStore.getState().globalCorruptionMode) card.setCorrupted(true);
         newCardDealIndex++;
         nextCardObjects.push(card);
@@ -934,7 +963,7 @@ export class GameScene extends Phaser.Scene {
   private applyHandLift(lifted: boolean) {
     if (this.handIsLifted === lifted) return;
     this.handIsLifted = lifted;
-    const liftDelta = CARD_H * this.handScale * 0.28;
+    const liftDelta = CARD_H * this.handScale * getViewportLayout(this.scale.width, this.scale.height).handLiftRatio;
     this.humanCardObjects.forEach(card => {
       const restY   = this.handBaseY;  // flat row — no arc in either state
       const targetY = lifted ? (this.handBaseY - liftDelta) : restY;
@@ -958,6 +987,14 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: zone, y: targetY, duration: 220, ease: 'Quad.easeOut' });
   }
 
+  /** Restore selection after a deal/reorder tween without cancelling that layout tween. */
+  private restoreSelectedCardAfterLayout(cardId: string, delay: number) {
+    this.time.delayedCall(delay, () => {
+      if (useGameStore.getState().selectedCardId !== cardId) return;
+      this.humanCardObjects.find(card => card.cardData.id === cardId)?.setSelected(true);
+    });
+  }
+
   /** Show or hide the ‹ / › hint arrows based on available scroll in each direction. */
   private updatePanArrows() {
     if (!this.handArrowLeft || !this.handArrowRight) return;
@@ -972,7 +1009,8 @@ export class GameScene extends Phaser.Scene {
   private showCorruptionReveal(width: number, height: number) {
     sfxCorruptionReveal();
     const cx = width / 2;
-    const cy = height * 0.46;
+    const layout = getViewportLayout(width, height);
+    const cy = height * layout.centreYRatio;
     const dpr = window.devicePixelRatio;
 
     const con = this.add.container(cx, cy);
@@ -1022,7 +1060,10 @@ export class GameScene extends Phaser.Scene {
     con.setScale(0);
     con.setAlpha(0);
     this.tweens.add({
-      targets: con, scaleX: 1, scaleY: 1, alpha: 1,
+      targets: con,
+      scaleX: layout.compactLandscape ? 0.62 : 1,
+      scaleY: layout.compactLandscape ? 0.62 : 1,
+      alpha: 1,
       duration: 350, ease: 'Back.easeOut',
     });
 
@@ -1307,7 +1348,8 @@ export class GameScene extends Phaser.Scene {
 
   // ── AI player zones: up to 3 seats (top / left / right) ──────────────────
   private placeAIZones(players: PlayerState[], width: number, height: number) {
-    const midY = height * 0.46;
+    const layout = getViewportLayout(width, height);
+    const midY = height * layout.centreYRatio;
     const { hidePpCounts: hidePop } = useGameStore.getState();
 
     // Seat assignment by AI count:
@@ -1321,9 +1363,9 @@ export class GameScene extends Phaser.Scene {
     ][players.length - 1] ?? [0];
 
     const seatConfigs: Record<number, { x: number; y: number; angle: number }> = {
-      0: { x: width / 2,      y: height * 0.18, angle:   0 },  // top
-      1: { x: 130,            y: midY,          angle: -90 },  // left
-      2: { x: width - 130,    y: midY,          angle:  90 },  // right
+      0: { x: width / 2,                y: height * 0.18, angle:   0 },  // top
+      1: { x: layout.aiSideInset,       y: midY,          angle: -90 },  // left
+      2: { x: width - layout.aiSideInset, y: midY,        angle:  90 },  // right
     };
 
     players.forEach((p, i) => {
@@ -1331,6 +1373,7 @@ export class GameScene extends Phaser.Scene {
       const seat = seatOrder[i];
       const cfg  = seatConfigs[seat];
       const zone = new PlayerZone(this, cfg.x, cfg.y, p, hidePop);
+      zone.setScale(layout.aiZoneScale);
       if (cfg.angle !== 0) zone.setAngle(cfg.angle);
       zone.setDepth(25);
       this.playerZoneMap.set(p.id, zone);
@@ -1347,7 +1390,7 @@ export class GameScene extends Phaser.Scene {
   private computeAiHandLayout(
     seat: number, count: number, width: number, height: number,
   ): Array<{ x: number; y: number; angle: number }> {
-    const midY    = height * 0.46;
+    const midY    = height * getViewportLayout(width, height).centreYRatio;
     const OVERLAP = CARD_W * 0.55;
     const result: Array<{ x: number; y: number; angle: number }> = [];
 
@@ -1400,7 +1443,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private dealAIHands(players: PlayerState[], width: number, height: number) {
-    const midY = height * 0.46;
+    const midY = height * getViewportLayout(width, height).centreYRatio;
     const staggerBase = [0, 120, 240];
     players.forEach((p, si) => {
       if (!p) return;
@@ -1423,10 +1466,15 @@ export class GameScene extends Phaser.Scene {
 
   // ── Sync AI card backs to exactly match hand.length ───────────────────────
   private syncAiCardBacks(aiPlayer: PlayerState, width: number, height: number) {
+    if (getViewportLayout(width, height).compactLandscape) {
+      (this.aiCardBackObjects.get(aiPlayer.id) ?? []).forEach(back => back.destroy());
+      this.aiCardBackObjects.set(aiPlayer.id, []);
+      return;
+    }
     const backs  = this.aiCardBackObjects.get(aiPlayer.id) ?? [];
     const target = aiPlayer.hand.length;
     const seat   = this.aiPlayerSeat.get(aiPlayer.id) ?? 0;
-    const midY   = height * 0.46;
+    const midY   = height * getViewportLayout(width, height).centreYRatio;
 
     if (backs.length === target) return;
 
@@ -1492,7 +1540,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(320, () => this.repositionAiCardBacks(playerId, width, height));
 
     const centerX = width / 2;
-    const centerY = height * 0.46;
+    const centerY = height * getViewportLayout(width, height).centreYRatio;
 
     // Step 1 — pull the card visibly out from the edge
     back.setDepth(50);

@@ -3,6 +3,7 @@ import React from 'react';
 import { useGameStore } from '../state/useGameStore';
 import { TUTORIAL_STEPS } from '../data/tutorial';
 import { sfxNavClick } from '../lib/audio';
+import { OverlayShell } from './OverlayShell';
 
 export const TutorialOverlay: React.FC = () => {
   const tutorialStep      = useGameStore(s => s.tutorialStep);
@@ -34,23 +35,20 @@ export const TutorialOverlay: React.FC = () => {
   };
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'rgba(2,4,12,0.82)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 400,
-      fontFamily: 'monospace',
-    }}>
-      <div style={{
+    <OverlayShell
+      ariaLabel={`Tutorial step ${tutorialStep + 1}`}
+      background="rgba(2,4,12,0.82)"
+      zIndex={400}
+      maxWidth={420}
+      panelStyle={{
         border: '1px solid #00ffcc44',
         background: 'rgba(5,10,20,0.98)',
         padding: '2rem 2.5rem',
-        maxWidth: 420,
-        width: '90%',
         display: 'flex',
         flexDirection: 'column',
         gap: '1rem',
-      }}>
+      }}
+    >
         {/* Step counter */}
         {!isComplete && (
           <div style={{ fontSize: '0.45rem', letterSpacing: 6, color: '#00ffcc33' }}>
@@ -108,7 +106,6 @@ export const TutorialOverlay: React.FC = () => {
         >
           {isComplete ? 'RETURN TO SETUP →' : 'NEXT →'}
         </button>
-      </div>
-    </div>
+    </OverlayShell>
   );
 };

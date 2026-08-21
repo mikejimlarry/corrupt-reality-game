@@ -4,6 +4,7 @@
 import React from 'react';
 import { useGameStore } from '../state/useGameStore';
 import type { CounterCard } from '../types/cards';
+import { OverlayShell } from './OverlayShell';
 
 const COUNTER_LABEL: Record<string, string> = {
   SHIELD:             'SYSTEM INTERRUPT',
@@ -55,21 +56,15 @@ export const CounterOpportunityOverlay: React.FC = () => {
   );
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(8,3,0,0.94)',
-      zIndex: 200,
-      fontFamily: 'monospace',
-    }}>
-      <div style={{
+    <OverlayShell
+      ariaLabel="Respond to incoming conflict"
+      background="rgba(8,3,0,0.94)"
+      panelStyle={{
         border: '1px solid #ff880044',
         padding: '2rem',
-        maxWidth: 480,
-        width: '90%',
         background: 'rgba(18,6,0,0.92)',
-      }}>
+      }}
+    >
 
         {/* Header */}
         <div style={{
@@ -144,7 +139,6 @@ export const CounterOpportunityOverlay: React.FC = () => {
         >
           TAKE THE HIT
         </button>
-      </div>
-    </div>
+    </OverlayShell>
   );
 };

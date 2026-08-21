@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:layout": "vitest run src/game/layout.test.ts",
+    "check": "npm run build && npm run lint && npm test",
     "preview": "vite preview",
     "publish": "npm run build && butler push dist mikejimlarry/corrupt-reality:html"
   },

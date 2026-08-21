@@ -24,6 +24,13 @@ const STYLE = `
 .go-fade-in-3 { animation: go-fade-in 0.6s 0.4s ease both; }
 .go-fade-in-4 { animation: go-fade-in 0.6s 0.6s ease both; }
 .go-fade-in-5 { animation: go-fade-in 0.6s 0.8s ease both; }
+@media (max-width: 600px) {
+  .go-detail-stat { display: none; }
+  .go-standings-row { gap: 0.35rem !important; padding: 0.4rem 0.45rem !important; }
+}
+@media (max-height: 650px) {
+  .crg-game-over-content { gap: 0.65rem !important; }
+}
 `;
 
 function useHover() {
@@ -112,9 +119,12 @@ export function GameOverScreen() {
       background: 'rgba(3,3,10,0.96)',
       zIndex: 20,
       display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
+      alignItems: 'center', justifyContent: 'flex-start',
       fontFamily: 'monospace',
-      overflow: 'hidden',
+      overflowX: 'hidden',
+      overflowY: 'auto',
+      boxSizing: 'border-box',
+      padding: 'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
     }}>
 
       {/* Scanline sweep */}
@@ -137,7 +147,12 @@ export function GameOverScreen() {
         }} />
       )}
 
-      <div style={{ position: 'relative', zIndex: 1, width: 420, display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+      <div className="crg-game-over-content" style={{
+        position: 'relative', zIndex: 1,
+        width: 'min(420px, 100%)',
+        display: 'flex', flexDirection: 'column', gap: '1.1rem',
+        margin: 'auto 0',
+      }}>
 
         {/* Header */}
         <div className="go-flicker go-fade-in" style={{ textAlign: 'center' }}>
@@ -193,7 +208,7 @@ export function GameOverScreen() {
             const daemonsLost  = gameStats.daemonsLost[p.id]  ?? 0;
             const biggestRoll  = gameStats.biggestRoll[p.id]  ?? 0;
             return (
-              <div key={p.id} style={{
+              <div key={p.id} className="go-standings-row" style={{
                 display: 'flex', alignItems: 'center', gap: '0.6rem',
                 padding: '0.4rem 0.65rem',
                 background: isWinner ? `${ACCENT}0d` : 'transparent',
@@ -217,29 +232,29 @@ export function GameOverScreen() {
                 </span>
 
                 {/* Cards played */}
-                <span style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 36, textAlign: 'center' }}>
+                <span className="go-detail-stat" style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 36, textAlign: 'center' }}>
                   {cardsPlayed > 0 ? `${cardsPlayed}c` : '--'}
                 </span>
 
                 {/* Damage dealt */}
-                <span style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 40, textAlign: 'center' }}>
+                <span className="go-detail-stat" style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 40, textAlign: 'center' }}>
                   {(gameStats.damageDealt[p.id] ?? 0) > 0 ? `${gameStats.damageDealt[p.id]}↯` : '--'}
                 </span>
 
                 {/* Wars W/L */}
-                <span style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 44, textAlign: 'center' }}>
+                <span className="go-detail-stat" style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 44, textAlign: 'center' }}>
                   {(warsWon + warsLost) > 0 ? `${warsWon}W/${warsLost}L` : '--'}
                 </span>
 
                 {/* Daemons held / lost */}
-                <span style={{ fontSize: '0.6rem', color: rowAccent, letterSpacing: 1, width: 50, textAlign: 'center' }}>
+                <span className="go-detail-stat" style={{ fontSize: '0.6rem', color: rowAccent, letterSpacing: 1, width: 50, textAlign: 'center' }}>
                   {p.daemons.length > 0 || daemonsLost > 0
                     ? `[D]${p.daemons.length}${daemonsLost > 0 ? ` -${daemonsLost}` : ''}`
                     : '--'}
                 </span>
 
                 {/* Biggest roll */}
-                <span style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 36, textAlign: 'center' }}>
+                <span className="go-detail-stat" style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 36, textAlign: 'center' }}>
                   {biggestRoll > 0 ? `↑${biggestRoll}` : '--'}
                 </span>
 

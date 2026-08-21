@@ -2,6 +2,7 @@
 import React from 'react';
 import { useGameStore } from '../state/useGameStore';
 import type { NegativeEventCard } from '../types/cards';
+import { OverlayShell } from './OverlayShell';
 
 export const DeadMansSwitchOverlay: React.FC = () => {
   const pending  = useGameStore(s => s.deadMansSwitchPending);
@@ -14,21 +15,16 @@ export const DeadMansSwitchOverlay: React.FC = () => {
   const eligibleCards: NegativeEventCard[] = pending.eligibleCards;
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(5,0,0,0.94)',
-      zIndex: 200,
-      fontFamily: 'monospace',
-    }}>
-      <div style={{
+    <OverlayShell
+      ariaLabel="Choose a final card"
+      background="rgba(5,0,0,0.94)"
+      maxWidth={460}
+      panelStyle={{
         border: '1px solid #ff004466',
         padding: '2rem',
-        maxWidth: 460,
-        width: '90%',
         background: 'rgba(20,0,0,0.85)',
-      }}>
+      }}
+    >
         {/* Header */}
         <div style={{
           color: '#ff0044', letterSpacing: 6, fontSize: '0.6rem',
@@ -99,7 +95,6 @@ export const DeadMansSwitchOverlay: React.FC = () => {
         >
           SKIP — GO QUIETLY
         </button>
-      </div>
-    </div>
+    </OverlayShell>
   );
 };

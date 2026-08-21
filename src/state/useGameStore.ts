@@ -2,43 +2,21 @@
 import { create } from 'zustand';
 import type { GameState, PlayerState, LogEntry, AIPersonality } from '../types/gameState';
 import type { Card, CyclesCard, PositiveEventCard, NegativeEventCard, WarCard, DaemonCard, CounterCard } from '../types/cards';
-import { initRNG, random } from '../lib/rng';
+import { initRNG, random, rollDie } from '../lib/rng';
 import { generateDeck } from '../data/deck';
 import { TUTORIAL_REQUIRED_CARD, TUTORIAL_AI_CARD } from '../data/tutorial';
 import { trackEvent } from '../lib/analytics';
+import {
+  markEliminations,
+  mustPlayCorruptionFirst,
+  stageCorruptionForSession,
+} from './gameRules';
 
-// ── Corruption-first constraint ───────────────────────────────────────────────
-// If a player has The Corruption card in their starting hand (cardsPlayed === 0),
-// they must play it as their very first card — all other cards are locked.
-export function mustPlayCorruptionFirst(
-  player: PlayerState,
-  gameStats: GameState['gameStats'],
-): boolean {
-  if ((gameStats.cardsPlayed[player.id] ?? 0) !== 0) return false;
-  return player.hand.some(
-    c => c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).effect === 'CORRUPTION',
-  );
-}
-
-// ── Elimination helper ────────────────────────────────────────────────────────
-
-function markEliminations(
-  players: PlayerState[],
-  eliminationOrder: string[],
-  keepHumanAlive = false,
-): { players: PlayerState[]; eliminationOrder: string[] } {
-  let order = eliminationOrder;
-  const updated = players.map(p => {
-    if (p.eliminated) return p;
-    const shouldEliminate = p.cycles <= 0 && (!keepHumanAlive || !p.isHuman);
-    if (shouldEliminate) {
-      if (!order.includes(p.id)) order = [...order, p.id];
-      return { ...p, eliminated: true, daemons: [] };
-    }
-    return p;
-  });
-  return { players: updated, eliminationOrder: order };
-}
+export {
+  CORRUPTION_DECK_WINDOW,
+  mustPlayCorruptionFirst,
+  stageCorruptionForSession,
+} from './gameRules';
 
 // ── AI timer scheduler ────────────────────────────────────────────────────────
 
@@ -85,30 +63,6 @@ function saveGameRecord(humanWon: boolean, turns: number, playerCount: number, c
       history,
     }));
   } catch { /* localStorage unavailable */ }
-}
-
-export const CORRUPTION_DECK_WINDOW = { min: 0.25, max: 0.55 } as const;
-
-export function stageCorruptionForSession(deck: Card[], initialDealCount: number): Card[] {
-  const corruptionIndex = deck.findIndex(
-    c => c.category === 'EVENT_NEGATIVE' && (c as NegativeEventCard).effect === 'CORRUPTION',
-  );
-  if (corruptionIndex === -1) return deck;
-
-  const corruptionCard = deck[corruptionIndex];
-  const withoutCorruption = deck.filter((_, i) => i !== corruptionIndex);
-  const dealt = withoutCorruption.slice(0, initialDealCount);
-  const remaining = withoutCorruption.slice(initialDealCount);
-  const minIndex = Math.floor(remaining.length * CORRUPTION_DECK_WINDOW.min);
-  const maxIndex = Math.max(minIndex, Math.floor(remaining.length * CORRUPTION_DECK_WINDOW.max));
-  const insertAt = minIndex + Math.floor(random() * (maxIndex - minIndex + 1));
-
-  return [
-    ...dealt,
-    ...remaining.slice(0, insertAt),
-    corruptionCard,
-    ...remaining.slice(insertAt),
-  ];
 }
 
 // targetIndex — when provided (human targeting), use it directly.
@@ -269,8 +223,8 @@ export function applyCardEffect(card: Card, players: PlayerState[], actorIndex: 
       // Roll 1d6 for each side; Firewall Surge (tacticalBonus) adds +N to each player's roll.
       const actorBonus  = players[actorIndex].tacticalBonus;
       const targetBonus = players[ti].tacticalBonus;
-      const actorBase  = Math.floor(random() * 6) + 1;
-      const targetBase = Math.floor(random() * 6) + 1;
+      const actorBase  = rollDie();
+      const targetBase = rollDie();
       const actorRoll  = actorBase + actorBonus;
       const targetRoll = targetBase + targetBonus;
       const isTie = actorRoll === targetRoll;
@@ -762,7 +716,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     const remainingDeck = deck.slice(deckCursor);
 
-    const firstRoll: [number, number] = [Math.ceil(random() * 6), Math.ceil(random() * 6)];
+    const firstRoll: [number, number] = [rollDie(), rollDie()];
     set({
       ...defaultState,
       reducedMotion: get().reducedMotion, // preserve user preference across game resets
@@ -832,7 +786,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       },
     ];
 
-    const firstRoll: [number, number] = [Math.ceil(random() * 6), Math.ceil(random() * 6)];
+    const firstRoll: [number, number] = [rollDie(), rollDie()];
     set({
       ...defaultState,
       reducedMotion: get().reducedMotion,
@@ -2050,7 +2004,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const wrappedAround = nextIndex <= currentPlayerIndex;
     const newTurnNumber = wrappedAround ? turnNumber + 1 : turnNumber;
     if (wrappedAround) trackEvent('turn_played', { turn_number: newTurnNumber });
-    const roll: [number, number] = [Math.ceil(random() * 6), Math.ceil(random() * 6)];
+    const roll: [number, number] = [rollDie(), rollDie()];
 
     // Tutorial: advance step when human's turn comes back (steps 3→4, 5→6, 7→8, 9→10)
     // Step 12 doesn't advance here, but its modal is opened when returning to the human.

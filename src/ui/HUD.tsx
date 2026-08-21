@@ -7,6 +7,7 @@ import { TUTORIAL_REQUIRED_CARD } from '../data/tutorial';
 import { HelpModal } from './HelpModal';
 import { sfxCardPlay, getMusicEnabled, setMusicEnabled, sfxToggleOn, sfxToggleOff, getMusicTrack, nextMusicTrack } from '../lib/audio';
 import { trackEvent } from '../lib/analytics';
+import { getViewportLayout } from '../game/layout';
 
 const PULSE_STYLE = `
 @keyframes log-cursor-blink {
@@ -234,9 +235,10 @@ export function HUD() {
   const primaryBtnStyle = useMemo(() => btnPrimary(ACCENT), [ACCENT]);
   const dimBtnStyle     = useMemo(() => btnDim(ACCENT), [ACCENT]);
 
-  const { w: winW } = useWindowSize();
-  // Landscape mobile: short dimension < 500 px, or total width < 700 px
-  const isMobile = winW < 700;
+  const { w: winW, h: winH } = useWindowSize();
+  const viewportLayout = getViewportLayout(winW, winH);
+  const isMobile = viewportLayout.isNarrow;
+  const compactLandscape = viewportLayout.compactLandscape;
 
   // Freeze the scoreboard during the war dice animation so credit counts/bars
   // don't reveal the outcome before the result is shown.
@@ -431,11 +433,11 @@ export function HUD() {
           top: 12,
           right: 12,
           zIndex: 5,
-          width: isMobile ? 160 : 290,
+          width: compactLandscape ? 150 : isMobile ? 160 : 290,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'stretch',
-          gap: 8,
+          gap: compactLandscape ? 4 : 8,
         }}
       >
         {/* System controls row — pause + reduce-motion */}
@@ -478,19 +480,19 @@ export function HUD() {
 
 
         {/* Status panel + scoreboard */}
-        <div style={panelStyle}>
+        <div style={{ ...panelStyle, padding: compactLandscape ? '6px 8px' : panelStyle.padding }}>
           <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 2 }}>
             TURN {turnNumber} · {phase}
           </div>
-          <div style={{ fontSize: 8, color: `${ACCENT}33`, letterSpacing: 2, marginBottom: 4, fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ display: compactLandscape ? 'none' : undefined, fontSize: 8, color: `${ACCENT}33`, letterSpacing: 2, marginBottom: 4, fontVariantNumeric: 'tabular-nums' }}>
             SYS {fmtUptime(uptime)}
           </div>
-          <div style={{ fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold', marginBottom: 10 }}>
+          <div style={{ display: compactLandscape ? 'none' : undefined, fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold', marginBottom: 10 }}>
             {isHuman ? '▶ YOUR TURN' : `◌ ${currentPlayer?.name ?? '...'}`}
           </div>
 
           {/* Mini scoreboard */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: compactLandscape ? 2 : 5 }}>
             {players.map(p => {
               const pct = Math.max(0, Math.min(100, (p.cycles / startingPop) * 100));
               const isCurrent = p.id === currentPlayer?.id;
@@ -508,12 +510,17 @@ export function HUD() {
                   {/* Name */}
                   <span style={{
                     fontSize: 9, letterSpacing: 1, color: nameColor,
-                    width: 68, flexShrink: 0,
+                    width: compactLandscape ? 45 : 68, flexShrink: 0,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     textDecoration: p.eliminated ? 'line-through' : 'none',
                   }}>
                     {p.name}
                   </span>
+                  {compactLandscape && (
+                    <span title={`${p.daemons.length} active daemon${p.daemons.length === 1 ? '' : 's'}`} style={{ fontSize: 7, color: `${nameColor}88`, width: 14, flexShrink: 0 }}>
+                      D{p.daemons.length}
+                    </span>
+                  )}
                   {/* Bar */}
                   <div style={{
                     flex: 1, height: 4,
@@ -629,9 +636,10 @@ export function HUD() {
         <div
           style={{
             position: 'fixed',
-            bottom: 72,
-            left: '50%',
-            transform: 'translateX(-50%)',
+            bottom: viewportLayout.actionBottom,
+            left: compactLandscape ? 'auto' : '50%',
+            right: compactLandscape ? 12 : 'auto',
+            transform: compactLandscape ? 'none' : 'translateX(-50%)',
             zIndex: 10,
             display: 'flex',
             flexDirection: 'column',
@@ -661,13 +669,13 @@ export function HUD() {
               <div style={{ fontSize: 10, color: `${ACCENT}aa`, letterSpacing: 2, fontFamily: 'monospace' }}>
                 {selectedCard.name.toUpperCase()}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: compactLandscape ? 'column' : 'row', gap: compactLandscape ? 4 : 8 }}>
                 {canPlaySelected && !isDiscardOnly && (
                   <button
                     className={corruption ? 'corruption-pulse' : 'hud-pulse'}
                     style={{
                       ...primaryBtnStyle,
-                      width: isMobile ? 120 : 100,
+                      width: compactLandscape ? 100 : isMobile ? 120 : 100,
                       fontSize: isMobile ? 14 : 12,
                       minHeight: 48,
                     }}
@@ -680,7 +688,7 @@ export function HUD() {
                   <button
                     style={{
                       ...dimBtnStyle,
-                      width: isMobile ? 120 : 100,
+                      width: compactLandscape ? 100 : isMobile ? 120 : 100,
                       fontSize: isMobile ? 14 : 12,
                       minHeight: 48,
                     }}
@@ -719,7 +727,7 @@ export function HUD() {
             bottom: 0,
             left: 0,
             zIndex: 5,
-            width: isMobile ? '100vw' : 340,
+            width: (isMobile || compactLandscape) ? '100vw' : 340,
             fontFamily: 'monospace',
           }}
         >
@@ -737,7 +745,7 @@ export function HUD() {
               <div
                 className="log-scroll"
                 style={{
-                  maxHeight: isMobile ? 180 : 300,
+                  maxHeight: compactLandscape ? 'calc(100dvh - 48px)' : isMobile ? 180 : 300,
                   overflowY: 'auto',
                   padding: '8px 14px 6px',
                   display: 'flex',
@@ -809,9 +817,10 @@ export function HUD() {
         <div
           style={{
             position: 'fixed',
-            bottom: 72,
-            left: '50%',
-            transform: 'translateX(-50%)',
+            bottom: viewportLayout.actionBottom,
+            left: compactLandscape ? 'auto' : '50%',
+            right: compactLandscape ? 12 : 'auto',
+            transform: compactLandscape ? 'none' : 'translateX(-50%)',
             zIndex: 10,
             pointerEvents: 'auto',
             animation: 'protocol-slide-up 0.18s ease-out forwards',
@@ -838,7 +847,7 @@ export function HUD() {
         </div>
       )}
       {/* ── HAND SORT — bottom-right, visible during gameplay ── */}
-      {phase !== 'GAME_OVER' && (() => {
+      {(phase === 'MAIN' || phase === 'DRAW') && !(selectedCard && (isMobile || compactLandscape)) && (() => {
         const SORT_MODES: HandSortMode[] = ['DEFAULT', 'TYPE', 'VALUE', 'ALPHA'];
         const modeLabels: Record<HandSortMode, string> = { DEFAULT: 'DEF', TYPE: 'TYPE', VALUE: 'VAL', ALPHA: 'A–Z' };
         const nextMode = SORT_MODES[(SORT_MODES.indexOf(handSortMode) + 1) % SORT_MODES.length];
@@ -851,7 +860,7 @@ export function HUD() {
         return (
           <div
             style={{
-              position: 'fixed', bottom: 92, right: 14, zIndex: 6,
+              position: 'fixed', bottom: (isMobile && !compactLandscape) ? viewportLayout.actionBottom : 92, right: 14, zIndex: 6,
               display: 'flex', alignItems: 'center', gap: 4,
               pointerEvents: 'auto',
             }}

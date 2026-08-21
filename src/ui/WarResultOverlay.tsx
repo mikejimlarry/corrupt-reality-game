@@ -59,6 +59,9 @@ export const WarResultOverlay: React.FC = () => {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 350,
       fontFamily: 'monospace',
+      overflow: 'hidden',
+      boxSizing: 'border-box',
+      padding: 'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
     }}>
       {/* Vignette for loss */}
       {!humanWon && !isTie && (
@@ -81,6 +84,9 @@ export const WarResultOverlay: React.FC = () => {
           gap: '1.25rem',
           boxShadow: `0 0 40px ${baseAccent}22`,
           position: 'relative',
+          maxHeight: '100%',
+          overflowY: 'auto',
+          boxSizing: 'border-box',
         }}>
 
         {/* Headline */}

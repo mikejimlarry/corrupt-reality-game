@@ -198,6 +198,9 @@ function OptionsModal({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 500,
           fontFamily: 'monospace',
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+          padding: 'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
         }}
       >
         <div
@@ -210,6 +213,9 @@ function OptionsModal({
             maxWidth: 400,
             width: '90%',
             color: '#00ffcc',
+            maxHeight: '100%',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
           }}
         >
           <div className={closing ? 'opt-out' : 'opt-in'} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -421,7 +427,7 @@ export const SetupScreen: React.FC = () => {
     )}
 
     {/* Setup screen — always in DOM, visible under/after boot overlay */}
-    <div style={{
+    <div className="crg-setup-screen" style={{
       position: 'fixed', inset: 0,
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
@@ -430,10 +436,10 @@ export const SetupScreen: React.FC = () => {
       fontFamily: 'monospace',
       color: '#00ffcc',
     }}>
-      <div style={{ textAlign: 'center', marginBottom: '0.25rem', maxWidth: '90vw' }}>
+      <div className="crg-setup-title" style={{ textAlign: 'center', marginBottom: '0.25rem', maxWidth: '90vw', flexShrink: 0 }}>
         <GlitchTitle />
       </div>
-      <p style={{
+      <p className="crg-setup-subtitle" style={{
         color: '#446655',
         letterSpacing: 4,
         fontSize: '0.75rem',
@@ -446,7 +452,7 @@ export const SetupScreen: React.FC = () => {
       </p>
 
       {/* Meta buttons */}
-      <div style={{
+      <div className="crg-setup-meta" style={{
         display: 'grid',
         gap: '0.5rem',
         marginBottom: '2rem',
@@ -467,7 +473,7 @@ export const SetupScreen: React.FC = () => {
 
       {/* Track selector — visible when music is on */}
       {musicOn && (
-        <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+        <div className="crg-setup-track" style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
           <div style={{ fontSize: '0.5rem', letterSpacing: 3, color: '#00ffcc33', marginBottom: '0.4rem' }}>
             SOUNDTRACK
           </div>
@@ -504,7 +510,10 @@ export const SetupScreen: React.FC = () => {
         />
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: 300 }}>
+      <div className="crg-setup-form" style={{
+        display: 'flex', flexDirection: 'column', gap: '1rem',
+        width: 'min(300px, calc(100vw - 24px))', flexShrink: 0,
+      }}>
 
         {/* Handle */}
         <style>{`@keyframes crg-blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }`}</style>

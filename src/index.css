@@ -10,6 +10,65 @@ html, body, #root {
   background: #0a0a0f;
 }
 
+/* Responsive setup shell. Tall screens keep the original centered composition;
+   short landscape screens start at the top and scroll so every action remains
+   reachable even though the document itself is intentionally non-scrolling. */
+.crg-setup-screen {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+}
+
+@media (max-height: 700px) {
+  .crg-setup-screen {
+    justify-content: flex-start !important;
+  }
+
+  .crg-setup-title {
+    transform: scale(0.78);
+    transform-origin: top center;
+    margin-bottom: -10px !important;
+  }
+
+  .crg-setup-subtitle {
+    margin-bottom: 0.4rem !important;
+  }
+
+  .crg-setup-meta {
+    margin-bottom: 0.8rem !important;
+  }
+
+  .crg-setup-track {
+    margin-bottom: 0.75rem !important;
+  }
+
+  .crg-setup-form {
+    gap: 0.65rem !important;
+  }
+}
+
+@media (max-height: 440px) {
+  .crg-setup-title {
+    transform: scale(0.62);
+    margin-bottom: -18px !important;
+  }
+
+  .crg-setup-subtitle {
+    font-size: 0.62rem !important;
+    line-height: 1.35 !important;
+  }
+
+  .crg-setup-meta {
+    gap: 0.3rem !important;
+  }
+}
+
 /* ── Button hover utilities ───────────────────────────────────────────────── */
 /* !important is required to override the inline base styles on each button.   */
 

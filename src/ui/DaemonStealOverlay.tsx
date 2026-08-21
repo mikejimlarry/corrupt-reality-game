@@ -2,6 +2,7 @@
 import React from 'react';
 import { useGameStore } from '../state/useGameStore';
 import type { DaemonType } from '../types/cards';
+import { OverlayShell } from './OverlayShell';
 
 const DAEMON_LABELS: Record<DaemonType, string> = {
   FIREWALL: 'FIREWALL',
@@ -27,21 +28,16 @@ export const DaemonStealOverlay: React.FC = () => {
   const actorDaemons = players[actorIndex]?.daemons ?? [];
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(0,5,15,0.94)',
-      zIndex: 200,
-      fontFamily: 'monospace',
-    }}>
-      <div style={{
+    <OverlayShell
+      ariaLabel="Choose a daemon to extract"
+      background="rgba(0,5,15,0.94)"
+      maxWidth={460}
+      panelStyle={{
         border: '1px solid #00ffcc44',
         padding: '2rem',
-        maxWidth: 460,
-        width: '90%',
         background: 'rgba(0,15,20,0.90)',
-      }}>
+      }}
+    >
         {/* Header */}
         <div style={{
           color: '#00ffcc', letterSpacing: 6, fontSize: '0.6rem',
@@ -118,7 +114,6 @@ export const DaemonStealOverlay: React.FC = () => {
         >
           ABORT — TAKE NOTHING
         </button>
-      </div>
-    </div>
+    </OverlayShell>
   );
 };

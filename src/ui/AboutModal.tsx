@@ -54,6 +54,9 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 500,
           fontFamily: 'monospace',
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+          padding: 'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
         }}
       >
         <div
@@ -66,6 +69,9 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
             maxWidth: 480,
             width: '90%',
             color: '#00ffcc',
+            maxHeight: '100%',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
           }}
         >
           <div className={closing ? 'about-contents-out' : 'about-contents-in'}>

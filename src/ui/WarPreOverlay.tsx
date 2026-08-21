@@ -2,6 +2,7 @@
 import React from 'react';
 import { useGameStore } from '../state/useGameStore';
 import type { CounterCard } from '../types/cards';
+import { OverlayShell } from './OverlayShell';
 
 
 export const WarPreOverlay: React.FC = () => {
@@ -54,21 +55,15 @@ export const WarPreOverlay: React.FC = () => {
   );
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(5,0,10,0.94)',
-      zIndex: 200,
-      fontFamily: 'monospace',
-    }}>
-      <div style={{
+    <OverlayShell
+      ariaLabel="Pre-conflict preparation"
+      background="rgba(5,0,10,0.94)"
+      panelStyle={{
         border: '1px solid #ff336644',
         padding: '2rem',
-        maxWidth: 480,
-        width: '90%',
         background: 'rgba(15,0,10,0.90)',
-      }}>
+      }}
+    >
 
         {/* Header */}
         <div style={{
@@ -190,7 +185,6 @@ export const WarPreOverlay: React.FC = () => {
         >
           RETREAT
         </button>
-      </div>
-    </div>
+    </OverlayShell>
   );
 };
