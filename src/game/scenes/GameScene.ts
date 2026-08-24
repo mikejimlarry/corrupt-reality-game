@@ -451,7 +451,7 @@ export class GameScene extends Phaser.Scene {
         const oldCard = prevPendingOverclockCard;
         prevPendingOverclockCard = pendingOC;
         if (pendingOC) {
-          this.time.delayedCall(340, () => this.showOverclockCard(pendingOC, w, h));
+          this.time.delayedCall(340, () => this.showOverclockCard(w, h));
         } else if (oldCard) {
           // Roll consumed the overclock — fly the visual to the discard pile
           const discardWX = w / 2 + DISCARD_LOCAL_CX;
@@ -468,7 +468,7 @@ export class GameScene extends Phaser.Scene {
         const oldQCard = prevHumanQuarantineCard;
         prevHumanQuarantineCard = humanQCard;
         if (humanQCard) {
-          this.time.delayedCall(340, () => this.showQuarantineCard(humanQCard, w, h));
+          this.time.delayedCall(340, () => this.showQuarantineCard(w, h));
         } else if (oldQCard) {
           const discardWX = w / 2 + DISCARD_LOCAL_CX;
           const discardWY = h * getViewportLayout(w, h).centreYRatio + DISCARD_LOCAL_CY;
@@ -660,11 +660,11 @@ export class GameScene extends Phaser.Scene {
 
     // Restore overclock visual on rebuild (e.g. window resize)
     const pendingOC = useGameStore.getState().pendingOverclockCard;
-    if (pendingOC) this.showOverclockCard(pendingOC, width, height);
+    if (pendingOC) this.showOverclockCard(width, height);
 
     // Restore quarantine visual on rebuild
     const humanQC = useGameStore.getState().players.find(p => p.isHuman)?.quarantineCard ?? null;
-    if (humanQC) this.showQuarantineCard(humanQC, width, height);
+    if (humanQC) this.showQuarantineCard(width, height);
   }
 
   // ── Player dim — fades inactive player zones and card backs ─────────────
@@ -1085,7 +1085,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ── Overclock card visual — shown on table while Overclock is pending ────────
-  private showOverclockCard(cardData: import('../../types/cards').Card, width: number, height: number) {
+  private showOverclockCard(width: number, height: number) {
     if (this.overclockVisual) {
       this.tweens.killTweensOf(this.overclockVisual);
       this.overclockVisual.destroy();
@@ -1127,17 +1127,12 @@ export class GameScene extends Phaser.Scene {
       fontStyle: 'bold', resolution: dpr,
     }).setOrigin(0.5));
 
-    con.add(this.add.text(0, -H / 2 + 27, cardData.name.toUpperCase(), {
-      fontFamily: 'monospace', fontSize: '8px', color: '#5588aa',
-      resolution: dpr,
-    }).setOrigin(0.5));
-
-    con.add(this.add.text(0, -H / 2 + 41, 'PENDING — NEXT ROLL', {
+    con.add(this.add.text(0, -H / 2 + 34, 'PENDING — NEXT ROLL', {
       fontFamily: 'monospace', fontSize: '7px', color: '#334455',
       resolution: dpr,
     }).setOrigin(0.5));
 
-    con.add(this.add.text(0, -H / 2 + 53, 'ROLL SHIFTED +5', {
+    con.add(this.add.text(0, -H / 2 + 49, 'ROLL SHIFTED +5', {
       fontFamily: 'monospace', fontSize: '7px', color: '#00ccff55',
       resolution: dpr,
     }).setOrigin(0.5));
@@ -1187,7 +1182,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ── Quarantine card visual — shown on table while a Quarantine block is armed ─
-  private showQuarantineCard(cardData: import('../../types/cards').Card, width: number, height: number) {
+  private showQuarantineCard(width: number, height: number) {
     if (this.quarantineVisual) {
       this.tweens.killTweensOf(this.quarantineVisual);
       this.quarantineVisual.destroy();
@@ -1226,17 +1221,12 @@ export class GameScene extends Phaser.Scene {
       fontStyle: 'bold', resolution: dpr,
     }).setOrigin(0.5));
 
-    con.add(this.add.text(0, -H / 2 + 27, cardData.name.toUpperCase(), {
-      fontFamily: 'monospace', fontSize: '8px', color: '#4a8870',
-      resolution: dpr,
-    }).setOrigin(0.5));
-
-    con.add(this.add.text(0, -H / 2 + 41, 'ARMED — NEXT CONFLICT', {
+    con.add(this.add.text(0, -H / 2 + 34, 'ARMED — NEXT CONFLICT', {
       fontFamily: 'monospace', fontSize: '7px', color: '#334455',
       resolution: dpr,
     }).setOrigin(0.5));
 
-    con.add(this.add.text(0, -H / 2 + 53, 'AUTO-CANCELS ATTACK', {
+    con.add(this.add.text(0, -H / 2 + 49, 'AUTO-CANCELS ATTACK', {
       fontFamily: 'monospace', fontSize: '7px', color: '#00ffcc55',
       resolution: dpr,
     }).setOrigin(0.5));

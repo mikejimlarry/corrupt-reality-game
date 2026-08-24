@@ -82,6 +82,28 @@ const MUSIC_FILES = [
 const _musicEls: (HTMLAudioElement | null)[] = [null, null];
 const MUSIC_KEY       = 'crg-music-enabled';
 const MUSIC_TRACK_KEY = 'crg-music-track';
+let removeMusicRetryListeners: (() => void) | null = null;
+
+function clearMusicRetry(): void {
+  removeMusicRetryListeners?.();
+  removeMusicRetryListeners = null;
+}
+
+function retryMusicOnNextGesture(): void {
+  if (removeMusicRetryListeners) return;
+
+  const retry = () => {
+    clearMusicRetry();
+    if (getMusicEnabled()) _playMusicEl();
+  };
+
+  window.addEventListener('click', retry, { once: true });
+  window.addEventListener('keydown', retry, { once: true });
+  removeMusicRetryListeners = () => {
+    window.removeEventListener('click', retry);
+    window.removeEventListener('keydown', retry);
+  };
+}
 
 export function getMusicEnabled(): boolean {
   return localStorage.getItem(MUSIC_KEY) !== 'false';
@@ -106,6 +128,7 @@ export function setMusicEnabled(enabled: boolean): void {
 export function nextMusicTrack(): void {
   const next = (getMusicTrack() + 1) % MUSIC_FILES.length;
   localStorage.setItem(MUSIC_TRACK_KEY, String(next));
+  clearMusicRetry();
   // Stop all tracks then play the new one
   _musicEls.forEach(el => { if (el) { el.pause(); el.currentTime = 0; } });
   if (getMusicEnabled()) _playMusicEl();
@@ -121,15 +144,9 @@ function _playMusicEl(): void {
   }
   // Pause any other playing track
   _musicEls.forEach((el, i) => { if (el && i !== idx) { el.pause(); el.currentTime = 0; } });
-  _musicEls[idx]!.play().catch(() => {
-    // Autoplay blocked (e.g. pointerdown fired before user activation was established).
-    // Register a one-shot retry on the next reliable user gesture.
-    const el = _musicEls[idx];
-    if (!el) return;
-    const retry = () => { if (getMusicEnabled()) el.play().catch(() => {}); };
-    window.addEventListener('click', retry, { once: true });
-    window.addEventListener('keydown', retry, { once: true });
-  });
+  _musicEls[idx]!.play()
+    .then(clearMusicRetry)
+    .catch(retryMusicOnNextGesture);
 }
 
 /** Start background music if the toggle is enabled. Call after first user gesture. */
@@ -140,6 +157,7 @@ export function startMusic(): void {
 
 /** Stop and reset background music. */
 export function stopMusic(): void {
+  clearMusicRetry();
   _musicEls.forEach(el => { if (el) { el.pause(); el.currentTime = 0; } });
 }
 
@@ -162,11 +180,41 @@ const ALL_FILES = [
   'deck_ui_show_modal.wav',
 ];
 
-/** Call on first pointer event to unblock AudioContext, kick off SFX preloading, and start music. */
+/** Call on the first click or key event to unblock audio, preload SFX, and start music. */
 export function resumeAudio() {
   ctx(); // unblocks suspended context
   ALL_FILES.forEach(f => load(f));
   startMusic(); // attempt music now that the user has gestured
+}
+
+/**
+ * Start audio on the first gesture browsers reliably accept for media playback.
+ * Capture runs before React button handlers, so clicking the boot screen also
+ * unlocks the selected music track without requiring a toggle cycle.
+ */
+export function listenForAudioUnlock(target: Window = window): () => void {
+  let armed = true;
+
+  const removeListeners = () => {
+    target.removeEventListener('click', unlockAudio, true);
+    target.removeEventListener('keydown', unlockAudio, true);
+  };
+  const unlockAudio = () => {
+    if (!armed) return;
+    armed = false;
+    removeListeners();
+    resumeAudio();
+  };
+
+  // pointerdown is intentionally excluded: Safari can fire it before HTML
+  // media playback has acquired user activation.
+  target.addEventListener('click', unlockAudio, true);
+  target.addEventListener('keydown', unlockAudio, true);
+
+  return () => {
+    armed = false;
+    removeListeners();
+  };
 }
 
 // ── In-game sound effects ──────────────────────────────────────────────────────

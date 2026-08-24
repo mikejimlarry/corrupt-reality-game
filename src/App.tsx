@@ -16,7 +16,7 @@ import { UpdateBanner } from './ui/UpdateBanner';
 import { TutorialOverlay } from './ui/TutorialOverlay';
 import { WarResultOverlay } from './ui/WarResultOverlay';
 import { useGameAudio } from './hooks/useGameAudio';
-import { resumeAudio, stopMusic, sfxHover } from './lib/audio';
+import { listenForAudioUnlock, stopMusic, sfxHover } from './lib/audio';
 import { trackEvent } from './lib/analytics';
 
 const AMBIENT_STYLE = `
@@ -50,12 +50,8 @@ function App() {
     return () => destroyGame();
   }, []);
 
-  // Resume AudioContext + start music on first user gesture (browser autoplay policy)
-  useEffect(() => {
-    const handler = () => resumeAudio(); // also calls startMusic() internally
-    window.addEventListener('pointerdown', handler, { once: true });
-    return () => window.removeEventListener('pointerdown', handler);
-  }, []);
+  // Resume AudioContext + start music on the first browser-approved gesture.
+  useEffect(() => listenForAudioUnlock(), []);
 
   // Button hover sound — fires once per button entry, gated to avoid rapid-fire
   useEffect(() => {
