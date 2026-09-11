@@ -40,19 +40,19 @@ export const DaemonStealOverlay: React.FC = () => {
     >
         {/* Header */}
         <div style={{
-          color: '#00ffcc', letterSpacing: 6, fontSize: '0.6rem',
+          color: 'var(--crg-signal)', letterSpacing: 4, fontSize: '0.75rem',
           textAlign: 'center', marginBottom: '0.4rem',
         }}>
           ◈ BACKDOOR ACCESS
         </div>
         <h2 style={{
-          color: '#00ddaa', letterSpacing: 4, fontSize: '1.1rem',
+          color: 'var(--crg-signal)', letterSpacing: 4, fontSize: '1.1rem',
           margin: '0 0 0.35rem', textAlign: 'center',
         }}>
           DAEMON EXTRACTION
         </h2>
         <p style={{
-          color: '#336655', letterSpacing: 1, fontSize: '0.6rem',
+          color: 'var(--crg-body)', letterSpacing: 1, fontSize: '0.875rem',
           textAlign: 'center', margin: '0 0 1.5rem',
           lineHeight: 1.6,
         }}>
@@ -66,28 +66,30 @@ export const DaemonStealOverlay: React.FC = () => {
             const willDiscard = actorDaemons.includes(daemon);
             return (
               <button
+                type="button"
                 key={daemon}
                 onClick={() => resolve(daemon)}
                 style={{
                   background: willDiscard ? 'rgba(255,80,80,0.04)' : 'rgba(0,255,204,0.04)',
                   border: `1px solid ${willDiscard ? '#ff335522' : '#00ffcc22'}`,
-                  color: willDiscard ? '#aa5544' : '#44bbaa',
+                  color: willDiscard ? 'var(--crg-rival)' : 'var(--crg-signal)',
                   fontFamily: 'monospace',
                   padding: '0.7rem 0.9rem',
                   textAlign: 'left',
                   cursor: 'pointer',
                   transition: 'all 0.15s',
                   lineHeight: 1,
+                  minHeight: 44,
                 }}
                 className={willDiscard ? 'crg-btn-red' : 'crg-btn-cyan'}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.3rem' }}>
-                  <span style={{ fontSize: '0.72rem', letterSpacing: 2 }}>{DAEMON_LABELS[daemon]}</span>
+                  <span style={{ fontSize: '0.75rem', letterSpacing: 2 }}>{DAEMON_LABELS[daemon]}</span>
                   {willDiscard && (
-                    <span style={{ fontSize: '0.55rem', color: '#ff3355aa', letterSpacing: 1 }}>ALREADY ACTIVE — DISCARDED</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--crg-rival)', letterSpacing: 1 }}>ALREADY ACTIVE — DISCARDED</span>
                   )}
                 </div>
-                <div style={{ fontSize: '0.58rem', color: willDiscard ? '#663333' : '#336655', letterSpacing: 0.5, lineHeight: 1.5 }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--crg-body)', letterSpacing: 0.5, lineHeight: 1.5 }}>
                   {DAEMON_DESCRIPTIONS[daemon]}
                 </div>
               </button>
@@ -97,16 +99,17 @@ export const DaemonStealOverlay: React.FC = () => {
 
         {/* Cancel — lose the card effect */}
         <button
+          type="button"
           onClick={() => resolve(null)}
           style={{
             width: '100%',
             background: 'transparent',
-            border: '1px solid #22334422',
-            color: '#334444',
+            border: '1px solid color-mix(in srgb, var(--crg-muted) 25%, transparent)',
+            color: 'var(--crg-muted)',
             fontFamily: 'monospace',
-            fontSize: '0.65rem',
+            fontSize: '0.75rem',
             letterSpacing: 3,
-            padding: '0.5rem',
+            padding: '0.5rem', minHeight: 44,
             cursor: 'pointer',
             transition: 'all 0.15s',
           }}

@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-11T13:41:29Z",
+  "title": "Design System: Corrupt Reality",
+  "extensions": {
+    "colorMeta": {
+      "signal-cyan": {
+        "role": "primary",
+        "displayName": "Signal Cyan",
+        "canonical": "#00ffcc",
+        "tonalRamp": ["oklch(15% 0.174 171.3)", "oklch(25% 0.174 171.3)", "oklch(35% 0.174 171.3)", "oklch(45% 0.174 171.3)", "oklch(55% 0.174 171.3)", "oklch(65% 0.174 171.3)", "oklch(78% 0.174 171.3)", "oklch(92% 0.174 171.3)"]
+      },
+      "rival-magenta": {
+        "role": "secondary",
+        "displayName": "Rival Magenta",
+        "canonical": "#ff3355",
+        "tonalRamp": ["oklch(15% 0.235 18.6)", "oklch(25% 0.235 18.6)", "oklch(35% 0.235 18.6)", "oklch(45% 0.235 18.6)", "oklch(55% 0.235 18.6)", "oklch(65% 0.235 18.6)", "oklch(78% 0.235 18.6)", "oklch(92% 0.235 18.6)"]
+      },
+      "corruption-red": {
+        "role": "secondary",
+        "displayName": "Corruption Red",
+        "canonical": "#ff1e3c",
+        "tonalRamp": ["oklch(15% 0.247 23.0)", "oklch(25% 0.247 23.0)", "oklch(35% 0.247 23.0)", "oklch(45% 0.247 23.0)", "oklch(55% 0.247 23.0)", "oklch(65% 0.247 23.0)", "oklch(78% 0.247 23.0)", "oklch(92% 0.247 23.0)"]
+      },
+      "conflict-amber": {
+        "role": "tertiary",
+        "displayName": "Conflict Amber",
+        "canonical": "#ff8800",
+        "tonalRamp": ["oklch(15% 0.181 56.5)", "oklch(25% 0.181 56.5)", "oklch(35% 0.181 56.5)", "oklch(45% 0.181 56.5)", "oklch(55% 0.181 56.5)", "oklch(65% 0.181 56.5)", "oklch(78% 0.181 56.5)", "oklch(92% 0.181 56.5)"]
+      },
+      "positive-blue": {
+        "role": "tertiary",
+        "displayName": "Positive Protocol Blue",
+        "canonical": "#00ccff",
+        "tonalRamp": ["oklch(15% 0.148 224.3)", "oklch(25% 0.148 224.3)", "oklch(35% 0.148 224.3)", "oklch(45% 0.148 224.3)", "oklch(55% 0.148 224.3)", "oklch(65% 0.148 224.3)", "oklch(78% 0.148 224.3)", "oklch(92% 0.148 224.3)"]
+      },
+      "counter-violet": {
+        "role": "tertiary",
+        "displayName": "Countermeasure Violet",
+        "canonical": "#bb44ff",
+        "tonalRamp": ["oklch(15% 0.264 309.8)", "oklch(25% 0.264 309.8)", "oklch(35% 0.264 309.8)", "oklch(45% 0.264 309.8)", "oklch(55% 0.264 309.8)", "oklch(65% 0.264 309.8)", "oklch(78% 0.264 309.8)", "oklch(92% 0.264 309.8)"]
+      },
+      "cycle-green": {
+        "role": "tertiary",
+        "displayName": "Cycle Gain Green",
+        "canonical": "#00ff88",
+        "tonalRamp": ["oklch(15% 0.228 152.5)", "oklch(25% 0.228 152.5)", "oklch(35% 0.228 152.5)", "oklch(45% 0.228 152.5)", "oklch(55% 0.228 152.5)", "oklch(65% 0.228 152.5)", "oklch(78% 0.228 152.5)", "oklch(92% 0.228 152.5)"]
+      },
+      "legendary-gold": {
+        "role": "tertiary",
+        "displayName": "Legendary Gold",
+        "canonical": "#ffaa00",
+        "tonalRamp": ["oklch(15% 0.171 73.3)", "oklch(25% 0.171 73.3)", "oklch(35% 0.171 73.3)", "oklch(45% 0.171 73.3)", "oklch(55% 0.171 73.3)", "oklch(65% 0.171 73.3)", "oklch(78% 0.171 73.3)", "oklch(92% 0.171 73.3)"]
+      },
+      "console-void": {
+        "role": "neutral",
+        "displayName": "Console Void",
+        "canonical": "#0a0a0f",
+        "tonalRamp": ["oklch(15% 0.011 285.0)", "oklch(25% 0.011 285.0)", "oklch(35% 0.011 285.0)", "oklch(45% 0.011 285.0)", "oklch(55% 0.011 285.0)", "oklch(65% 0.011 285.0)", "oklch(78% 0.011 285.0)", "oklch(92% 0.011 285.0)"]
+      },
+      "panel-black": {
+        "role": "neutral",
+        "displayName": "Panel Black",
+        "canonical": "#05050f",
+        "tonalRamp": ["oklch(15% 0.025 282.1)", "oklch(25% 0.025 282.1)", "oklch(35% 0.025 282.1)", "oklch(45% 0.025 282.1)", "oklch(55% 0.025 282.1)", "oklch(65% 0.025 282.1)", "oklch(78% 0.025 282.1)", "oklch(92% 0.025 282.1)"]
+      },
+      "card-black": {
+        "role": "neutral",
+        "displayName": "Protocol Card Black",
+        "canonical": "#0d0d1f",
+        "tonalRamp": ["oklch(15% 0.037 281.7)", "oklch(25% 0.037 281.7)", "oklch(35% 0.037 281.7)", "oklch(45% 0.037 281.7)", "oklch(55% 0.037 281.7)", "oklch(65% 0.037 281.7)", "oklch(78% 0.037 281.7)", "oklch(92% 0.037 281.7)"]
+      },
+      "cold-steel": {
+        "role": "neutral",
+        "displayName": "Cold Steel",
+        "canonical": "#aabbcc",
+        "tonalRamp": ["oklch(15% 0.031 248.2)", "oklch(25% 0.031 248.2)", "oklch(35% 0.031 248.2)", "oklch(45% 0.031 248.2)", "oklch(55% 0.031 248.2)", "oklch(65% 0.031 248.2)", "oklch(78% 0.031 248.2)", "oklch(92% 0.031 248.2)"]
+      },
+      "readable-body": {
+        "role": "neutral",
+        "displayName": "Readable Body",
+        "canonical": "#8baaa0",
+        "tonalRamp": ["oklch(15% 0.035 165.0)", "oklch(25% 0.035 165.0)", "oklch(35% 0.035 165.0)", "oklch(45% 0.035 165.0)", "oklch(55% 0.035 165.0)", "oklch(65% 0.035 165.0)", "oklch(78% 0.035 165.0)", "oklch(92% 0.035 165.0)"]
+      },
+      "readable-muted": {
+        "role": "neutral",
+        "displayName": "Readable Muted",
+        "canonical": "#778899",
+        "tonalRamp": ["oklch(15% 0.033 248.4)", "oklch(25% 0.033 248.4)", "oklch(35% 0.033 248.4)", "oklch(45% 0.033 248.4)", "oklch(55% 0.033 248.4)", "oklch(65% 0.033 248.4)", "oklch(78% 0.033 248.4)", "oklch(92% 0.033 248.4)"]
+      },
+      "body-steel": {
+        "role": "neutral",
+        "displayName": "Body Steel",
+        "canonical": "#667788",
+        "tonalRamp": ["oklch(15% 0.033 248.4)", "oklch(25% 0.033 248.4)", "oklch(35% 0.033 248.4)", "oklch(45% 0.033 248.4)", "oklch(55% 0.033 248.4)", "oklch(65% 0.033 248.4)", "oklch(78% 0.033 248.4)", "oklch(92% 0.033 248.4)"]
+      },
+      "grid-steel": {
+        "role": "neutral",
+        "displayName": "Grid Steel",
+        "canonical": "#334455",
+        "tonalRamp": ["oklch(15% 0.036 248.8)", "oklch(25% 0.036 248.8)", "oklch(35% 0.036 248.8)", "oklch(45% 0.036 248.8)", "oklch(55% 0.036 248.8)", "oklch(65% 0.036 248.8)", "oklch(78% 0.036 248.8)", "oklch(92% 0.036 248.8)"]
+      },
+      "dim-terminal": {
+        "role": "neutral",
+        "displayName": "Dim Terminal Green",
+        "canonical": "#446655",
+        "tonalRamp": ["oklch(15% 0.048 162.1)", "oklch(25% 0.048 162.1)", "oklch(35% 0.048 162.1)", "oklch(45% 0.048 162.1)", "oklch(55% 0.048 162.1)", "oklch(65% 0.048 162.1)", "oklch(78% 0.048 162.1)", "oklch(92% 0.048 162.1)"]
+      },
+      "pure-white": {
+        "role": "neutral",
+        "displayName": "Pure White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["oklch(15% 0.000 89.9)", "oklch(25% 0.000 89.9)", "oklch(35% 0.000 89.9)", "oklch(45% 0.000 89.9)", "oklch(55% 0.000 89.9)", "oklch(65% 0.000 89.9)", "oklch(78% 0.000 89.9)", "oklch(92% 0.000 89.9)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Corrupt Reality wordmark only." },
+      "headline": { "displayName": "Headline", "purpose": "Critical outcomes and major state changes." },
+      "title": { "displayName": "Title", "purpose": "Primary actions, card names, and important values." },
+      "body": { "displayName": "Body", "purpose": "Rules, effects, tutorial guidance, and readable explanations." },
+      "label": { "displayName": "Label", "purpose": "Uppercase decorative telemetry labels." },
+      "readableLabel": { "displayName": "Readable Label", "purpose": "Operational labels and secondary controls at compact web viewports." },
+      "readableBody": { "displayName": "Readable Body", "purpose": "Accessible commands, modal explanations, and rules copy." },
+      "controlTitle": { "displayName": "Control Title", "purpose": "Accessible dialog titles and high-priority setup values." },
+      "canvasMicro": { "displayName": "Canvas Micro", "purpose": "Decorative native-resolution telemetry with a DOM equivalent." },
+      "canvasLabel": { "displayName": "Canvas Label", "purpose": "Readable native-resolution Phaser labels." },
+      "canvasBody": { "displayName": "Canvas Body", "purpose": "Readable native-resolution Phaser effect copy." },
+      "canvasTitle": { "displayName": "Canvas Title", "purpose": "Phaser card and state titles." },
+      "canvasValue": { "displayName": "Canvas Value", "purpose": "High-priority numeric output." },
+      "canvasDisplay": { "displayName": "Canvas Display", "purpose": "Transient game-state display values." }
+    },
+    "shadows": [
+      { "name": "interactive-signal-glow", "value": "0 0 18px #00ffcc33", "purpose": "Focused or hovered primary setup action." },
+      { "name": "modal-atmosphere", "value": "0 0 60px #00ffcc0d", "purpose": "Extremely faint field behind the Field Manual panel." },
+      { "name": "status-pulse-low", "value": "0 0 6px 1px rgba(0,255,204,0.25), 0 0 0 1px rgba(0,255,204,0.15)", "purpose": "Rest point of the required-action pulse." },
+      { "name": "status-pulse-high", "value": "0 0 22px 4px rgba(0,255,204,0.65), 0 0 0 1px rgba(0,255,204,0.45)", "purpose": "Peak of the required-action pulse." },
+      { "name": "corruption-vignette", "value": "inset 0 0 120px 40px rgba(200,0,30,0.35)", "purpose": "Environmental corruption state around the viewport." }
+    ],
+    "motion": [
+      { "name": "interaction-fast", "value": "150ms ease", "purpose": "Button, tab, and selection state changes." },
+      { "name": "hud-entry", "value": "180-200ms ease-out", "purpose": "Required actions entering near the active play area." },
+      { "name": "modal-unfold", "value": "380ms cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Two-stage diagnostic panel opening." },
+      { "name": "modal-fold", "value": "280ms cubic-bezier(0.55, 0, 1, 0.45)", "purpose": "Quicker reversal when a diagnostic panel closes." },
+      { "name": "status-breathe", "value": "1.2-1.4s ease-in-out infinite alternate", "purpose": "Current agent and required-action status only." },
+      { "name": "corruption-pulse", "value": "1.1s ease-in-out infinite", "purpose": "Urgent actions after corruption changes the operating state." },
+      { "name": "ambient-scan", "value": "6-9s linear infinite", "purpose": "Low-opacity scan sweeps during active gameplay." },
+      { "name": "identity-glitch", "value": "12s infinite with activity concentrated in the final 9%", "purpose": "Infrequent title-channel split and leet-character correction." },
+      { "name": "reduced-motion", "value": "skip nonessential tween, pulse, scan, unfold, and glitch motion", "purpose": "Preserve state and information when reduced motion is enabled." }
+    ],
+    "breakpoints": [
+      { "name": "phone", "value": "600px" },
+      { "name": "narrow-hud", "value": "700px" },
+      { "name": "compact-hand", "value": "768px" },
+      { "name": "compact-landscape", "value": "max-height: 620px and width > height" },
+      { "name": "short-setup", "value": "max-height: 700px" },
+      { "name": "very-short-setup", "value": "max-height: 440px" },
+      { "name": "short-game-over", "value": "max-height: 650px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Game Action",
+      "kind": "button",
+      "refersTo": "action-primary",
+      "description": "The required phase action: solid Signal Cyan, dark text, and a controlled live-state pulse.",
+      "html": "<button class=\"ds-action-primary\">▶ BEGIN SEQUENCE</button>",
+      "css": ".ds-action-primary { min-width: 200px; min-height: 48px; padding: 12px 20px; border: 0; border-radius: 4px; background: #00ffcc; color: #0a0a0f; font: 700 13px/1.2 monospace; letter-spacing: 2px; cursor: pointer; transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease; box-shadow: 0 0 6px 1px rgba(0,255,204,0.25), 0 0 0 1px rgba(0,255,204,0.15); } .ds-action-primary:hover { transform: translateY(-1px); box-shadow: 0 0 22px 4px rgba(0,255,204,0.45), 0 0 0 1px rgba(0,255,204,0.45); } .ds-action-primary:active { transform: translateY(0); } .ds-action-primary:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }"
+    },
+    {
+      "name": "Ghost Console Button",
+      "kind": "button",
+      "refersTo": "action-ghost",
+      "description": "A secondary command that stays quiet until hover or focus.",
+      "html": "<button class=\"ds-action-ghost\">? FIELD MANUAL</button>",
+      "css": ".ds-action-ghost { min-height: 44px; padding: 8px 12px; border: 1px solid #00ffcc33; border-radius: 0; background: transparent; color: #446655; font: 400 10px/1.2 monospace; letter-spacing: 2px; cursor: pointer; transition: color 150ms ease, border-color 150ms ease, background 150ms ease; } .ds-action-ghost:hover { background: rgba(0,255,204,0.13); border-color: #00ffcc55; color: #00ffcc; } .ds-action-ghost:active { background: rgba(0,255,204,0.18); } .ds-action-ghost:focus-visible { outline: 2px solid #00ffcc; outline-offset: 2px; color: #00ffcc; }"
+    },
+    {
+      "name": "Segmented Choice",
+      "kind": "chip",
+      "refersTo": "choice-segment",
+      "description": "Mutually exclusive setup values presented as equal-width terminal cells.",
+      "html": "<div class=\"ds-choice\"><button>EASY</button><button class=\"is-active\">MEDIUM</button><button>HARD</button></div>",
+      "css": ".ds-choice { display: flex; width: 300px; gap: 8px; } .ds-choice button { flex: 1; min-height: 44px; padding: 6px 10px; border: 1px solid #00ffcc33; border-radius: 0; background: transparent; color: #446655; font: 400 13px/1 monospace; letter-spacing: 1px; cursor: pointer; transition: all 150ms ease; } .ds-choice button:hover { color: #00ffcc; border-color: #00ffcc66; background: #00ffcc11; } .ds-choice button.is-active { color: #00ffcc; border-color: #00ffcc; background: #00ffcc22; } .ds-choice button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Terminal Handle Field",
+      "kind": "input",
+      "refersTo": "handle-field",
+      "description": "An unboxed uppercase input with prompt glyph, cyan baseline, and terminal-cursor behavior.",
+      "html": "<label class=\"ds-handle\"><span>&gt;</span><input value=\"GHOST\" aria-label=\"Your handle\"><i>_</i></label>",
+      "css": ".ds-handle { display: flex; align-items: center; width: 300px; min-height: 44px; border-bottom: 1px solid #00ffcc; color: #00ffcc; font-family: monospace; } .ds-handle > span { margin-right: 6px; font-size: 14px; } .ds-handle input { min-width: 0; flex: 1; padding: 8px 0; border: 0; outline: 0; background: transparent; color: #00ffcc; font: 400 14px/1.4 monospace; letter-spacing: 3px; text-transform: uppercase; caret-color: transparent; } .ds-handle i { font: 400 14px/1 monospace; animation: ds-cursor 1s step-end infinite; } .ds-handle:focus-within { box-shadow: 0 2px 0 rgba(0,255,204,0.18); } @keyframes ds-cursor { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } } @media (prefers-reduced-motion: reduce) { .ds-handle i { animation: none; } }"
+    },
+    {
+      "name": "Command Status Panel",
+      "kind": "custom",
+      "refersTo": "command-panel",
+      "description": "A compact HUD module for turn state, agent identity, and cycle telemetry.",
+      "html": "<section class=\"ds-command-panel\"><header>TURN 07 · MAIN</header><strong>▶ YOUR TURN</strong><div class=\"ds-agent\"><span>GHOST</span><i><b></b></i><em>48</em></div><div class=\"ds-agent rival\"><span>NYX</span><i><b></b></i><em>31</em></div></section>",
+      "css": ".ds-command-panel { width: 266px; padding: 8px 12px; border: 1px solid #00ffcc33; border-radius: 6px; background: rgba(5,5,15,0.88); color: #c0d0e0; font-family: monospace; } .ds-command-panel header { margin-bottom: 5px; color: #00ffcc88; font-size: 10px; letter-spacing: 2px; } .ds-command-panel strong { display: block; margin-bottom: 10px; color: #00ffcc; font-size: 13px; } .ds-agent { display: grid; grid-template-columns: 68px 1fr 22px; align-items: center; gap: 6px; margin-top: 5px; color: #00ffcc; font-size: 9px; } .ds-agent span { overflow: hidden; text-overflow: ellipsis; letter-spacing: 1px; } .ds-agent i { height: 4px; overflow: hidden; border-radius: 2px; background: #00ffcc18; } .ds-agent b { display: block; width: 70%; height: 100%; background: #00ffcc; } .ds-agent em { font-style: normal; text-align: right; } .ds-agent.rival { color: #ff9955; } .ds-agent.rival i { background: #ff995518; } .ds-agent.rival b { width: 45%; background: #ff9955; }"
+    },
+    {
+      "name": "Field Manual Tabs",
+      "kind": "nav",
+      "refersTo": "manual-tabs",
+      "description": "Tracked uppercase navigation with an instrument-line active state.",
+      "html": "<nav class=\"ds-manual-tabs\"><button class=\"is-active\">HOW TO PLAY</button><button>INTERFACE</button><button>CARDS</button></nav>",
+      "css": ".ds-manual-tabs { display: flex; gap: 2px; border-bottom: 1px solid #00ffcc1a; background: #05050f; } .ds-manual-tabs button { padding: 6px 12px 10px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #446655; font: 400 10px/1 monospace; letter-spacing: 3px; cursor: pointer; transition: all 150ms ease; } .ds-manual-tabs button:hover { color: #00ffcc99; background: #00ffcc08; } .ds-manual-tabs button.is-active { color: #00ffcc; border-bottom-color: #00ffcc; background: #00ffcc0d; } .ds-manual-tabs button:focus-visible { outline: 2px solid #ffffff; outline-offset: -2px; }"
+    },
+    {
+      "name": "Protocol Card",
+      "kind": "card",
+      "refersTo": "protocol-card",
+      "description": "The playable 5:7 module with category-owned edge, circuit field, bright name, and compressed effect copy.",
+      "html": "<article class=\"ds-protocol-card\"><header><span>SYSTEM EVENT</span><b>UNCOMMON</b></header><div class=\"ds-card-art\"><i></i></div><h3>MEMORY LEAK</h3><p>Spread a slow-acting virus through a rival faction. Target loses -5 cycles.</p><footer>EVT_NEG · 05</footer></article>",
+      "css": ".ds-protocol-card { box-sizing: border-box; width: 150px; height: 210px; padding: 9px; overflow: hidden; border: 1.5px solid #ff3355; border-radius: 8px; background: #0d0d1f; color: #c8d8e8; font-family: monospace; transition: transform 150ms ease, box-shadow 150ms ease; } .ds-protocol-card:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 0 18px #ff335555; } .ds-protocol-card header { display: flex; justify-content: space-between; align-items: center; color: #ff3355; font-size: 7px; letter-spacing: 2px; } .ds-protocol-card header b { padding: 2px 4px; border: 1px solid #44aaff55; border-radius: 3px; color: #44aaff; font-weight: 400; letter-spacing: 0; } .ds-card-art { position: relative; height: 52px; margin: 8px 0; overflow: hidden; border: 1px solid #ff335533; background: #061420; } .ds-card-art::before, .ds-card-art::after { content: ''; position: absolute; inset: 50% auto auto 50%; width: 28px; height: 28px; border: 1px solid #ff335588; transform: translate(-50%,-50%) rotate(45deg); } .ds-card-art::after { width: 8px; height: 8px; background: #ff3355; opacity: .55; } .ds-protocol-card h3 { margin: 0 0 6px; color: #ffffff; font-size: 11px; line-height: 1.2; letter-spacing: 1px; } .ds-protocol-card p { margin: 0; color: #c8d8e8; font-size: 8.5px; line-height: 1.4; } .ds-protocol-card footer { margin-top: 8px; color: #4a5c6a; font-size: 7px; letter-spacing: 1px; } .ds-protocol-card:focus-within { outline: 2px solid #ffffff; outline-offset: 3px; }"
+    },
+    {
+      "name": "Daemon Tag",
+      "kind": "chip",
+      "refersTo": "daemon-tag",
+      "description": "A compact status tag attached to the owning agent panel.",
+      "html": "<span class=\"ds-daemon-tag\">[FW] FIREWALL</span>",
+      "css": ".ds-daemon-tag { display: inline-flex; align-items: center; min-height: 16px; padding: 2px 8px; border: 1px solid #00ffcc80; border-radius: 3px; background: rgba(0,255,204,0.12); color: #00ffcc; font: 400 9px/1 monospace; letter-spacing: 1px; }"
+    },
+    {
+      "name": "Diagnostic Modal Panel",
+      "kind": "custom",
+      "refersTo": "modal-panel",
+      "description": "A layered diagnostic window with a strong top signal line and internally scrolling content.",
+      "html": "<section class=\"ds-modal-panel\"><header><div><strong>C O R R U P T · R E A L I T Y</strong><small>FIELD MANUAL v1.0</small></div><button>✕ CLOSE</button></header><div class=\"ds-modal-body\"><h2>STABILITY ROLL</h2><p>Each turn begins with a system check. Higher totals earn more cycles before card operations begin.</p></div></section>",
+      "css": ".ds-modal-panel { width: min(520px, 100%); max-height: 420px; overflow: hidden; border: 1px solid #00ffcc33; border-top: 2px solid #00ffcc; border-radius: 8px; background: #05050f; color: #aabbcc; font-family: monospace; box-shadow: 0 0 60px #00ffcc0d; } .ds-modal-panel > header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; } .ds-modal-panel strong { display: block; color: #00ffcc; font-size: 10px; letter-spacing: 6px; } .ds-modal-panel small { display: block; margin-top: 3px; color: #334455; font-size: 9px; letter-spacing: 3px; } .ds-modal-panel button { min-height: 36px; padding: 4px 10px; border: 1px solid #00ffcc33; background: transparent; color: #446655; font: 400 11px/1 monospace; letter-spacing: 2px; cursor: pointer; transition: all 150ms ease; } .ds-modal-panel button:hover { background: #00ffcc11; color: #00ffcc; border-color: #00ffcc66; } .ds-modal-panel button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; } .ds-modal-body { padding: 18px 20px 22px; border-top: 1px solid #00ffcc1a; } .ds-modal-body h2 { margin: 0 0 10px; color: #00ffcc; font-size: 14px; letter-spacing: 4px; } .ds-modal-body p { margin: 0; color: #778899; font-size: 11px; line-height: 1.7; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Failing Command Deck",
+    "overview": "Corrupt Reality is a shipboard-grade operations console still functioning while the network collapses around it. The player is an operator reading live system state, not a spectator looking at a themed card table. Near-black surfaces, Signal Cyan, compressed monospace type, framed modules, corner ticks, circuit traces, scanlines, and status language make every screen feel like one instrument.\n\nThe character is tense, technical, and decaying. Density is high but disciplined: primary actions are isolated, supporting data recedes through dim steel and terminal green, and category or state colors appear only when the rules demand them. The interface is layered rather than lifted. Tonal surfaces and hairline borders construct depth; glow and pulse are reserved for focus, selection, danger, and corruption. Glitch is an infrequent identity event, not continuous decoration.\n\nGlossy neon arcade styling, playful pixel nostalgia, and generic dashboard polish are explicit anti-references. The system should feel purpose-built, severe, and under pressure without sacrificing the legibility required to play.",
+    "keyCharacteristics": [
+      "Near-black operational canvas with thin, luminous instrumentation.",
+      "Signal Cyan owns normal player agency and live-system feedback.",
+      "Compressed monospace typography carries almost the entire interface; Doto is isolated to the game title.",
+      "Tonal layers and borders establish structure before shadow or glow.",
+      "Motion communicates boot, state change, selection, or failure; it never becomes ambient clutter.",
+      "Cards, panels, and overlays read as connected hardware modules in one failing console."
+    ],
+    "rules": [
+      { "name": "The Signal Discipline Rule", "body": "Signal Cyan owns normal player agency; it is never sprayed across inactive content merely to make the screen feel cyberpunk.", "section": "colors" },
+      { "name": "The Corruption Override Rule", "body": "When corruption activates, Corruption Red becomes the environmental accent and changes the apparent operating condition of the whole interface.", "section": "colors" },
+      { "name": "The Semantic Spectrum Rule", "body": "Green, blue, magenta, amber, violet, and gold identify stable gameplay meanings; do not exchange them for decorative variety.", "section": "colors" },
+      { "name": "The Doto Isolation Rule", "body": "Doto belongs to the Corrupt Reality wordmark; operational UI stays in system monospace.", "section": "typography" },
+      { "name": "The Compressed Transmission Rule", "body": "Labels are short, uppercase, and tracked; longer explanations reduce tracking and increase line-height before they increase size.", "section": "typography" },
+      { "name": "The Brightness Hierarchy Rule", "body": "Pure White and Signal Cyan are emphasis colors, not default body text; most supporting copy lives in the steel and dim-terminal range.", "section": "typography" },
+      { "name": "The Fixed Table Rule", "body": "Gameplay must read as one bounded table with stable anchors; do not turn primary play into a vertically scrolling page.", "section": "layout" },
+      { "name": "The Reachability Rule", "body": "On short or notched devices, preserve every action inside the safe viewport before preserving decorative scale or symmetry.", "section": "layout" },
+      { "name": "The Layered-Not-Lifted Rule", "body": "Use tonal surfaces and borders for resting hierarchy; reserve visible glow for interaction or state change.", "section": "elevation" },
+      { "name": "The No Permanent Halo Rule", "body": "If an element is not active, selected, dangerous, or receiving focus, it should not emit light.", "section": "elevation" },
+      { "name": "The Hardware Geometry Rule", "body": "Every decorative line should imply circuitry, framing, calibration, or machine construction; avoid arbitrary flourishes.", "section": "shapes" },
+      { "name": "The Radius Hierarchy Rule", "body": "Controls are hardest, content containers are gently rounded, and only physical-bezel metaphors receive the largest radii.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do use Signal Cyan for normal player agency and let semantic colors take over only for their established game states.",
+      "Do keep the full table, HUD anchors, hand, and required action legible as one composition at every supported viewport.",
+      "Do preserve 44px minimum controls and 48px primary actions where React overlays receive touch input.",
+      "Do use tonal layering, thin borders, corners, meters, and calibration marks before adding glow.",
+      "Do let reduced-motion mode remove scan, pulse, unfold, glitch, and card-flight effects without hiding information.",
+      "Do keep category, rarity, rival, corruption, gain, and warning colors semantically stable."
+    ],
+    "donts": [
+      "Don't turn the interface into a glossy neon arcade, playful pixel game, or generic analytics dashboard.",
+      "Don't use Doto for body copy, controls, cards, or telemetry; it is the title's signature face.",
+      "Don't make every label bright cyan or white; hierarchy depends on Dim Terminal Green and steel neutrals.",
+      "Don't use ambient glow on resting surfaces or add conventional floating-card shadows everywhere.",
+      "Don't introduce soft capsule pills, oversized rounded cards, or decorative gradients that do not describe system state.",
+      "Don't treat corruption as a local red badge; it changes the environmental accent and operating condition of the whole table.",
+      "Don't preserve decorative scale when it pushes actions outside a short, narrow, or safe-area-constrained viewport."
+    ]
+  }
+}

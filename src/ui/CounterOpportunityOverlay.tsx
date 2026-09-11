@@ -1,9 +1,9 @@
 // src/ui/CounterOpportunityOverlay.tsx
-// Shown when an AI declares WAR on the human and they hold a counter card.
-// Counter cards can only be played reactively during a WAR, before the roll.
+// Shown whenever an AI declares WAR on the human, before the roll.
+// Any eligible reactive counter cards are offered inside the briefing.
 import React from 'react';
 import { useGameStore } from '../state/useGameStore';
-import type { CounterCard } from '../types/cards';
+import type { CounterCard, WarCard } from '../types/cards';
 import { OverlayShell } from './OverlayShell';
 
 const COUNTER_LABEL: Record<string, string> = {
@@ -23,11 +23,15 @@ export const CounterOpportunityOverlay: React.FC = () => {
 
   if (!pending) return null;
 
-  const { attackerIndex, cardId, eligibleCounters } = pending;
+  const { attackerIndex, cardId, targetIndex, eligibleCounters } = pending;
   const attacker   = players[attackerIndex];
+  const defender   = players[targetIndex];
   const attackCard = attacker?.hand.find(c => c.id === cardId);
 
-  if (!attacker || !attackCard) return null;
+  if (!attacker || !defender || !attackCard || attackCard.category !== 'WAR') return null;
+
+  const warCard = attackCard as WarCard;
+  const hasCounters = eligibleCounters.length > 0;
 
   // Group by counterType (NEGOTIATE/Quarantine is proactive — never appears here)
   const shieldCards   = eligibleCounters.filter(c => c.counterType === 'SHIELD');
@@ -35,20 +39,22 @@ export const CounterOpportunityOverlay: React.FC = () => {
 
   const counterBtn = (card: CounterCard) => (
     <button
+      type="button"
       key={card.id}
       onClick={() => resolve(card.id)}
       className="crg-btn-cyan"
       style={{
         background: 'rgba(0,255,204,0.06)',
         border: '1px solid #00ffcc22',
-        color: '#00cc99',
+        color: 'var(--crg-signal)',
         fontFamily: 'monospace',
-        fontSize: '0.72rem', letterSpacing: 2,
+        fontSize: '0.75rem', letterSpacing: 2,
         padding: '0.6rem 0.9rem',
         textAlign: 'left',
         cursor: 'pointer',
         transition: 'all 0.12s',
         width: '100%',
+        minHeight: 44,
       }}
     >
       ⊘ {card.name}
@@ -57,24 +63,24 @@ export const CounterOpportunityOverlay: React.FC = () => {
 
   return (
     <OverlayShell
-      ariaLabel="Respond to incoming conflict"
+      ariaLabel="Incoming conflict briefing"
       background="rgba(8,3,0,0.94)"
       panelStyle={{
         border: '1px solid #ff880044',
         padding: '2rem',
-        background: 'rgba(18,6,0,0.92)',
+        background: 'color-mix(in srgb, var(--crg-conflict) 6%, var(--crg-panel))',
       }}
     >
 
         {/* Header */}
         <div style={{
-          color: '#ff7722', letterSpacing: 6, fontSize: '0.55rem',
+          color: 'var(--crg-conflict)', letterSpacing: 4, fontSize: '0.75rem',
           textAlign: 'center', marginBottom: '0.3rem',
         }}>
           ⚔ INCOMING WAR
         </div>
         <h2 style={{
-          color: '#ff8800', letterSpacing: 3, fontSize: '1rem',
+          color: 'var(--crg-conflict)', letterSpacing: 3, fontSize: '1rem',
           margin: '0 0 1rem', textAlign: 'center',
         }}>
           {attackCard.name.toUpperCase()}
@@ -82,24 +88,79 @@ export const CounterOpportunityOverlay: React.FC = () => {
 
         {/* Who's attacking */}
         <div style={{
-          fontSize: '0.65rem', color: '#ff770055', letterSpacing: 2,
+          fontSize: '0.875rem', color: 'var(--crg-body)', letterSpacing: 2,
           textAlign: 'center', marginBottom: '1.25rem',
         }}>
-          {attacker.name.toUpperCase()} is declaring war on you
+          {attacker.name.toUpperCase()} VS {defender.name.toUpperCase()}
+        </div>
+
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem',
+          marginBottom: '0.5rem', fontSize: '0.75rem', letterSpacing: 1,
+        }}>
+          <div style={{
+            padding: '0.65rem', textAlign: 'center',
+            border: '1px solid color-mix(in srgb, var(--crg-conflict) 28%, transparent)',
+            color: 'var(--crg-body)',
+          }}>
+            WINNER <strong style={{ color: 'var(--crg-conflict)' }}>−{warCard.winnerLoses} CYCLES</strong>
+          </div>
+          <div style={{
+            padding: '0.65rem', textAlign: 'center',
+            border: '1px solid color-mix(in srgb, var(--crg-conflict) 28%, transparent)',
+            color: 'var(--crg-body)',
+          }}>
+            LOSER <strong style={{ color: 'var(--crg-conflict)' }}>−{warCard.loserLoses} CYCLES</strong>
+          </div>
+        </div>
+        {warCard.loserLosesImprovement && (
+          <div style={{
+            color: 'var(--crg-conflict)', fontSize: '0.75rem', letterSpacing: 2,
+            textAlign: 'center', marginBottom: '0.5rem',
+          }}>
+            LOSER ALSO LOSES 1 DAEMON
+          </div>
+        )}
+        <div style={{
+          color: 'var(--crg-body)', fontSize: '0.75rem', letterSpacing: 1,
+          textAlign: 'center', marginBottom: '1.25rem',
+        }}>
+          Higher modified roll wins.
+          {defender.tacticalBonus > 0 && (
+            <strong style={{
+              display: 'block', color: 'var(--crg-signal)', letterSpacing: 2,
+              marginTop: '0.4rem',
+            }}>
+              FIREWALL BONUS ARMED: +{defender.tacticalBonus}
+            </strong>
+          )}
         </div>
 
         {/* Counter options */}
         <div style={{
-          fontSize: '0.5rem', color: '#ff880033', letterSpacing: 3,
+          fontSize: '0.75rem', color: 'var(--crg-conflict)', letterSpacing: 3,
           marginBottom: '0.5rem',
         }}>
-          RESPOND BEFORE THE WAR BEGINS
+          {hasCounters ? 'COUNTERMEASURES AVAILABLE' : 'COUNTERMEASURE STATUS'}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '1rem' }}>
+          {!hasCounters && (
+            <div style={{
+              padding: '0.9rem', textAlign: 'center',
+              border: '1px solid color-mix(in srgb, var(--crg-conflict) 28%, transparent)',
+              color: 'var(--crg-body)', fontSize: '0.75rem', letterSpacing: 1,
+              lineHeight: 1.6,
+            }}>
+              <strong style={{ display: 'block', color: 'var(--crg-conflict)', letterSpacing: 2 }}>
+                NO COUNTERMEASURES AVAILABLE
+              </strong>
+              Outcome will be decided by the roll.
+            </div>
+          )}
           {shieldCards.length > 0 && (
             <>
-              <div style={{ fontSize: '0.5rem', color: '#00ffcc33', letterSpacing: 2, marginBottom: 2 }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--crg-body)', letterSpacing: 2, marginBottom: 2 }}>
                 {COUNTER_LABEL.SHIELD} — {COUNTER_DESC.SHIELD}
               </div>
               {shieldCards.map(counterBtn)}
@@ -108,7 +169,7 @@ export const CounterOpportunityOverlay: React.FC = () => {
           {tacticalCards.length > 0 && (
             <>
               <div style={{
-                fontSize: '0.5rem', color: '#00ffcc33', letterSpacing: 2,
+                fontSize: '0.75rem', color: 'var(--crg-body)', letterSpacing: 2,
                 marginTop: shieldCards.length > 0 ? 8 : 0, marginBottom: 2,
               }}>
                 {COUNTER_LABEL.TACTICAL_ADVANTAGE} — {COUNTER_DESC.TACTICAL_ADVANTAGE}
@@ -123,21 +184,22 @@ export const CounterOpportunityOverlay: React.FC = () => {
 
         {/* Allow */}
         <button
+          type="button"
           onClick={() => resolve(null)}
           style={{
             width: '100%',
-            background: 'rgba(255,136,0,0.08)',
-            border: '1px solid #ff880044',
-            color: '#ff8800',
+            background: 'var(--crg-conflict)',
+            border: '1px solid var(--crg-conflict)',
+            color: 'var(--crg-void)',
             fontFamily: 'monospace',
-            fontSize: '0.72rem', letterSpacing: 3,
-            padding: '0.6rem',
+            fontSize: '0.75rem', letterSpacing: 3,
+            padding: '0.6rem', minHeight: 44,
             cursor: 'pointer',
             transition: 'all 0.12s',
           }}
-          className="crg-btn-war-proceed"
+          className="crg-btn-war-roll"
         >
-          TAKE THE HIT
+          ROLL FOR CONFLICT
         </button>
     </OverlayShell>
   );

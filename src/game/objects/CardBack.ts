@@ -137,11 +137,11 @@ export class CardBack extends Phaser.GameObjects.Container {
     // "CR" monogram
     const label = this.scene.add.text(0, r2 + 12, 'C·R', {
       fontFamily: 'monospace',
-      fontSize: '9px',
+      fontSize: '11px',
       color: '#00ffcc',
       letterSpacing: 4,
       resolution: window.devicePixelRatio,
-    }).setOrigin(0.5).setAlpha(0.45);
+    }).setOrigin(0.5).setAlpha(0.8);
     this.add(label);
 
     // Pulse ring animation

@@ -1,5 +1,8 @@
 // src/ui/HelpModal.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { DECK_CATALOG, type DeckCatalogEntry } from '../data/deck';
+import { useGameStore } from '../state/useGameStore';
+import { OverlayShell } from './OverlayShell';
 
 const UNFOLD_CSS = `
 @keyframes modal-unfold {
@@ -43,52 +46,6 @@ const CAT_LABEL: Record<string, string> = {
   DAEMON:         'DAEMON',
 };
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface CardEntry {
-  name: string;
-  category: string;
-  count: number;
-  effect: string;
-  note?: string;
-}
-
-// ── Card catalogue ────────────────────────────────────────────────────────────
-const CARDS: CardEntry[] = [
-  // Credits
-  { name: 'Data Harvest',        category: 'CYCLES',        count: 6, effect: 'Gain +5 cycles.' },
-  { name: 'Neural Uplink',       category: 'CYCLES',        count: 6, effect: 'Gain +10 cycles.' },
-  // Positive events
-  { name: 'Mass Assimilation',   category: 'EVENT_POSITIVE', count: 2, effect: 'Each opponent loses -5 cycles; you gain +5 per opponent.' },
-  { name: 'Overclock',           category: 'EVENT_POSITIVE', count: 2, effect: 'Adds +5 to your next Stability Roll total or -5 to your next Corruption Roll.' },
-  { name: 'Multitask',        category: 'EVENT_POSITIVE', count: 2, effect: 'Play 1–2 additional cards this turn. Bonus cards cannot be Conflict or Countermeasure cards.' },
-  { name: 'Quarantine',       category: 'EVENT_POSITIVE', count: 3, effect: 'Arms a standing block. The next Conflict or Digital Crusade targeting you is automatically cancelled and this card is consumed.' },
-  // Negative events
-  { name: 'Signal Theft',        category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses -15 cycles; you gain +15 cycles.' },
-  { name: 'Memory Leak',         category: 'EVENT_NEGATIVE', count: 6, effect: 'Target loses -5 cycles.' },
-  { name: 'Digital Crusade',     category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses -10 cycles.' },
-  { name: 'Data Drought',        category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 cycles.', note: 'Firewall immune' },
-  { name: 'Data Famine',         category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 cycles.' },
-  { name: 'Data Flood',          category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 cycles.', note: 'Encryption immune' },
-  { name: 'Node Rip',            category: 'EVENT_NEGATIVE', count: 2, effect: 'Target loses -10 cycles.', note: 'Hardened Node immune' },
-  { name: 'System Quake',        category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -5 cycles and one active daemon.' },
-  { name: 'Sigterm',             category: 'EVENT_NEGATIVE', count: 3, effect: 'Target loses -10 cycles and one active daemon.', note: 'Firewall immune' },
-  { name: 'M.A.D.',              category: 'EVENT_NEGATIVE', count: 2, effect: 'You and the target each lose -15 cycles.' },
-  { name: 'Backdoor',            category: 'EVENT_NEGATIVE', count: 2, effect: 'Steal one active daemon from a target.' },
-  { name: 'Network Storm',       category: 'EVENT_NEGATIVE', count: 2, effect: 'Every opponent loses -10 cycles and one active daemon.' },
-  { name: 'The Corruption',      category: 'EVENT_NEGATIVE', count: 1, effect: 'Target loses -10 cycles. Corruption mode begins.' },
-  { name: 'Power Cycle',         category: 'EVENT_NEGATIVE', count: 1, effect: 'Target\'s cycles reset to the starting amount, all their active daemons are purged, and their hand is replaced with 5 new cards.' },
-  // Wars
-  { name: 'Skirmish',            category: 'WAR',            count: 4, effect: 'Winner loses -5 cycles. Loser loses -10 cycles.' },
-  { name: 'Total Siege',         category: 'WAR',            count: 3, effect: 'Winner loses -10 cycles. Loser loses -20 cycles and one daemon.' },
-  // Counters
-  { name: 'Firewall Surge',      category: 'COUNTER',        count: 4, effect: 'Your next Conflict roll gets +1. Play before initiating a conflict.' },
-  { name: 'System Interrupt',    category: 'COUNTER',        count: 2, effect: 'Cancel an incoming Conflict before it resolves. One use.' },
-  // Daemons
-  { name: 'Firewall',            category: 'DAEMON',    count: 4, effect: '+1 to Stability Roll. -1 to Corruption Roll. Immune to Data Drought & Sigterm.' },
-  { name: 'Encryption',          category: 'DAEMON',    count: 3, effect: '+1 to Stability Roll. -1 to Corruption Roll. Immune to Data Flood.' },
-  { name: 'Hardened Node',       category: 'DAEMON',    count: 5, effect: '+1 to Stability Roll. -1 to Corruption Roll. Immune to Node Rip. Reduces Conflict losses by 5.' },
-];
-
 // ── Shared styles ─────────────────────────────────────────────────────────────
 const mono = (extra?: React.CSSProperties): React.CSSProperties => ({
   fontFamily: 'monospace', ...extra,
@@ -118,7 +75,7 @@ function CircuitArt({ seed, color }: { seed: number; color: string }) {
   const scanY = rnd(seed) * H;
 
   return (
-    <svg width={W} height={H} style={{ display: 'block', borderRadius: 3, background: '#061420' }}>
+    <svg width={W} height={H} style={{ display: 'block', borderRadius: 3, background: 'var(--crg-card)' }}>
       {lines}
       {nodes.map((n, i) => {
         const size = rnd(i * 11 + 4) > 0.7 ? 2.5 : 1.5;
@@ -132,7 +89,7 @@ function CircuitArt({ seed, color }: { seed: number; color: string }) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function CardTile({ card }: { card: CardEntry }) {
+function CardTile({ card }: { card: DeckCatalogEntry }) {
   const color = CAT_COLOR[card.category];
   const label = CAT_LABEL[card.category];
   const seed = card.name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -147,18 +104,13 @@ function CardTile({ card }: { card: CardEntry }) {
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={mono({ color, fontSize: '0.72rem', letterSpacing: 2 })}>{label}</span>
-        <span style={mono({ color: '#334455', fontSize: '0.6rem' })}>×{card.count}</span>
+        <span style={mono({ color: 'var(--crg-muted)', fontSize: '0.75rem' })}>×{card.count}</span>
       </div>
-      <div style={mono({ color: '#e0f0ff', fontSize: '0.85rem', fontWeight: 'bold' })}>{card.name}</div>
+      <div style={mono({ color: 'var(--crg-text)', fontSize: '0.9rem', fontWeight: 'bold' })}>{card.name}</div>
       <div style={{ marginTop: 2, marginBottom: 2 }}>
         <CircuitArt seed={seed} color={color} />
       </div>
-      <div style={mono({ color: '#778899', fontSize: '0.65rem', lineHeight: 1.5 })}>{card.effect}</div>
-      {card.note && (
-        <div style={mono({ color: color, fontSize: '0.58rem', letterSpacing: 1, opacity: 0.7 })}>
-          ⊘ {card.note}
-        </div>
-      )}
+      <div style={mono({ color: 'var(--crg-body)', fontSize: '0.75rem', lineHeight: 1.6 })}>{card.effect}</div>
     </div>
   );
 }
@@ -176,7 +128,7 @@ function RollTable() {
       <thead>
         <tr>
           {['ROLL', 'CYCLES', 'STATUS'].map(h => (
-            <th key={h} style={{ textAlign: 'left', fontSize: '0.6rem', letterSpacing: 2, color: '#446655', paddingBottom: 6, borderBottom: '1px solid #00ffcc22' }}>{h}</th>
+            <th key={h} style={{ textAlign: 'left', fontSize: '0.75rem', letterSpacing: 2, color: 'var(--crg-muted)', paddingBottom: 6, borderBottom: '1px solid #00ffcc22' }}>{h}</th>
           ))}
         </tr>
       </thead>
@@ -184,8 +136,8 @@ function RollTable() {
         {rows.map(r => (
           <tr key={r.range}>
             <td style={{ padding: '5px 0', fontSize: '0.75rem', color: '#00ffcc', width: 60 }}>{r.range}</td>
-            <td style={{ fontSize: '0.8rem', color: r.gain === '0' ? '#446655' : '#00ff88', fontWeight: 'bold', width: 50 }}>{r.gain}</td>
-            <td style={{ fontSize: '0.7rem', color: '#556677' }}>{r.label}</td>
+            <td style={{ fontSize: '0.875rem', color: r.gain === '0' ? 'var(--crg-muted)' : '#00ff88', fontWeight: 'bold', width: 50 }}>{r.gain}</td>
+            <td style={{ fontSize: '0.75rem', color: 'var(--crg-body)' }}>{r.label}</td>
           </tr>
         ))}
       </tbody>
@@ -196,7 +148,7 @@ function RollTable() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: '1.75rem' }}>
-      <div style={mono({ fontSize: '0.6rem', letterSpacing: 4, color: '#00ffcc', marginBottom: '0.75rem', paddingBottom: '0.4rem', borderBottom: '1px solid #00ffcc22' })}>
+      <div style={mono({ fontSize: '0.75rem', letterSpacing: 4, color: '#00ffcc', marginBottom: '0.75rem', paddingBottom: '0.4rem', borderBottom: '1px solid #00ffcc22' })}>
         {title}
       </div>
       {children}
@@ -282,11 +234,11 @@ function TabCards() {
   return (
     <div>
       {categories.map(cat => {
-        const cards = CARDS.filter(c => c.category === cat);
+        const cards = DECK_CATALOG.filter(c => c.category === cat);
         const color = CAT_COLOR[cat];
         return (
           <div key={cat} style={{ marginBottom: '1.75rem' }}>
-            <div style={mono({ fontSize: '0.6rem', letterSpacing: 4, color, marginBottom: '0.75rem', paddingBottom: '0.4rem', borderBottom: `1px solid ${color}33` })}>
+            <div style={mono({ fontSize: '0.75rem', letterSpacing: 4, color, marginBottom: '0.75rem', paddingBottom: '0.4rem', borderBottom: `1px solid ${color}33` })}>
               {sectionTitle[cat]}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.6rem' }}>
@@ -313,8 +265,8 @@ function TabOptions() {
             <div key={label} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', background: '#080812', border: '1px solid #00ffcc1a', borderRadius: 4, padding: '0.6rem 0.75rem' }}>
               <span style={mono({ color: '#00ffcc', fontSize: '0.75rem', fontWeight: 'bold', width: 44, flexShrink: 0 })}>{range}</span>
               <span>
-                <div style={mono({ color: '#00ffcc', fontSize: '0.65rem', letterSpacing: 2, marginBottom: 3 })}>{label}</div>
-                <div style={mono({ color: '#556677', fontSize: '0.68rem', lineHeight: 1.5 })}>{desc}</div>
+                <div style={mono({ color: '#00ffcc', fontSize: '0.75rem', letterSpacing: 2, marginBottom: 3 })}>{label}</div>
+                <div style={mono({ color: 'var(--crg-body)', fontSize: '0.75rem', lineHeight: 1.5 })}>{desc}</div>
               </span>
             </div>
           ))}
@@ -343,7 +295,7 @@ function TabInterface() {
   return (
     <div>
       <Section title="OVERVIEW">
-        <P>The game board combines the Phaser canvas (animated game world) and the React HUD overlay (all interactive panels and buttons). Everything clickable lives in the HUD overlay.</P>
+        <P>The game board combines the animated Phaser table with a semantic React command layer. Pointer players can act directly on the table; keyboard and screen-reader players can open <Highlight>COMMANDS</Highlight> with the C key for the same turn actions, cards, and targets.</P>
       </Section>
 
       <Section title="TOP LEFT — CONTROLS">
@@ -366,7 +318,7 @@ function TabInterface() {
 
       <Section title="TOP RIGHT — PHASE PANELS">
         <P>Additional panels appear below the scoreboard depending on the active game phase:</P>
-        <Bullet><Highlight>SELECT A TARGET</Highlight> (red, pulsing) — A target must be chosen from the board by clicking a highlighted player zone. <Highlight>✕ CANCEL</Highlight> aborts the card play (unavailable if the card is forced).</Bullet>
+        <Bullet><Highlight>SELECT A TARGET</Highlight> (red, pulsing) — Choose a highlighted player zone on the board or select the same opponent in <Highlight>COMMANDS</Highlight>. <Highlight>✕ CANCEL</Highlight> aborts the card play (unavailable if the card is forced).</Bullet>
         <Bullet><Highlight>⟳ MULTITASKING</Highlight> — Appears after playing a Multitask card. Shows how many bonus plays remain. <Highlight>✓ DONE</Highlight> ends the turn early without using them.</Bullet>
         <Bullet><Highlight>TURN COMPLETE</Highlight> — Brief flash before the turn auto-advances.</Bullet>
       </Section>
@@ -381,8 +333,8 @@ function TabInterface() {
 
       <Section title="YOUR HAND">
         <P>Cards fan out along the bottom of the screen during your Main phase.</P>
-        <Bullet>Hover a card to lift and preview it. Click to select it — it rises and glows.</Bullet>
-        <Bullet>Click a selected card again to deselect it.</Bullet>
+        <Bullet>Pointer users can hover a card to preview it and click to select it. In <Highlight>COMMANDS</Highlight>, each card is a labeled button with its rules and availability.</Bullet>
+        <Bullet>Activate a selected card again to deselect it.</Bullet>
         <Bullet>Cards that can't be played in the current situation appear dimmed or tinted red.</Bullet>
         <Bullet>When <Highlight>The Corruption</Highlight> is in your opening hand it is auto-selected — you must play it before any other card.</Bullet>
       </Section>
@@ -405,7 +357,7 @@ function TabInterface() {
         <Bullet>The <Highlight>cycle bar</Highlight> fills left-to-right and animates when cycles change. A flash of green means a gain; red means a loss.</Bullet>
         <Bullet>The large number on the right is the exact cycle total (shown as <Highlight>???</Highlight> in Hide Cycles mode).</Bullet>
         <Bullet>Active <Highlight>daemon pills</Highlight> appear along the bottom of the box.</Bullet>
-        <Bullet>When targeting is required, valid boxes pulse with a red border and "CLICK TO TARGET" label. Click one to confirm.</Bullet>
+        <Bullet>When targeting is required, valid boxes pulse with a red border and a target label. Activate one on the board or in <Highlight>COMMANDS</Highlight> to confirm.</Bullet>
       </Section>
 
       <Section title="POPUPS AND OVERLAYS">
@@ -434,45 +386,35 @@ interface Props {
 }
 
 export const HelpModal: React.FC<Props> = ({ onClose }) => {
+  const reducedMotion = useGameStore(s => s.reducedMotion);
   const [activeTab, setActiveTab] = useState('howtoplay');
   const [closing, setClosing] = useState(false);
 
   const handleClose = useCallback(() => {
+    if (reducedMotion) {
+      onClose();
+      return;
+    }
     setClosing(true);
     setTimeout(onClose, 300);
-  }, [onClose]);
-
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [handleClose]);
+  }, [onClose, reducedMotion]);
 
   return (
     <>
       <style>{UNFOLD_CSS}</style>
-      <div
-        onClick={handleClose}
-        className={closing ? 'backdrop-out' : 'backdrop-in'}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 100,
-          background: 'rgba(0,0,0,0.75)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '1.5rem',
-        }}
-      >
-      {/* Modal panel */}
-      <div
-        onClick={e => e.stopPropagation()}
-        className={closing ? 'modal-fold' : 'modal-unfold'}
-        style={{
+      <OverlayShell
+        ariaLabel="Field Manual"
+        background="rgba(0,0,0,0.75)"
+        zIndex={500}
+        maxWidth={760}
+        onBackdropClick={handleClose}
+        onRequestClose={handleClose}
+        panelClassName={closing ? 'modal-fold backdrop-out' : 'modal-unfold backdrop-in'}
+        panelStyle={{
           background: '#05050f',
           border: '1px solid #00ffcc33',
           borderTop: '2px solid #00ffcc',
           borderRadius: 8,
-          width: '100%', maxWidth: 760,
-          maxHeight: '88vh',
           display: 'flex', flexDirection: 'column',
           fontFamily: 'monospace',
           boxShadow: '0 0 60px #00ffcc0d',
@@ -482,15 +424,16 @@ export const HelpModal: React.FC<Props> = ({ onClose }) => {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem 0' }}>
           <div>
-            <div style={{ color: '#00ffcc', fontSize: '0.65rem', letterSpacing: 6 }}>C O R R U P T · R E A L I T Y</div>
-            <div style={{ color: '#334455', fontSize: '0.55rem', letterSpacing: 3, marginTop: 2 }}>FIELD MANUAL v1.0</div>
+            <div style={{ color: '#00ffcc', fontSize: '0.75rem', letterSpacing: 6 }}>C O R R U P T · R E A L I T Y</div>
+            <div style={{ color: 'var(--crg-muted)', fontSize: '0.75rem', letterSpacing: 3, marginTop: 2 }}>FIELD MANUAL v1.0</div>
           </div>
           <button
+            type="button"
             onClick={handleClose}
             className="crg-btn-cyan"
             style={{
               background: 'transparent', border: '1px solid #00ffcc33',
-              color: '#446655', fontFamily: 'monospace', fontSize: '0.8rem',
+              color: 'var(--crg-muted)', fontFamily: 'monospace', fontSize: '0.8rem',
               cursor: 'pointer', padding: '0.25rem 0.6rem',
               letterSpacing: 2, transition: 'all 0.15s',
             }}
@@ -500,19 +443,36 @@ export const HelpModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
         {/* Tab bar */}
-        <div style={{ display: 'flex', gap: 2, padding: '0.75rem 1.25rem 0', borderBottom: '1px solid #00ffcc1a' }}>
+        <div role="tablist" aria-label="Field Manual sections" style={{ display: 'flex', gap: 2, padding: '0.75rem 1.25rem 0', borderBottom: '1px solid #00ffcc1a' }}>
           {TABS.map(tab => (
             <button
+              type="button"
               key={tab.id}
+              id={`manual-tab-${tab.id}`}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`manual-panel-${tab.id}`}
+              tabIndex={activeTab === tab.id ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
+              onKeyDown={event => {
+                if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                event.preventDefault();
+                const index = TABS.findIndex(item => item.id === activeTab);
+                const nextIndex = event.key === 'Home' ? 0
+                  : event.key === 'End' ? TABS.length - 1
+                    : (index + (event.key === 'ArrowRight' ? 1 : -1) + TABS.length) % TABS.length;
+                const next = TABS[nextIndex];
+                setActiveTab(next.id);
+                document.getElementById(`manual-tab-${next.id}`)?.focus();
+              }}
               style={{
                 background: activeTab === tab.id ? '#00ffcc0d' : 'transparent',
                 border: 'none',
                 borderBottom: `2px solid ${activeTab === tab.id ? '#00ffcc' : 'transparent'}`,
-                color: activeTab === tab.id ? '#00ffcc' : '#446655',
-                fontFamily: 'monospace', fontSize: '0.65rem',
+                color: activeTab === tab.id ? '#00ffcc' : 'var(--crg-muted)',
+                fontFamily: 'monospace', fontSize: '0.75rem',
                 letterSpacing: 3, cursor: 'pointer',
-                padding: '0.4rem 0.75rem 0.6rem',
+                padding: '0.4rem 0.75rem 0.6rem', minHeight: 44,
                 transition: 'all 0.15s',
               }}
             >
@@ -522,15 +482,20 @@ export const HelpModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
         {/* Scrollable content */}
-        <div style={{ overflowY: 'auto', padding: '1.25rem', flex: 1 }}>
+        <div
+          id={`manual-panel-${activeTab}`}
+          role="tabpanel"
+          aria-labelledby={`manual-tab-${activeTab}`}
+          tabIndex={0}
+          style={{ overflowY: 'auto', padding: '1.25rem', flex: 1 }}
+        >
           {activeTab === 'howtoplay' && <TabHowToPlay />}
           {activeTab === 'interface' && <TabInterface />}
           {activeTab === 'cards'     && <TabCards />}
           {activeTab === 'options'   && <TabOptions />}
         </div>
         </div>{/* end modal-contents */}
-      </div>
-      </div>
+      </OverlayShell>
     </>
   );
 };

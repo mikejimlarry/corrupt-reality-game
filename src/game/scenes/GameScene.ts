@@ -12,7 +12,8 @@ import type { HandSortMode } from '../../state/useGameStore';
 import { sfxCorruptionReveal, sfxWarIncoming, sfxWarCancelled, sfxLoss } from '../../lib/audio';
 import type { Card as CardData } from '../../types/cards';
 import type { PlayerState } from '../../types/gameState';
-import { getViewportLayout } from '../layout';
+import { getAiSeatOrder, getViewportLayout } from '../layout';
+import { COLORS, PHASER_COLORS } from '../../theme/tokens';
 
 
 const CATEGORY_SORT_ORDER: Record<string, number> = {
@@ -53,9 +54,10 @@ export class GameScene extends Phaser.Scene {
   private quarantineVisual?:  Phaser.GameObjects.Container;
   private staticGfx?:     Phaser.GameObjects.Graphics;
   private staticTimer?:   Phaser.Time.TimerEvent;
+  private rollStandbyTimer?: Phaser.Time.TimerEvent;
   private humanZoneBaseY  = 0;
   private humanZoneShifted = false;
-  // seat index: 0=top, 1=left, 2=right — set during buildTable
+  // seat index: 0=top/upper-left, 1=left, 2=right, 3=upper-right
   private aiPlayerSeat = new Map<string, number>();
   private _incomingAttackEndsAt = 0;
   private _handDealEndsAt = 0;
@@ -86,6 +88,63 @@ export class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' });
   }
 
+  /**
+   * Make the store preference authoritative for every scene/object tween.
+   * One-shot callbacks still complete, while ambient repeats and yoyo effects
+   * collapse to a single imperceptible frame.
+   */
+  private installMotionPolicy() {
+    const addTween = this.tweens.add.bind(this.tweens);
+    this.tweens.add = ((config: Parameters<typeof this.tweens.add>[0]) => {
+      if (
+        !useGameStore.getState().reducedMotion ||
+        config instanceof Phaser.Tweens.Tween ||
+        config instanceof Phaser.Tweens.TweenChain
+      ) {
+        return addTween(config);
+      }
+      return addTween({
+        ...config,
+        duration: 1,
+        delay: 0,
+        hold: 0,
+        repeat: 0,
+        loop: 0,
+        yoyo: false,
+        ease: 'Linear',
+      });
+    }) as typeof this.tweens.add;
+  }
+
+  /**
+   * Open the roll display only after the current table animations have cleared.
+   * This also runs after the initial scene build, when there is no phase change
+   * for the store subscriber to observe.
+   */
+  private scheduleRollStandby() {
+    this.rollStandbyTimer?.remove(false);
+    this.rollStandbyTimer = undefined;
+
+    const state = useGameStore.getState();
+    if (state.phase !== 'PHASE_ROLL' || state.rollTriggered) return;
+    if (!state.players[state.currentPlayerIndex]) return;
+
+    const msRemaining = Math.max(
+      280,
+      this._incomingAttackEndsAt - Date.now() + 150,
+      this._handDealEndsAt - Date.now() + 150,
+    );
+
+    this.rollStandbyTimer = this.time.delayedCall(msRemaining, () => {
+      this.rollStandbyTimer = undefined;
+      const latestState = useGameStore.getState();
+      if (latestState.phase !== 'PHASE_ROLL' || latestState.rollTriggered) return;
+
+      const currentPlayer = latestState.players[latestState.currentPlayerIndex];
+      if (currentPlayer) this.ledDisplay?.showStandby(currentPlayer.name);
+    });
+  }
+
   /** Full scene wipe + rebuild. Always call this instead of removeAll+buildTable directly. */
   private rebuildScene(width: number, height: number) {
     this.humanCardObjects = [];
@@ -101,6 +160,8 @@ export class GameScene extends Phaser.Scene {
     this.staticTimer?.remove(false);
     this.staticTimer = undefined;
     this.staticGfx   = undefined;
+    this.rollStandbyTimer?.remove(false);
+    this.rollStandbyTimer = undefined;
     // Reset hand-pan state — arrows are destroyed by removeAll below
     this.handPanX        = 0;
     this.handPanMax      = 0;
@@ -118,6 +179,7 @@ export class GameScene extends Phaser.Scene {
     // Recreate LED display on top of the fresh scene
     this.ledDisplay = new LEDDisplay(this, width / 2, height / 2);
     this.ledDisplay.setScale(getViewportLayout(width, height).ledScale);
+    this.scheduleRollStandby();
     // Re-apply static overlay if corruption was already active before the rebuild
     if (useGameStore.getState().globalCorruptionMode) this.buildStaticNoise(width, height);
     // Re-apply hand lift if we rebuilt mid-turn (e.g. window resize during DRAW/MAIN)
@@ -128,6 +190,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    this.installMotionPolicy();
     const { width, height } = this.scale;
     this.rebuildScene(width, height);
 
@@ -205,9 +268,16 @@ export class GameScene extends Phaser.Scene {
     let prevHandSortMode = useGameStore.getState().handSortMode;
     let prevHandSortReverse = useGameStore.getState().handSortReverse;
     let prevTutorialModalOpen = useGameStore.getState().tutorialModalOpen;
+    let prevReducedMotion = useGameStore.getState().reducedMotion;
 
     this.unsubscribeStore = useGameStore.subscribe(state => {
       const { players, selectedCardId } = state;
+      if (state.reducedMotion !== prevReducedMotion) {
+        prevReducedMotion = state.reducedMotion;
+        if (state.reducedMotion) {
+          [...this.tweens.getTweens()].forEach(tween => tween.complete());
+        }
+      }
       // Snapshot human cycles BEFORE the player block updates prevCyclesMap,
       // so we can detect whether this tick reduced the human's total.
       const humanSnap = players.find(p => p.isHuman);
@@ -385,24 +455,8 @@ export class GameScene extends Phaser.Scene {
             });
           }
         }
-        // Show LED standby shortly after phase starts — 280ms lets the card-deal
-        // animations begin without waiting for them to settle. The BEGIN SEQUENCE
-        // button is gated on ledDisplayOpen (set by the unfold onComplete callback),
-        // so it appears only after the animation actually finishes.
         if (state.phase === 'PHASE_ROLL') {
-          const currentPlayer = state.players[state.currentPlayerIndex];
-          if (currentPlayer) {
-            const msRemaining = Math.max(
-              280,
-              this._incomingAttackEndsAt - Date.now() + 150,
-              this._handDealEndsAt - Date.now() + 150,
-            );
-            this.time.delayedCall(msRemaining, () => {
-              if (useGameStore.getState().phase === 'PHASE_ROLL') {
-                this.ledDisplay?.showStandby(currentPlayer.name);
-              }
-            });
-          }
+          this.scheduleRollStandby();
         }
       }
 
@@ -567,7 +621,10 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    this.events.on('destroy', () => this.unsubscribeStore?.());
+    this.events.on('destroy', () => {
+      this.rollStandbyTimer?.remove(false);
+      this.unsubscribeStore?.();
+    });
   }
 
   /** Return live store players when a game is active. */
@@ -623,25 +680,22 @@ export class GameScene extends Phaser.Scene {
     // ── 6. Improvement boards — one per player ─────────────────────────────
     const midY = height * layout.centreYRatio;
     // Human: just above the player zone, below the hand (cyan to match human zone)
-    this.humanDaemonBoard = new DaemonBoard(this, width / 2, height - 58 - 118, 0x00ffcc, '#00ffcc');
+    this.humanDaemonBoard = new DaemonBoard(this, width / 2, height - 58 - 118, PHASER_COLORS.signal, COLORS.signal);
     this.humanDaemonBoard.setVisible(!layout.compactLandscape);
 
-    // AI boards — red/pink to match AI zone accent
-    if (aiPlayers[0]) {
-      const b = new DaemonBoard(this, width / 2, height * 0.30, 0x00ffcc, '#00ffcc');
-      b.setVisible(!layout.compactLandscape);
-      this.aiDaemonBoards.set(aiPlayers[0].id, b);
-    }
-    if (aiPlayers[1]) {
-      const b = new DaemonBoard(this, 250, midY, 0x00ffcc, '#00ffcc');
-      b.setVisible(!layout.compactLandscape);
-      this.aiDaemonBoards.set(aiPlayers[1].id, b);
-    }
-    if (aiPlayers[2]) {
-      const b = new DaemonBoard(this, width - 250, midY, 0x00ffcc, '#00ffcc');
-      b.setVisible(!layout.compactLandscape);
-      this.aiDaemonBoards.set(aiPlayers[2].id, b);
-    }
+    // AI boards follow the same four-seat topology as their player zones.
+    const splitTop = aiPlayers.length === 4;
+    aiPlayers.forEach(player => {
+      const seat = this.aiPlayerSeat.get(player.id) ?? 0;
+      const x = seat === 1 ? 250
+        : seat === 2 ? width - 250
+          : seat === 3 ? width * 0.66
+            : splitTop ? width * 0.34 : width / 2;
+      const y = seat === 1 || seat === 2 ? midY : height * 0.30;
+      const board = new DaemonBoard(this, x, y, PHASER_COLORS.signal, COLORS.signal);
+      board.setVisible(!layout.compactLandscape);
+      this.aiDaemonBoards.set(player.id, board);
+    });
 
     // Populate with any existing daemons (mid-game rebuild)
     players.forEach(p => {
@@ -1028,7 +1082,7 @@ export class GameScene extends Phaser.Scene {
     con.add(bg);
 
     con.add(this.add.text(0, -CARD_H / 2 + 11, 'HACK PROTOCOL  ·  LEGENDARY', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#ff3355', resolution: dpr,
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.rival, resolution: dpr,
     }).setOrigin(0.5));
 
     con.add(this.add.text(0, -24, 'THE\nCORRUPTION', {
@@ -1037,22 +1091,22 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5));
 
     con.add(this.add.text(0, 12, 'Unleash the virus.\nTarget loses -10 cycles.', {
-      fontFamily: 'monospace', fontSize: '7.5px', color: '#cc8899',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.text,
       align: 'center', lineSpacing: 3, resolution: dpr,
     }).setOrigin(0.5));
 
     con.add(this.add.text(0, CARD_H / 2 - 56, 'CORRUPTION MODE BEGINS', {
-      fontFamily: 'monospace', fontSize: '9px', color: '#ff3355',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.rival,
       align: 'center', resolution: dpr,
     }).setOrigin(0.5));
 
     con.add(this.add.text(0, CARD_H / 2 - 40, 'STABILITY ROLLS INVERTED', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#ff335566',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.rival,
       align: 'center', resolution: dpr,
     }).setOrigin(0.5));
 
     con.add(this.add.text(0, CARD_H / 2 - 16, '"Once it spreads,\nnothing is clean."', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#663344',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.muted,
       fontStyle: 'italic', align: 'center', lineSpacing: 2, resolution: dpr,
     }).setOrigin(0.5));
 
@@ -1123,17 +1177,17 @@ export class GameScene extends Phaser.Scene {
     // Title
     const dpr = window.devicePixelRatio;
     con.add(this.add.text(0, -H / 2 + 13, '◈  OVERCLOCK', {
-      fontFamily: 'monospace', fontSize: '10px', color: '#00ccff',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.positive,
       fontStyle: 'bold', resolution: dpr,
     }).setOrigin(0.5));
 
     con.add(this.add.text(0, -H / 2 + 34, 'PENDING — NEXT ROLL', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#334455',
+      fontFamily: 'monospace', fontSize: '7px', color: COLORS.muted,
       resolution: dpr,
     }).setOrigin(0.5));
 
     con.add(this.add.text(0, -H / 2 + 49, 'ROLL SHIFTED +5', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#00ccff55',
+      fontFamily: 'monospace', fontSize: '7px', color: COLORS.positive,
       resolution: dpr,
     }).setOrigin(0.5));
 
@@ -1217,17 +1271,17 @@ export class GameScene extends Phaser.Scene {
 
     const dpr = window.devicePixelRatio;
     con.add(this.add.text(0, -H / 2 + 13, '⊘  QUARANTINE', {
-      fontFamily: 'monospace', fontSize: '10px', color: '#00ffcc',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.signal,
       fontStyle: 'bold', resolution: dpr,
     }).setOrigin(0.5));
 
     con.add(this.add.text(0, -H / 2 + 34, 'ARMED — NEXT CONFLICT', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#334455',
+      fontFamily: 'monospace', fontSize: '7px', color: COLORS.muted,
       resolution: dpr,
     }).setOrigin(0.5));
 
     con.add(this.add.text(0, -H / 2 + 49, 'AUTO-CANCELS ATTACK', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#00ffcc55',
+      fontFamily: 'monospace', fontSize: '7px', color: COLORS.signal,
       resolution: dpr,
     }).setOrigin(0.5));
 
@@ -1336,7 +1390,7 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: [glowTL, glowBR], alpha: { from: 0.025, to: 0.055 }, duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
 
-  // ── AI player zones: up to 3 seats (top / left / right) ──────────────────
+  // ── AI player zones: up to 4 seats (split top / left / right) ────────────
   private placeAIZones(players: PlayerState[], width: number, height: number) {
     const layout = getViewportLayout(width, height);
     const midY = height * layout.centreYRatio;
@@ -1346,16 +1400,16 @@ export class GameScene extends Phaser.Scene {
     //   1 AI  → [top]
     //   2 AIs → [right, top]
     //   3 AIs → [right, top, left]
-    const seatOrder = [
-      [0],
-      [2, 0],
-      [2, 0, 1],
-    ][players.length - 1] ?? [0];
+    //   4 AIs → [right, upper-left, upper-right, left]
+    const seatOrder = getAiSeatOrder(players.length);
+
+    const splitTop = players.length === 4;
 
     const seatConfigs: Record<number, { x: number; y: number; angle: number }> = {
-      0: { x: width / 2,                y: height * 0.18, angle:   0 },  // top
+      0: { x: splitTop ? width * 0.34 : width / 2, y: height * 0.18, angle: 0 },
       1: { x: layout.aiSideInset,       y: midY,          angle: -90 },  // left
       2: { x: width - layout.aiSideInset, y: midY,        angle:  90 },  // right
+      3: { x: width * 0.66,             y: height * 0.18, angle:   0 },  // upper-right
     };
 
     players.forEach((p, i) => {
@@ -1375,7 +1429,7 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Compute the world-space position and angle for every card in an N-card fan
-   * for the given seat (0 = top, 1 = left, 2 = right).
+   * for the given seat (0 = top/upper-left, 1 = left, 2 = right, 3 = upper-right).
    */
   private computeAiHandLayout(
     seat: number, count: number, width: number, height: number,
@@ -1387,10 +1441,12 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       let x: number, y: number, angle: number;
 
-      if (seat === 0) {
+      if (seat === 0 || seat === 3) {
         // Top — flat horizontal row, cards flipped 180° (face-down toward player)
         const totalW = (count - 1) * OVERLAP;
-        const startX = width / 2 - totalW / 2;
+        const splitTop = [...this.aiPlayerSeat.values()].includes(3);
+        const centreX = seat === 3 ? width * 0.66 : splitTop ? width * 0.34 : width / 2;
+        const startX = centreX - totalW / 2;
         x     = startX + OVERLAP * i;
         y     = -(CARD_H / 2 - 44);
         angle = 180;
@@ -1668,18 +1724,18 @@ export class GameScene extends Phaser.Scene {
     con.add(bg);
 
     con.add(this.add.text(0, -BH / 2 + 8, 'HACK PROTOCOL  ·  LEGENDARY', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#00ffcc88',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.signal,
       letterSpacing: 4, resolution: dpr,
     }).setOrigin(0.5));
 
     const titleText = this.add.text(0, -18, 'POWER CYCLE', {
-      fontFamily: 'monospace', fontSize: '26px', color: '#00ffcc',
+      fontFamily: 'monospace', fontSize: '28px', color: COLORS.signal,
       fontStyle: 'bold', resolution: dpr,
     }).setOrigin(0.5);
     con.add(titleText);
 
     con.add(this.add.text(0, 20, `${targetName.toUpperCase()} SYSTEM REBOOTING`, {
-      fontFamily: 'monospace', fontSize: '9px', color: '#00ffcc88',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.signal,
       letterSpacing: 3, resolution: dpr,
     }).setOrigin(0.5));
 
@@ -1770,21 +1826,21 @@ export class GameScene extends Phaser.Scene {
 
     // Conflict declared label
     const label = this.add.text(0, -BH / 2 + 8, '⚔  CONFLICT DECLARED', {
-      fontFamily: 'monospace', fontSize: '8px', color: '#ff8844',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.conflict,
       letterSpacing: 5, resolution: dpr,
     }).setOrigin(0.5);
     con.add(label);
 
     // War card name — large, glitchy
     const title = this.add.text(0, -12, cardName.toUpperCase(), {
-      fontFamily: 'monospace', fontSize: '22px', color: '#ffffff',
+      fontFamily: 'monospace', fontSize: '20px', color: COLORS.white,
       fontStyle: 'bold', resolution: dpr,
     }).setOrigin(0.5);
     con.add(title);
 
     // Attacker name
     con.add(this.add.text(0, 24, `${attackerName.toUpperCase()} IS DECLARING WAR ON YOU`, {
-      fontFamily: 'monospace', fontSize: '8px', color: '#ff664488',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.rival,
       letterSpacing: 2, resolution: dpr,
     }).setOrigin(0.5));
 
@@ -1848,7 +1904,7 @@ export class GameScene extends Phaser.Scene {
     con.add(bg);
 
     con.add(this.add.text(0, -BH / 2 + 7, '⊘  QUARANTINE ACTIVE', {
-      fontFamily: 'monospace', fontSize: '8px', color: '#00ffcc',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.signal,
       letterSpacing: 5, resolution: dpr,
     }).setOrigin(0.5));
 
@@ -1942,12 +1998,12 @@ export class GameScene extends Phaser.Scene {
     con.add(bg);
 
     con.add(this.add.text(0, -11, '⚠  INCOMING ATTACK', {
-      fontFamily: 'monospace', fontSize: '9px', color: '#ff3355',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.rival,
       letterSpacing: 4, resolution: dpr,
     }).setOrigin(0.5));
 
     con.add(this.add.text(0, 8, `${attackerName.toUpperCase()} TARGETED YOU`, {
-      fontFamily: 'monospace', fontSize: '8px', color: '#ff1e3c88',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.corruption,
       letterSpacing: 2, resolution: dpr,
     }).setOrigin(0.5));
 

@@ -1,13 +1,16 @@
 // src/ui/HUD.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useGameStore, mustPlayCorruptionFirst } from '../state/useGameStore';
 import type { HandSortMode } from '../state/useGameStore';
-import type { Card, DaemonCard, NegativeEventCard, PositiveEventCard } from '../types/cards';
-import { TUTORIAL_REQUIRED_CARD } from '../data/tutorial';
-import { HelpModal } from './HelpModal';
+import type { DaemonCard, NegativeEventCard } from '../types/cards';
+import { AccessibleCommandPanel } from './AccessibleCommandPanel';
 import { sfxCardPlay, getMusicEnabled, setMusicEnabled, sfxToggleOn, sfxToggleOff, getMusicTrack, nextMusicTrack } from '../lib/audio';
 import { trackEvent } from '../lib/analytics';
 import { getViewportLayout } from '../game/layout';
+import { getCardDisabledReason, isCorruptionCard } from '../lib/cardPlayability';
+import { COLORS, alpha } from '../theme/tokens';
+
+const HelpModal = lazy(() => import('./HelpModal').then(module => ({ default: module.HelpModal })));
 
 const PULSE_STYLE = `
 @keyframes log-cursor-blink {
@@ -20,13 +23,19 @@ const PULSE_STYLE = `
   0%, 100% { box-shadow: 0 0 6px 1px rgba(0,255,204,0.25), 0 0 0 1px rgba(0,255,204,0.15); }
   50%       { box-shadow: 0 0 22px 4px rgba(0,255,204,0.65), 0 0 0 1px rgba(0,255,204,0.45); }
 }
-.hud-pulse { animation: hud-pulse 1.4s ease-in-out infinite; }
+.hud-pulse {
+  box-shadow: 0 0 10px 2px rgba(0,255,204,0.38), 0 0 0 1px rgba(0,255,204,0.24);
+  animation: hud-pulse 1.4s ease-in-out infinite;
+}
 
 @keyframes corruption-pulse {
   0%, 100% { box-shadow: 0 0 8px 2px rgba(255,30,60,0.35), 0 0 0 1px rgba(255,30,60,0.25); }
   50%       { box-shadow: 0 0 28px 6px rgba(255,30,60,0.75), 0 0 0 1px rgba(255,30,60,0.55); }
 }
-.corruption-pulse { animation: corruption-pulse 1.1s ease-in-out infinite; }
+.corruption-pulse {
+  box-shadow: 0 0 12px 2px rgba(255,30,60,0.48), 0 0 0 1px rgba(255,30,60,0.32);
+  animation: corruption-pulse 1.1s ease-in-out infinite;
+}
 
 @keyframes corruption-flicker {
   0%, 92%, 100% { opacity: 1; }
@@ -111,19 +120,19 @@ function panel(accent: string): React.CSSProperties {
     borderRadius: 6,
     padding: '8px 12px',
     fontFamily: 'monospace',
-    color: '#c0d0e0',
+    color: COLORS.text,
   };
 }
 
 function btnPrimary(accent: string): React.CSSProperties {
-  return { ...BTN_BASE, background: accent, color: '#000' };
+  return { ...BTN_BASE, background: accent, color: COLORS.void };
 }
 
 function btnDim(accent: string): React.CSSProperties {
   return {
     ...BTN_BASE,
     background: `${accent}1a`,
-    color: `${accent}88`,
+    color: accent,
     border: `1px solid ${accent}33`,
   };
 }
@@ -135,56 +144,21 @@ function fmtUptime(s: number) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
 }
 
-function isCorruption(card: Card | null): boolean {
-  return !!card &&
-    card.category === 'EVENT_NEGATIVE' &&
-    (card as NegativeEventCard).effect === 'CORRUPTION';
-}
-
-function getDisabledReason(
-  card: Card | null,
-  humanPlayer: ReturnType<typeof useGameStore.getState>['players'][number] | undefined,
-  corruptionFirstActive: boolean,
-  extraPlayPending: number,
-  tutorialStep: number | null,
-  tutorialModalOpen: boolean,
-): string | null {
-  if (!card) return null;
-  if (corruptionFirstActive && !isCorruption(card)) {
-    return 'The Corruption must be played first.';
-  }
-  if (extraPlayPending > 0) {
-    const isMultitask = card.category === 'EVENT_POSITIVE' &&
-      (card as PositiveEventCard).effect === 'EXTRA_PLAY';
-    if (card.category === 'WAR') return 'Conflict cards cannot be played during Multitask.';
-    if (card.category === 'COUNTER') return 'Countermeasures are reactive and cannot be used for Multitask.';
-    if (isMultitask) return 'Multitask cannot chain into another Multitask.';
-  }
-  if (card.category === 'COUNTER') {
-    return 'Countermeasures trigger during conflicts, not from your hand.';
-  }
-  if (card.category === 'DAEMON') {
-    const daemonType = (card as DaemonCard).daemonType;
-    if (humanPlayer?.daemons.includes(daemonType)) {
-      return `${card.name} is already active. Discard it or choose another card.`;
-    }
-  }
-  if (tutorialStep !== null) {
-    if (tutorialModalOpen) return 'Dismiss the tutorial prompt to continue.';
-    const required = TUTORIAL_REQUIRED_CARD[tutorialStep];
-    if (required && card.name !== required) return `Tutorial step requires ${required}.`;
-  }
-  return null;
+function SystemUptime() {
+  const [uptime, setUptime] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setUptime(value => value + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return (
+    <div style={{ fontSize: 12, color: 'var(--crg-muted)', letterSpacing: 2, marginBottom: 4, fontVariantNumeric: 'tabular-nums' }}>
+      SYS {fmtUptime(uptime)}
+    </div>
+  );
 }
 
 export function HUD() {
   useInjectStyle(PULSE_STYLE);
-  const [uptime, setUptime] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setUptime(s => s + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
   const phase               = useGameStore(s => s.phase);
   const allPlayers          = useGameStore(s => s.players);
   const warRollDisplay      = useGameStore(s => s.warRollDisplay);
@@ -221,7 +195,7 @@ export function HUD() {
   const handSortReverse          = useGameStore(s => s.handSortReverse);
   const setHandSort              = useGameStore(s => s.setHandSort);
 
-  const ACCENT = corruption ? '#ff1e3c' : '#00ffcc';
+  const ACCENT = corruption ? COLORS.corruption : COLORS.signal;
 
   const hFieldManual = useHover();
   const hMusic       = useHover();
@@ -253,19 +227,37 @@ export function HUD() {
 
   const [logExpanded, setLogExpanded] = useState(false);
   const [showHelp, setShowHelp]       = useState(false);
+  const [showCommands, setShowCommands] = useState(false);
   const [musicOn, setMusicOn]         = useState(() => getMusicEnabled());
   const [musicTrack, setMusicTrack]   = useState(() => getMusicTrack());
+
+  useEffect(() => {
+    const openCommands = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'c' || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+      event.preventDefault();
+      setShowCommands(true);
+    };
+    window.addEventListener('keydown', openCommands);
+    return () => window.removeEventListener('keydown', openCommands);
+  }, []);
 
   // True once the LED panel's unfold animation fires 'crg:led-open'.
   // Reset whenever the phase leaves PHASE_ROLL so stale events don't bleed through.
   const [rollReady, setRollReady] = useState(false);
   useEffect(() => {
     if (phase !== 'PHASE_ROLL') return;
-    const reset = setTimeout(() => setRollReady(false), 0);
-    const handler = () => setRollReady(true);
+    const reset = window.setTimeout(() => setRollReady(false), 0);
+    const fallback = window.setTimeout(() => setRollReady(true), 3000);
+    const handler = () => {
+      window.clearTimeout(fallback);
+      setRollReady(true);
+    };
     window.addEventListener('crg:led-open', handler);
     return () => {
-      clearTimeout(reset);
+      window.clearTimeout(reset);
+      window.clearTimeout(fallback);
       window.removeEventListener('crg:led-open', handler);
     };
   }, [phase]);
@@ -308,8 +300,8 @@ export function HUD() {
   // Whether the selected card is a forced play (The Corruption) — no discard allowed
   const humanPlayer = players.find(p => p.isHuman);
   const corruptionFirstActive = isHuman && !!humanPlayer && mustPlayCorruptionFirst(humanPlayer, gameStats);
-  const isForced = isCorruption(selectedCard) || corruptionPendingTarget || corruptionFirstActive;
-  const disabledReason = getDisabledReason(
+  const isForced = isCorruptionCard(selectedCard) || corruptionPendingTarget || corruptionFirstActive;
+  const disabledReason = getCardDisabledReason(
     selectedCard,
     humanPlayer,
     corruptionFirstActive,
@@ -337,7 +329,16 @@ export function HUD() {
 
   return (
     <>
-      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      <Suspense fallback={<div className="sr-only" role="status">Loading Field Manual…</div>}>
+        {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      </Suspense>
+      {showCommands && <AccessibleCommandPanel onClose={() => setShowCommands(false)} />}
+
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        Turn {turnNumber}. {isHuman ? 'Your turn' : `${currentPlayer?.name ?? 'Opponent'} is acting`}. Phase {phase.replace('_', ' ')}.
+        {selectedCard ? ` Selected card: ${selectedCard.name}. ${selectedCard.description}` : ''}
+        {log.length > 0 ? ` Latest activity: ${log[log.length - 1].text}` : ''}
+      </div>
 
       {/* ── TOP-LEFT: Field Manual + Music toggle + Activity Log ── */}
       <div
@@ -356,14 +357,16 @@ export function HUD() {
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
           {/* Help — text on desktop, icon-only on mobile */}
           <button
+            type="button"
             onClick={() => { setShowHelp(true); trackEvent('help_opened', { source: 'hud' }); }}
+            aria-label="Open field manual"
             onMouseEnter={hFieldManual.onMouseEnter}
             onMouseLeave={hFieldManual.onMouseLeave}
             style={{
               ...BTN_BASE,
-              flex: isMobile ? 0 : 1,
+              flex: isMobile ? '0 0 44px' : '1 1 auto',
               width: isMobile ? 44 : 'auto',
-              minWidth: 44,
+              minWidth: isMobile ? 44 : 0,
               background: hFieldManual.hovered ? `${ACCENT}22` : 'transparent',
               border: `1px solid ${hFieldManual.hovered ? ACCENT : ACCENT + '44'}`,
               color: ACCENT,
@@ -371,14 +374,18 @@ export function HUD() {
               letterSpacing: isMobile ? 0 : 2,
               padding: '6px 10px',
               transition: 'all 0.15s',
+              whiteSpace: 'nowrap',
             }}
           >
-            {isMobile ? '?' : '? FIELD MANUAL'}
+            {isMobile ? '?' : '? MANUAL'}
           </button>
 
           {/* Music toggle */}
           <button
+            type="button"
             onClick={handleMusicToggle}
+            aria-label={musicOn ? 'Mute music' : 'Unmute music'}
+            aria-pressed={musicOn}
             title={musicOn ? 'Music ON — click to mute' : 'Music OFF — click to unmute'}
             onMouseEnter={hMusic.onMouseEnter}
             onMouseLeave={hMusic.onMouseLeave}
@@ -386,10 +393,11 @@ export function HUD() {
               ...BTN_BASE,
               width: 44,
               minWidth: 44,
+              flexShrink: 0,
               padding: '6px 10px',
               background: musicOn ? `${ACCENT}18` : 'transparent',
               border: `1px solid ${hMusic.hovered ? ACCENT + '66' : musicOn ? ACCENT + '44' : ACCENT + '18'}`,
-              color: (hMusic.hovered || musicOn) ? ACCENT : `${ACCENT}33`,
+              color: (hMusic.hovered || musicOn) ? ACCENT : COLORS.muted,
               fontSize: 14,
               letterSpacing: 0,
               transition: 'all 0.15s',
@@ -401,7 +409,9 @@ export function HUD() {
           {/* Track switcher — only visible when music is on */}
           {musicOn && (
             <button
+              type="button"
               onClick={handleTrackSwitch}
+              aria-label={`Select next music track. Track ${musicTrack + 1} is active.`}
               title={`Track ${musicTrack + 1} — click to switch`}
               onMouseEnter={hTrack.onMouseEnter}
               onMouseLeave={hTrack.onMouseLeave}
@@ -409,10 +419,11 @@ export function HUD() {
                 ...BTN_BASE,
                 width: 44,
                 minWidth: 44,
+                flexShrink: 0,
                 padding: '6px 10px',
                 background: `${ACCENT}18`,
                 border: `1px solid ${hTrack.hovered ? ACCENT + '66' : ACCENT + '33'}`,
-                color: hTrack.hovered ? ACCENT : `${ACCENT}88`,
+                color: ACCENT,
                 fontSize: 12,
                 letterSpacing: 0,
                 transition: 'all 0.15s',
@@ -421,6 +432,29 @@ export function HUD() {
               {musicTrack === 0 ? '①' : '②'}
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setShowCommands(true)}
+            aria-label="Open accessible game commands"
+            aria-keyshortcuts="C"
+            title="Game commands (C)"
+            style={{
+              ...BTN_BASE,
+              width: isMobile ? 44 : 92,
+              minWidth: isMobile ? 44 : 92,
+              flexShrink: 0,
+              padding: '6px 8px',
+              background: 'transparent',
+              border: `1px solid ${ACCENT}44`,
+              color: ACCENT,
+              fontSize: 12,
+              letterSpacing: isMobile ? 1 : 2,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {isMobile ? 'CMD' : 'COMMANDS'}
+          </button>
 
         </div>
 
@@ -443,16 +477,19 @@ export function HUD() {
         {/* System controls row — pause + reduce-motion */}
         <div style={{ display: 'flex', gap: 6 }}>
           <button
+            type="button"
             onClick={togglePause}
+            aria-label={paused ? 'Resume game' : 'Pause game'}
+            aria-pressed={paused}
             title={paused ? 'SYSTEM HALTED — click to resume' : 'Pause game'}
             onMouseEnter={hPause.onMouseEnter}
             onMouseLeave={hPause.onMouseLeave}
             style={{
               ...BTN_BASE,
               flex: 1,
-              background: paused ? 'rgba(255,153,0,0.18)' : 'transparent',
-              border: `1px solid ${hPause.hovered ? (paused ? '#ff990088' : ACCENT + '66') : (paused ? '#ff990066' : ACCENT + '18')}`,
-              color: hPause.hovered ? (paused ? '#ffbb44' : ACCENT) : (paused ? '#ff9900' : `${ACCENT}33`),
+              background: paused ? alpha(COLORS.conflict, 0.18) : 'transparent',
+              border: `1px solid ${hPause.hovered ? (paused ? COLORS.conflict : ACCENT + '66') : (paused ? alpha(COLORS.conflict, 0.5) : ACCENT + '18')}`,
+              color: hPause.hovered ? (paused ? COLORS.conflict : ACCENT) : (paused ? COLORS.conflict : COLORS.muted),
               fontSize: 10, letterSpacing: paused ? 1 : 0,
               transition: 'all 0.15s',
             }}
@@ -460,7 +497,10 @@ export function HUD() {
             {paused ? '▶ RESUME' : 'Ⅱ PAUSE'}
           </button>
           <button
+            type="button"
             onClick={() => setReducedMotion(!reducedMotion)}
+            aria-label={reducedMotion ? 'Disable reduced motion' : 'Enable reduced motion'}
+            aria-pressed={reducedMotion}
             title={reducedMotion ? 'Reduced motion ON — click to restore' : 'Reduce animations'}
             onMouseEnter={hMotion.onMouseEnter}
             onMouseLeave={hMotion.onMouseLeave}
@@ -469,7 +509,7 @@ export function HUD() {
               width: 44, minWidth: 44,
               background: reducedMotion ? `${ACCENT}18` : 'transparent',
               border: `1px solid ${hMotion.hovered ? ACCENT + '66' : reducedMotion ? ACCENT + '44' : ACCENT + '18'}`,
-              color: (hMotion.hovered || reducedMotion) ? ACCENT : `${ACCENT}33`,
+              color: (hMotion.hovered || reducedMotion) ? ACCENT : COLORS.muted,
               fontSize: 13, letterSpacing: 0,
               transition: 'all 0.15s',
             }}
@@ -481,13 +521,11 @@ export function HUD() {
 
         {/* Status panel + scoreboard */}
         <div style={{ ...panelStyle, padding: compactLandscape ? '6px 8px' : panelStyle.padding }}>
-          <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2, marginBottom: 2 }}>
+          <div style={{ fontSize: 12, color: 'var(--crg-text)', letterSpacing: 2, marginBottom: 2 }}>
             TURN {turnNumber} · {phase}
           </div>
-          <div style={{ display: compactLandscape ? 'none' : undefined, fontSize: 8, color: `${ACCENT}33`, letterSpacing: 2, marginBottom: 4, fontVariantNumeric: 'tabular-nums' }}>
-            SYS {fmtUptime(uptime)}
-          </div>
-          <div style={{ display: compactLandscape ? 'none' : undefined, fontSize: 13, color: isHuman ? ACCENT : '#ff9955', fontWeight: 'bold', marginBottom: 10 }}>
+          {!compactLandscape && <SystemUptime />}
+          <div style={{ display: compactLandscape ? 'none' : undefined, fontSize: 13, color: isHuman ? ACCENT : COLORS.conflict, fontWeight: 'bold', marginBottom: 10 }}>
             {isHuman ? '▶ YOUR TURN' : `◌ ${currentPlayer?.name ?? '...'}`}
           </div>
 
@@ -496,20 +534,20 @@ export function HUD() {
             {players.map(p => {
               const pct = Math.max(0, Math.min(100, (p.cycles / startingPop) * 100));
               const isCurrent = p.id === currentPlayer?.id;
-              const nameColor = p.eliminated ? '#334455'
+              const nameColor = p.eliminated ? '#778899'
                 : p.isHuman ? ACCENT
-                : isCurrent ? '#ff9955'
+                : isCurrent ? COLORS.conflict
                 : '#7788aa';
               const barColor = p.eliminated ? '#223344'
                 : p.isHuman ? ACCENT
-                : '#ff9955';
+                : COLORS.conflict;
               return (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: p.eliminated ? 0.4 : 1 }}>
                   {/* Turn indicator dot */}
-                  <span style={{ width: 5, flexShrink: 0, fontSize: 8, color: isCurrent ? nameColor : 'transparent' }}>▶</span>
+                  <span style={{ width: 8, flexShrink: 0, fontSize: 11, color: isCurrent ? nameColor : 'transparent' }}>▶</span>
                   {/* Name */}
                   <span style={{
-                    fontSize: 9, letterSpacing: 1, color: nameColor,
+                    fontSize: 12, letterSpacing: 1, color: nameColor,
                     width: compactLandscape ? 45 : 68, flexShrink: 0,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     textDecoration: p.eliminated ? 'line-through' : 'none',
@@ -517,7 +555,7 @@ export function HUD() {
                     {p.name}
                   </span>
                   {compactLandscape && (
-                    <span title={`${p.daemons.length} active daemon${p.daemons.length === 1 ? '' : 's'}`} style={{ fontSize: 7, color: `${nameColor}88`, width: 14, flexShrink: 0 }}>
+                    <span title={`${p.daemons.length} active daemon${p.daemons.length === 1 ? '' : 's'}`} style={{ fontSize: 11, color: nameColor, width: 18, flexShrink: 0 }}>
                       D{p.daemons.length}
                     </span>
                   )}
@@ -528,15 +566,17 @@ export function HUD() {
                     borderRadius: 2, overflow: 'hidden',
                   }}>
                     <div style={{
-                      width: `${pct}%`, height: '100%',
+                      width: '100%', height: '100%',
                       background: barColor,
                       borderRadius: 2,
-                      transition: 'width 0.4s ease',
+                      transform: `scaleX(${pct / 100})`,
+                      transformOrigin: 'left center',
+                      transition: 'transform 0.4s ease',
                     }} />
                   </div>
                   {/* Count */}
                   {!hidePpCounts && (
-                    <span style={{ fontSize: 9, color: nameColor, letterSpacing: 0, width: 22, textAlign: 'right', flexShrink: 0 }}>
+                    <span style={{ fontSize: 12, color: nameColor, letterSpacing: 0, width: 28, textAlign: 'right', flexShrink: 0 }}>
                       {p.cycles}
                     </span>
                   )}
@@ -549,15 +589,15 @@ export function HUD() {
 
         {/* Targeting banner — click an opponent on the board to select them */}
         {phase === 'TARGETING' && (
-          <div style={{ ...panelStyle, borderColor: '#ff333388' }} className="hud-pulse">
-            <div style={{ fontSize: 10, color: '#ff3333', letterSpacing: 3, marginBottom: 8 }}>
+          <div style={{ ...panelStyle, borderColor: alpha(COLORS.rival, 0.6) }} className="hud-pulse">
+            <div style={{ fontSize: 11, color: COLORS.rival, letterSpacing: 3, marginBottom: 8 }}>
               SELECT A TARGET
             </div>
-            <div style={{ fontSize: 10, color: '#667788', marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: 'var(--crg-muted)', marginBottom: 10 }}>
               {validTargetIds.length} opponent{validTargetIds.length !== 1 ? 's' : ''} available
             </div>
             {!isForced && (
-              <button style={{ ...btnDim('#ff3333'), borderColor: '#ff333344', color: '#ff3333aa' }} onClick={() => cancelTargeting()}>
+              <button type="button" style={{ ...btnDim(COLORS.rival), borderColor: alpha(COLORS.rival, 0.5), color: COLORS.rival }} onClick={() => cancelTargeting()}>
                 ✕ CANCEL
               </button>
             )}
@@ -567,13 +607,14 @@ export function HUD() {
         {/* Multitask indicator — shown in top-right when extra plays are pending */}
         {phase === 'MAIN' && isHuman && extraPlayPending > 0 && (
           <div style={panelStyle}>
-            <div style={{ fontSize: 10, color: `${ACCENT}`, letterSpacing: 3, marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: ACCENT, letterSpacing: 3, marginBottom: 8 }}>
               ⟳ MULTITASKING
             </div>
-            <div style={{ fontSize: 10, color: '#667788', marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: 'var(--crg-muted)', marginBottom: 10 }}>
               {extraPlayPending} more card{extraPlayPending > 1 ? 's' : ''} to play
             </div>
             <button
+              type="button"
               onClick={() => cancelExtraPlays()}
               title="End your turn now without using remaining plays"
               style={{ ...btnDim(ACCENT), borderColor: `${ACCENT}44`, color: `${ACCENT}aa` }}
@@ -586,7 +627,7 @@ export function HUD() {
         {/* End turn — auto-advances after 900 ms; show a brief status flash */}
         {phase === 'END_TURN' && (
           <div style={{ ...panelStyle, opacity: 0.7 }}>
-            <div style={{ fontSize: 10, color: `${ACCENT}88`, letterSpacing: 2 }}>
+            <div style={{ fontSize: 11, color: 'var(--crg-muted)', letterSpacing: 2 }}>
               TURN COMPLETE
             </div>
           </div>
@@ -612,10 +653,11 @@ export function HUD() {
           onMouseDown={stopPhaser}
           onTouchStart={stopPhaser}
         >
-          <div style={{ fontSize: 9, color: `${ACCENT}66`, letterSpacing: 4, fontFamily: 'monospace' }}>
+          <div style={{ fontSize: 11, color: 'var(--crg-muted)', letterSpacing: 3, fontFamily: 'monospace' }}>
             SEQUENCE READY
           </div>
           <button
+            type="button"
             className={corruption ? 'corruption-pulse' : 'hud-pulse'}
             style={{
               ...primaryBtnStyle,
@@ -653,25 +695,35 @@ export function HUD() {
         >
           {corruptionFirstActive && (
             <div style={{
-              fontSize: 9, color: '#ff1e3caa', letterSpacing: 2,
+              fontSize: 11, color: COLORS.corruption, letterSpacing: 2,
               fontFamily: 'monospace', textAlign: 'center', marginBottom: 2,
             }}>
               ⚠ THE CORRUPTION MUST BE PLAYED FIRST
             </div>
           )}
           {!selectedCard && (
-            <div style={{ fontSize: 10, color: `${ACCENT}33`, letterSpacing: 3, fontFamily: 'monospace' }}>
+            <div style={{ fontSize: 11, color: 'var(--crg-muted)', letterSpacing: 3, fontFamily: 'monospace' }}>
               {corruptionFirstActive ? 'SELECT THE CORRUPTION' : 'SELECT A CARD'}
             </div>
           )}
           {selectedCard && (
             <>
-              <div style={{ fontSize: 10, color: `${ACCENT}aa`, letterSpacing: 2, fontFamily: 'monospace' }}>
+              <div style={{ fontSize: 11, color: ACCENT, letterSpacing: 2, fontFamily: 'monospace' }}>
                 {selectedCard.name.toUpperCase()}
               </div>
+              {compactLandscape && (
+                <button
+                  type="button"
+                  onClick={() => setShowCommands(true)}
+                  style={{ ...dimBtnStyle, width: 100, minHeight: 44, color: ACCENT }}
+                >
+                  DETAILS
+                </button>
+              )}
               <div style={{ display: 'flex', flexDirection: compactLandscape ? 'column' : 'row', gap: compactLandscape ? 4 : 8 }}>
                 {canPlaySelected && !isDiscardOnly && (
                   <button
+                    type="button"
                     className={corruption ? 'corruption-pulse' : 'hud-pulse'}
                     style={{
                       ...primaryBtnStyle,
@@ -686,6 +738,7 @@ export function HUD() {
                 )}
                 {!isForced && extraPlayPending === 0 && (
                   <button
+                    type="button"
                     style={{
                       ...dimBtnStyle,
                       width: compactLandscape ? 100 : isMobile ? 120 : 100,
@@ -704,8 +757,8 @@ export function HUD() {
                   padding: '6px 10px',
                   border: `1px solid ${ACCENT}22`,
                   background: 'rgba(5,5,15,0.86)',
-                  color: corruptionFirstActive ? '#ff6677' : `${ACCENT}99`,
-                  fontSize: 9,
+                  color: corruptionFirstActive ? COLORS.rival : COLORS.text,
+                  fontSize: 11,
                   letterSpacing: 1,
                   lineHeight: 1.4,
                   textAlign: 'center',
@@ -755,8 +808,8 @@ export function HUD() {
               >
                 {log.map((entry, i) => (
                   <div key={entry.id} style={{
-                    fontSize: 10, lineHeight: 1.65, letterSpacing: 0.5,
-                    color: i === log.length - 1 ? '#aabbcc' : '#667788',
+                    fontSize: 12, lineHeight: 1.65, letterSpacing: 0.5,
+                    color: i === log.length - 1 ? COLORS.text : COLORS.muted,
                     borderLeft: entry.type === 'turn'   ? `2px solid ${ACCENT}33` :
                                 entry.type === 'card'   ? '2px solid #aa44ff55' :
                                 entry.type === 'effect' ? '2px solid #ff996655' :
@@ -774,7 +827,10 @@ export function HUD() {
 
             {/* Header bar — always visible */}
             <button
+              type="button"
               onClick={() => setLogExpanded(v => !v)}
+              aria-expanded={logExpanded}
+              aria-label={`${logExpanded ? 'Collapse' : 'Expand'} activity log`}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 width: '100%', padding: '6px 14px',
@@ -782,16 +838,16 @@ export function HUD() {
                 border: 'none',
                 borderTop: logExpanded ? `1px solid ${ACCENT}18` : 'none',
                 cursor: 'pointer',
-                fontFamily: 'monospace', fontSize: 9,
-                color: `${ACCENT}55`, letterSpacing: 2,
-                minHeight: 36,
+                fontFamily: 'monospace', fontSize: 11,
+                color: COLORS.muted, letterSpacing: 2,
+                minHeight: 44,
               }}
             >
               <span>ACTIVITY LOG</span>
               {/* Collapsed: show the latest entry as a preview */}
               {!logExpanded && logTail.length > 0 && (
                 <span style={{
-                  fontSize: 9, color: '#556677', letterSpacing: 0.3,
+                  fontSize: 12, color: 'var(--crg-muted)', letterSpacing: 0.3,
                   maxWidth: isMobile ? 140 : 200,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   marginLeft: 8, flex: 1, textAlign: 'right',
@@ -804,7 +860,7 @@ export function HUD() {
                   <span className="log-cursor" style={{ color: ACCENT, flexShrink: 0 }}>█</span>
                 </span>
               )}
-              <span style={{ color: `${ACCENT}33`, marginLeft: 10, flexShrink: 0 }}>
+              <span style={{ color: ACCENT, marginLeft: 10, flexShrink: 0 }}>
                 {logExpanded ? '▼' : `▲ ${log.length}`}
               </span>
             </button>
@@ -829,13 +885,14 @@ export function HUD() {
           onTouchStart={stopPhaser}
         >
           <button
+            type="button"
             className={corruption ? 'corruption-pulse' : 'hud-pulse'}
             style={{
               ...BTN_BASE,
               width: isMobile ? 150 : 120,
-              background: `${ACCENT}18`,
-              color: ACCENT,
-              border: `1px solid ${ACCENT}88`,
+              background: ACCENT,
+              color: COLORS.void,
+              border: `1px solid ${ACCENT}`,
               fontSize: isMobile ? 14 : 11,
               letterSpacing: 2,
               minHeight: 48,
@@ -852,10 +909,10 @@ export function HUD() {
         const modeLabels: Record<HandSortMode, string> = { DEFAULT: 'DEF', TYPE: 'TYPE', VALUE: 'VAL', ALPHA: 'A–Z' };
         const nextMode = SORT_MODES[(SORT_MODES.indexOf(handSortMode) + 1) % SORT_MODES.length];
         const btnStyle: React.CSSProperties = {
-          fontFamily: 'monospace', fontSize: 8, letterSpacing: 2,
-          padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+          fontFamily: 'monospace', fontSize: 12, letterSpacing: 1,
+          padding: '6px 9px', borderRadius: 3, cursor: 'pointer',
           background: 'rgba(5,5,15,0.88)', transition: 'all 0.12s',
-          minHeight: 0,
+          minWidth: 44, minHeight: 44,
         };
         return (
           <div
@@ -867,9 +924,11 @@ export function HUD() {
             onMouseDown={stopPhaser}
             onTouchStart={stopPhaser}
           >
-            <span style={{ fontFamily: 'monospace', fontSize: 7, color: `${ACCENT}44`, letterSpacing: 2 }}>SORT</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--crg-muted)', letterSpacing: 2 }}>SORT</span>
             <button
+              type="button"
               title={`Sort: ${handSortMode} — click to change to ${nextMode}`}
+              aria-label={`Sort hand by ${nextMode.toLowerCase()}`}
               style={{
                 ...btnStyle,
                 border: `1px solid ${hSortMode.hovered ? ACCENT : handSortMode !== 'DEFAULT' ? ACCENT + '88' : ACCENT + '33'}`,
@@ -882,11 +941,14 @@ export function HUD() {
               {modeLabels[handSortMode]}
             </button>
             <button
+              type="button"
               title={handSortReverse ? 'Reversed — click to restore' : 'Click to reverse sort order'}
+              aria-label="Reverse hand sort order"
+              aria-pressed={handSortReverse}
               style={{
                 ...btnStyle,
                 border: `1px solid ${hSortRev.hovered ? ACCENT : handSortReverse ? ACCENT + '88' : ACCENT + '33'}`,
-                color: (hSortRev.hovered || handSortReverse) ? ACCENT : `${ACCENT}44`,
+                color: (hSortRev.hovered || handSortReverse) ? ACCENT : COLORS.muted,
               }}
               onClick={() => setHandSort(handSortMode, !handSortReverse)}
               onMouseEnter={hSortRev.onMouseEnter}

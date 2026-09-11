@@ -1,6 +1,7 @@
 // src/game/objects/ImprovementBoard.ts
 import Phaser from 'phaser';
 import type { DaemonType } from '../../types/cards';
+import { COLORS, PHASER_COLORS } from '../../theme/tokens';
 
 const IMP_LABEL: Record<DaemonType, string> = {
   FIREWALL:      'FIREWALL',
@@ -24,7 +25,13 @@ export class DaemonBoard extends Phaser.GameObjects.Container {
   private color:    number;
   private colorHex: string;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, color = 0xaa44ff, colorHex = '#aa44ff') {
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    color: number = PHASER_COLORS.counter,
+    colorHex: string = COLORS.counter,
+  ) {
     super(scene, x, y);
     this.color    = color;
     this.colorHex = colorHex;
@@ -153,12 +160,12 @@ export class DaemonBoard extends Phaser.GameObjects.Container {
     con.add(bg);
 
     con.add(this.scene.add.text(0, -BH / 2 + 6, '⚠  DAEMON TERMINATED', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#ff3355',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.rival,
       letterSpacing: 2, resolution: dpr,
     }).setOrigin(0.5));
 
     con.add(this.scene.add.text(0, BH / 2 - 9, `${names.toUpperCase()} PURGED`, {
-      fontFamily: 'monospace', fontSize: '6px', color: '#ff333566',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.rival,
       resolution: dpr,
     }).setOrigin(0.5));
 
@@ -213,7 +220,7 @@ export class DaemonBoard extends Phaser.GameObjects.Container {
 
     // Category icon
     con.add(this.scene.add.text(0, -CARD_H / 2 + 16, '[D]', {
-      fontFamily: 'monospace', fontSize: '8px', color: ch, resolution: dpr,
+      fontFamily: 'monospace', fontSize: '11px', color: ch, resolution: dpr,
     }).setOrigin(0.5));
 
     // Name
@@ -224,7 +231,7 @@ export class DaemonBoard extends Phaser.GameObjects.Container {
 
     // Description
     con.add(this.scene.add.text(0, CARD_H / 2 - 8, IMP_DESC[imp], {
-      fontFamily: 'monospace', fontSize: '5px', color: ch,
+      fontFamily: 'monospace', fontSize: '7px', color: ch,
       wordWrap: { width: CARD_W - 8 }, align: 'center', lineSpacing: 1, resolution: dpr,
     }).setOrigin(0.5, 1));
 

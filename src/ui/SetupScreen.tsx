@@ -1,5 +1,6 @@
 // src/ui/SetupScreen.tsx
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { Suspense, lazy, useEffect, useState, useRef, useCallback } from 'react';
+import { safeStorage } from '../lib/storage';
 
 // Show boot sequence once per page load; flag persists across re-renders
 let _bootSeen = false;
@@ -28,15 +29,8 @@ const BOOT_CSS = `
 const DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD'] as const;
 type Difficulty = typeof DIFFICULTIES[number];
 
-function readStoredInteger(key: string, fallback: number, min: number, max: number, step = 1): number {
-  const value = Number(localStorage.getItem(key));
-  return Number.isInteger(value) && value >= min && value <= max && (value - min) % step === 0
-    ? value
-    : fallback;
-}
-
 function readStoredDifficulty(): Difficulty {
-  const value = localStorage.getItem('crg-difficulty');
+  const value = safeStorage.get('crg-difficulty');
   return DIFFICULTIES.includes(value as Difficulty) ? value as Difficulty : 'MEDIUM';
 }
 
@@ -49,8 +43,7 @@ function useHover() {
   };
 }
 import { useGameStore } from '../state/useGameStore';
-import { HelpModal } from './HelpModal';
-import { AboutModal } from './AboutModal';
+import { OverlayShell } from './OverlayShell';
 import { GlitchTitle } from './GlitchTitle';
 import {
   resumeAudio, sfxNavClick, sfxSliderUp, sfxSliderDown,
@@ -60,9 +53,11 @@ import {
 import { trackEvent } from '../lib/analytics';
 
 const TRACK_NAMES = ['NEURAL DRIFT', 'AMBIENT BG'] as const;
+const HelpModal = lazy(() => import('./HelpModal').then(module => ({ default: module.HelpModal })));
+const AboutModal = lazy(() => import('./AboutModal').then(module => ({ default: module.AboutModal })));
 
 const LABEL: React.CSSProperties = {
-  fontSize: '0.65rem', letterSpacing: 3, color: '#446655', marginBottom: '0.5rem',
+  fontSize: '0.75rem', letterSpacing: 3, color: 'var(--crg-muted)', marginBottom: '0.5rem',
 };
 
 const SEP: React.CSSProperties = {
@@ -70,19 +65,24 @@ const SEP: React.CSSProperties = {
 };
 
 function SegmentButton({
-  active, onClick, children, fontSize = '0.85rem',
-}: { active: boolean; onClick: () => void; children: React.ReactNode; fontSize?: string }) {
+  active, onClick, children, fontSize = '0.9rem', disabled = false,
+}: { active: boolean; onClick: () => void; children: React.ReactNode; fontSize?: string; disabled?: boolean }) {
   return (
     <button
+      type="button"
       onClick={onClick}
+      aria-pressed={active}
+      disabled={disabled}
       className="crg-btn-cyan"
       style={{
         flex: 1, padding: '0.4rem',
         background: active ? '#00ffcc22' : 'transparent',
         border: `1px solid ${active ? '#00ffcc' : '#00ffcc33'}`,
-        color: active ? '#00ffcc' : '#446655',
+        color: active ? 'var(--crg-signal)' : 'var(--crg-muted)',
         fontFamily: 'monospace', fontSize,
-        cursor: 'pointer', letterSpacing: 1,
+        cursor: disabled ? 'not-allowed' : 'pointer', letterSpacing: 1,
+        minHeight: 44,
+        opacity: disabled ? 0.45 : 1,
         transition: 'all 0.15s',
       }}
     >
@@ -96,12 +96,14 @@ function Toggle({
 }: { checked: boolean; onChange: (v: boolean) => void; label: string; description: string }) {
   return (
     <button
+      type="button"
       onClick={() => { resumeAudio(); (checked ? sfxToggleOff : sfxToggleOn)(); onChange(!checked); }}
+      aria-pressed={checked}
       style={{
         width: '100%', textAlign: 'left',
         background: checked ? '#00ffcc0a' : 'transparent',
         border: `1px solid ${checked ? '#00ffcc44' : '#00ffcc1a'}`,
-        borderRadius: 4, padding: '0.6rem 0.75rem',
+        borderRadius: 4, padding: '0.6rem 0.75rem', minHeight: 44,
         cursor: 'pointer', fontFamily: 'monospace',
         display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
         transition: 'all 0.15s',
@@ -118,10 +120,10 @@ function Toggle({
         {checked ? '✓' : ''}
       </span>
       <span>
-        <div style={{ fontSize: '0.7rem', color: checked ? '#00ffcc' : '#557766', letterSpacing: 2, marginBottom: 3 }}>
+        <div style={{ fontSize: '0.75rem', color: checked ? 'var(--crg-signal)' : 'var(--crg-text)', letterSpacing: 2, marginBottom: 3 }}>
           {label}
         </div>
-        <div style={{ fontSize: '0.6rem', color: '#334455', letterSpacing: 0.5, lineHeight: 1.5 }}>
+        <div style={{ fontSize: '0.75rem', color: 'var(--crg-body)', letterSpacing: 0.5, lineHeight: 1.5 }}>
           {description}
         </div>
       </span>
@@ -176,50 +178,34 @@ function OptionsModal({
   const [closing, setClosing] = useState(false);
 
   const handleClose = useCallback(() => {
+    if (reducedMotion) {
+      onClose();
+      return;
+    }
     setClosing(true);
     setTimeout(onClose, 300);
-  }, [onClose]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [handleClose]);
+  }, [onClose, reducedMotion]);
 
   return (
     <>
       <style>{OPTIONS_ANIM_CSS}</style>
-      <div
-        onClick={handleClose}
-        className={closing ? 'opt-bd-out' : 'opt-bd-in'}
-        style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(2,4,12,0.96)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 500,
-          fontFamily: 'monospace',
-          overflow: 'hidden',
-          boxSizing: 'border-box',
-          padding: 'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
-        }}
-      >
-        <div
-          onClick={e => e.stopPropagation()}
-          className={closing ? 'opt-fold' : 'opt-unfold'}
-          style={{
+      <OverlayShell
+        ariaLabel="Game options"
+        background="rgba(2,4,12,0.96)"
+        zIndex={500}
+        maxWidth={400}
+        onBackdropClick={handleClose}
+        onRequestClose={handleClose}
+        panelClassName={closing ? 'opt-fold opt-bd-out' : 'opt-unfold opt-bd-in'}
+        panelStyle={{
             border: '1px solid #00ffcc33',
             background: 'rgba(5,10,20,0.98)',
             padding: '2rem 2.5rem',
-            maxWidth: 400,
-            width: '90%',
             color: '#00ffcc',
-            maxHeight: '100%',
-            overflowY: 'auto',
-            boxSizing: 'border-box',
-          }}
-        >
+        }}
+      >
           <div className={closing ? 'opt-out' : 'opt-in'} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ fontSize: '0.5rem', letterSpacing: 6, color: '#00ffcc44', marginBottom: '0.25rem' }}>
+            <div style={{ fontSize: '0.75rem', letterSpacing: 6, color: 'var(--crg-muted)', marginBottom: '0.25rem' }}>
               SYSTEM CONFIG
             </div>
             <h2 style={{ margin: '0 0 0.5rem', fontSize: '1rem', letterSpacing: 4, color: '#00ffcc' }}>
@@ -252,16 +238,17 @@ function OptionsModal({
             />
 
             <button
+              type="button"
               onClick={handleClose}
               style={{
                 marginTop: '0.5rem',
                 width: '100%',
                 background: 'transparent',
                 border: '1px solid #00ffcc33',
-                color: '#446655',
+                color: 'var(--crg-muted)',
                 fontFamily: 'monospace',
-                fontSize: '0.65rem', letterSpacing: 3,
-                padding: '0.5rem',
+                fontSize: '0.75rem', letterSpacing: 3,
+                padding: '0.5rem', minHeight: 44,
                 cursor: 'pointer',
                 transition: 'all 0.15s',
               }}
@@ -270,8 +257,7 @@ function OptionsModal({
               CLOSE
             </button>
           </div>
-        </div>
-      </div>
+      </OverlayShell>
     </>
   );
 }
@@ -313,30 +299,26 @@ export const SetupScreen: React.FC = () => {
   }, [bootDone, skipBoot]);
 
   // ── Normal setup state ──────────────────────────────────────────────────────
-  const [name, setName]                     = useState(() => localStorage.getItem('crg-handle') ?? '');
+  const [name, setName]                     = useState(() => safeStorage.get('crg-handle'));
   const [nameFocused, setNameFocused]       = useState(false);
-  const [count, setCount]                   = useState(() => readStoredInteger('crg-count', 1, 1, 4));
-  const [startingPop, setStartingPop]       = useState(() => readStoredInteger('crg-cycles', 50, 30, 100, 5));
-  const [hidePpCounts, setHidePpCounts]     = useState(() => localStorage.getItem('crg-hide-cycles') === 'true');
-  const [deadMansSwitch, setDeadMansSwitch] = useState(() => localStorage.getItem('crg-dead-mans-switch') === 'true');
-  const [warTiePenalty, setWarTiePenalty]   = useState(() => localStorage.getItem('crg-war-tie-penalty') === 'true');
+  const [count, setCount]                   = useState(() => safeStorage.getInteger('crg-count', 1, 1, 4));
+  const [startingPop, setStartingPop]       = useState(() => safeStorage.getInteger('crg-cycles', 50, 30, 100, 5));
+  const [hidePpCounts, setHidePpCounts]     = useState(() => safeStorage.get('crg-hide-cycles') === 'true');
+  const [deadMansSwitch, setDeadMansSwitch] = useState(() => safeStorage.get('crg-dead-mans-switch') === 'true');
+  const [warTiePenalty, setWarTiePenalty]   = useState(() => safeStorage.get('crg-war-tie-penalty') === 'true');
   const [difficulty, setDifficulty]         = useState<Difficulty>(readStoredDifficulty);
   const [musicOn, setMusicOn]               = useState(() => getMusicEnabled());
   const [musicTrack, setMusicTrack]         = useState(() => getMusicTrack());
   const prevCycles = useRef(startingPop);
 
-  const isPortraitMobile = () => window.innerWidth < 600 && window.innerWidth < window.innerHeight;
-  const [portraitMobile, setPortraitMobile] = useState(isPortraitMobile);
+  const isPortraitViewport = () => window.innerWidth < window.innerHeight;
+  const [portraitViewport, setPortraitViewport] = useState(isPortraitViewport);
   useEffect(() => {
-    const check = () => setPortraitMobile(isPortraitMobile());
+    const check = () => setPortraitViewport(isPortraitViewport());
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
-  useEffect(() => {
-    if (!portraitMobile || count <= 1) return;
-    const t = setTimeout(() => setCount(1), 0);
-    return () => clearTimeout(t);
-  }, [portraitMobile, count]);
+  const portraitPlayerLimitReached = portraitViewport && count > 1;
   const hConnect = useHover();
 
   const [showHelp, setShowHelp]       = useState(false);
@@ -348,13 +330,14 @@ export const SetupScreen: React.FC = () => {
   }, []);
 
   const handleStart = () => {
-    localStorage.setItem('crg-handle', name.trim() || 'Ghost');
-    localStorage.setItem('crg-count', String(count));
-    localStorage.setItem('crg-cycles', String(startingPop));
-    localStorage.setItem('crg-hide-cycles', String(hidePpCounts));
-    localStorage.setItem('crg-dead-mans-switch', String(deadMansSwitch));
-    localStorage.setItem('crg-war-tie-penalty', String(warTiePenalty));
-    localStorage.setItem('crg-difficulty', difficulty);
+    if (portraitPlayerLimitReached) return;
+    safeStorage.set('crg-handle', name.trim() || 'Ghost');
+    safeStorage.set('crg-count', String(count));
+    safeStorage.set('crg-cycles', String(startingPop));
+    safeStorage.set('crg-hide-cycles', String(hidePpCounts));
+    safeStorage.set('crg-dead-mans-switch', String(deadMansSwitch));
+    safeStorage.set('crg-war-tie-penalty', String(warTiePenalty));
+    safeStorage.set('crg-difficulty', difficulty);
     trackEvent('game_start', { player_count: count + 1, starting_cycles: startingPop, difficulty });
     sfxConnect();
     startGame(count + 1, name.trim() || 'Ghost', startingPop, hidePpCounts, deadMansSwitch, warTiePenalty, undefined, difficulty);
@@ -363,15 +346,17 @@ export const SetupScreen: React.FC = () => {
   // Small helper so all meta-buttons share the same look; pass active=true to light it up
   const metaBtn = (onClick: () => void, label: string, active?: boolean) => (
     <button
+      type="button"
       onClick={onClick}
+      aria-pressed={active === undefined ? undefined : active}
       style={{
         flexBasis: '50%',
         maxWidth: 120,
         background: active ? '#00ffcc11' : 'transparent',
         border: `1px solid ${active ? '#00ffcc66' : '#00ffcc33'}`,
-        color: active ? '#00ffcc' : '#446655',
-        fontFamily: 'monospace', fontSize: '0.65rem',
-        letterSpacing: 2, cursor: 'pointer', padding: '0.25rem 0.8rem',
+        color: active ? 'var(--crg-signal)' : 'var(--crg-muted)',
+        fontFamily: 'monospace', fontSize: '0.75rem',
+        letterSpacing: 2, cursor: 'pointer', padding: '0.25rem 0.8rem', minHeight: 44,
         transition: 'all 0.15s',
       }}
       className="crg-btn-cyan"
@@ -387,7 +372,8 @@ export const SetupScreen: React.FC = () => {
       <>
         <style>{BOOT_CSS}</style>
         <div
-          onClick={skipBoot}
+          role="status"
+          aria-label="System boot sequence"
           className={bootFading ? 'boot-fading' : ''}
           style={{
             position: 'fixed', inset: 0,
@@ -408,7 +394,7 @@ export const SetupScreen: React.FC = () => {
                 style={{
                   fontSize: '0.72rem',
                   letterSpacing: 1.5,
-                  color: i === BOOT_LINES.length - 1 ? '#00ffcc' : '#336655',
+                  color: i === BOOT_LINES.length - 1 ? '#00ffcc' : 'var(--crg-body)',
                   fontWeight: i === BOOT_LINES.length - 1 ? 'bold' : 'normal',
                 }}
               >
@@ -416,12 +402,15 @@ export const SetupScreen: React.FC = () => {
               </div>
             ))}
           </div>
-          <div style={{
+          <button type="button" onClick={skipBoot} style={{
             position: 'absolute', bottom: '1.5rem', right: '2rem',
-            fontSize: '0.5rem', color: '#1a2a22', letterSpacing: 2,
+            fontSize: '0.75rem', color: 'var(--crg-muted)', letterSpacing: 2,
+            minHeight: 44, padding: '0.5rem 0.75rem', cursor: 'pointer',
+            background: 'transparent', border: '1px solid var(--crg-muted)',
+            fontFamily: 'monospace',
           }}>
-            PRESS ANY KEY TO SKIP
-          </div>
+            SKIP BOOT · ANY KEY
+          </button>
         </div>
       </>
     )}
@@ -436,11 +425,20 @@ export const SetupScreen: React.FC = () => {
       fontFamily: 'monospace',
       color: '#00ffcc',
     }}>
+      <div style={{
+        position: 'relative',
+        zIndex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        width: '100%',
+        flexShrink: 0,
+      }}>
       <div className="crg-setup-title" style={{ textAlign: 'center', marginBottom: '0.25rem', maxWidth: '90vw', flexShrink: 0 }}>
         <GlitchTitle />
       </div>
       <p className="crg-setup-subtitle" style={{
-        color: '#446655',
+        color: 'var(--crg-muted)',
         letterSpacing: 4,
         fontSize: '0.75rem',
         margin: '0 0 0.75rem',
@@ -474,7 +472,7 @@ export const SetupScreen: React.FC = () => {
       {/* Track selector — visible when music is on */}
       {musicOn && (
         <div className="crg-setup-track" style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.5rem', letterSpacing: 3, color: '#00ffcc33', marginBottom: '0.4rem' }}>
+          <div style={{ fontSize: '0.75rem', letterSpacing: 3, color: 'var(--crg-muted)', marginBottom: '0.4rem' }}>
             SOUNDTRACK
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'stretch' }}>
@@ -482,7 +480,7 @@ export const SetupScreen: React.FC = () => {
               <SegmentButton
                 key={i}
                 active={musicTrack === i}
-                fontSize='0.6rem'
+                fontSize='0.75rem'
                 onClick={() => {
                   if (musicTrack !== i) {
                     resumeAudio();
@@ -498,8 +496,10 @@ export const SetupScreen: React.FC = () => {
         </div>
       )}
 
-      {showHelp    && <HelpModal    onClose={() => setShowHelp(false)} />}
-      {showAbout   && <AboutModal   onClose={() => setShowAbout(false)} />}
+      <Suspense fallback={<div className="sr-only" role="status">Loading dialog…</div>}>
+        {showHelp    && <HelpModal    onClose={() => setShowHelp(false)} />}
+        {showAbout   && <AboutModal   onClose={() => setShowAbout(false)} />}
+      </Suspense>
       {showOptions && (
         <OptionsModal
           onClose={() => setShowOptions(false)}
@@ -527,8 +527,9 @@ export const SetupScreen: React.FC = () => {
               the blinking _ sits immediately after it, the real input overlays everything. */}
           <div style={{
             position: 'relative', flex: 1, display: 'flex', alignItems: 'center',
-            minHeight: '1.4rem',
+            minHeight: 44,
           }}>
+            <label className="sr-only" htmlFor="crg-handle">Operator handle</label>
             <span style={{
               visibility: 'hidden', whiteSpace: 'pre',
               fontFamily: 'monospace', fontSize: '0.9rem', letterSpacing: 3,
@@ -545,11 +546,14 @@ export const SetupScreen: React.FC = () => {
               <span style={{
                 position: 'absolute', left: 0, pointerEvents: 'none',
                 fontFamily: 'monospace', fontSize: '0.9rem', letterSpacing: 3,
-                color: '#334455',
+                color: 'var(--crg-muted)',
               }}>YOUR HANDLE</span>
             )}
             <input
+              id="crg-handle"
               type="text"
+              aria-describedby="crg-handle-hint"
+              autoComplete="nickname"
               value={name}
               onChange={e => setName(e.target.value.toUpperCase())}
               onFocus={() => setNameFocused(true)}
@@ -562,32 +566,39 @@ export const SetupScreen: React.FC = () => {
                 textTransform: 'uppercase', padding: 0, lineHeight: '1.4rem',
               }}
             />
+            <span id="crg-handle-hint" className="sr-only">Shown as your player name. Defaults to Ghost.</span>
           </div>
         </div>
 
         {/* Number of AI agents */}
         <div>
           <div style={{ ...LABEL, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span>NUMBER OF AGENTS</span>
-            {portraitMobile && <span style={{ fontSize: '0.55rem', color: '#446655', letterSpacing: 1 }}>1V1 ONLY IN PORTRAIT</span>}
+            <span id="opponent-count-label">AI OPPONENTS</span>
+            {portraitViewport && <span style={{ fontSize: '0.75rem', color: 'var(--crg-muted)', letterSpacing: 1 }}>1V1 IN PORTRAIT</span>}
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {[1, 2, 3].map(n => (
+          <div role="group" aria-labelledby="opponent-count-label" style={{ display: 'flex', gap: '0.5rem' }}>
+            {[1, 2, 3, 4].map(n => (
               <SegmentButton
                 key={n}
                 active={count === n}
-                onClick={() => { if (portraitMobile && n > 1) return; resumeAudio(); sfxNavClick(); setCount(n); }}
+                disabled={portraitViewport && n > 1}
+                onClick={() => { resumeAudio(); sfxNavClick(); setCount(n); }}
               >
-                <span style={portraitMobile && n > 1 ? { opacity: 0.25 } : undefined}>{n}</span>
+                {n}
               </SegmentButton>
             ))}
           </div>
+          {portraitPlayerLimitReached && (
+            <p role="status" style={{ margin: '0.5rem 0 0', color: 'var(--crg-text)', fontSize: '0.75rem', lineHeight: 1.5 }}>
+              Rotate to landscape to connect with {count} AI opponents. Your selection is preserved.
+            </p>
+          )}
         </div>
 
         {/* Difficulty */}
         <div>
-          <div style={LABEL}>DIFFICULTY</div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div id="difficulty-label" style={LABEL}>DIFFICULTY</div>
+          <div role="group" aria-labelledby="difficulty-label" style={{ display: 'flex', gap: '0.5rem' }}>
             {(['EASY', 'MEDIUM', 'HARD'] as const).map(d => (
               <SegmentButton key={d} active={difficulty === d} onClick={() => { resumeAudio(); sfxNavClick(); setDifficulty(d); }}>
                 {d}
@@ -601,10 +612,11 @@ export const SetupScreen: React.FC = () => {
         {/* Starting cycles */}
         <div>
           <div style={{ ...LABEL, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span>STARTING CYCLES</span>
-            <span style={{ fontSize: '0.85rem', color: '#00ffcc', letterSpacing: 2 }}>{startingPop}</span>
+            <label htmlFor="starting-cycles">STARTING CYCLES</label>
+            <span style={{ fontSize: '0.9rem', color: '#00ffcc', letterSpacing: 2 }}>{startingPop}</span>
           </div>
           <input
+            id="starting-cycles"
             type="range"
             className="cycles-slider"
             min={30}
@@ -622,9 +634,9 @@ export const SetupScreen: React.FC = () => {
               '--fill': `${((startingPop - 30) / 70) * 100}%`,
             } as React.CSSProperties}
           />
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#334455', letterSpacing: 1, marginTop: '0.3rem' }}>
+          <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--crg-muted)', letterSpacing: 1, marginTop: '0.3rem' }}>
             <span>30</span>
-            <span style={{ color: startingPop < 45 ? '#446655' : startingPop > 55 ? '#446655' : '#334455' }}>
+            <span style={{ color: 'var(--crg-muted)' }}>
               {startingPop < 45 ? 'SHORT GAME' : startingPop > 55 ? 'LONG GAME' : 'STANDARD'}
             </span>
             <span>100</span>
@@ -635,7 +647,10 @@ export const SetupScreen: React.FC = () => {
 
         {/* Start */}
         <button
+          type="button"
           onClick={handleStart}
+          disabled={portraitPlayerLimitReached}
+          aria-describedby={portraitPlayerLimitReached ? 'connect-requirement' : undefined}
           onMouseEnter={hConnect.onMouseEnter}
           onMouseLeave={hConnect.onMouseLeave}
           style={{
@@ -646,16 +661,20 @@ export const SetupScreen: React.FC = () => {
             fontFamily: 'monospace',
             fontSize: '1rem',
             letterSpacing: 4,
-            cursor: 'pointer',
+            cursor: portraitPlayerLimitReached ? 'not-allowed' : 'pointer',
+            opacity: portraitPlayerLimitReached ? 0.5 : 1,
+            minHeight: 48,
             boxShadow: hConnect.hovered ? '0 0 18px #00ffcc33' : 'none',
             transition: 'all 0.15s',
           }}
         >
           CONNECT →
         </button>
+        {portraitPlayerLimitReached && <span id="connect-requirement" className="sr-only">Rotate to landscape before connecting with more than one AI opponent.</span>}
 
         {/* Tutorial */}
         <button
+          type="button"
           onClick={() => {
             resumeAudio();
             sfxNavClick();
@@ -665,17 +684,18 @@ export const SetupScreen: React.FC = () => {
             padding: '0.5rem',
             background: 'transparent',
             border: '1px solid #00ffcc33',
-            color: '#446655',
+            color: 'var(--crg-muted)',
             fontFamily: 'monospace',
-            fontSize: '0.65rem',
+            fontSize: '0.75rem',
             letterSpacing: 3,
             cursor: 'pointer',
-            transition: 'all 0.15s',
+            transition: 'all 0.15s', minHeight: 44,
           }}
           className="crg-btn-cyan"
         >
           ▷ TUTORIAL
         </button>
+      </div>
       </div>
     </div>
     </>

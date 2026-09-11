@@ -6,6 +6,7 @@ import { initRNG, random, rollDie } from '../lib/rng';
 import { generateDeck } from '../data/deck';
 import { TUTORIAL_REQUIRED_CARD, TUTORIAL_AI_CARD } from '../data/tutorial';
 import { trackEvent } from '../lib/analytics';
+import { safeStorage } from '../lib/storage';
 import {
   markEliminations,
   mustPlayCorruptionFirst,
@@ -29,7 +30,7 @@ function cancelAllAiTimers(): void { _aiTimers.forEach(clearTimeout); _aiTimers.
 
 // ── Card effect result ────────────────────────────────────────────────────────
 
-type WarRollSnapshot = { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; targetBase: number; targetBonus: number; actorWins: boolean; isTie?: boolean; tieCycleLoss?: number; targetName: string };
+type WarRollSnapshot = { actorRoll: number; actorBase: number; actorBonus: number; targetRoll: number; targetBase: number; targetBonus: number; actorWins: boolean; isTie?: boolean; tieCycleLoss?: number; targetIndex: number; targetName: string };
 type CardEffectResult = {
   players: PlayerState[];
   negotiateBlockedBy: string | null;
@@ -51,18 +52,19 @@ interface _SessionRecord { date: string; humanWon: boolean; turns: number; playe
 interface _GameRecords   { wins: number; losses: number; history: _SessionRecord[]; }
 
 function saveGameRecord(humanWon: boolean, turns: number, playerCount: number, corrupted: boolean, seed: number): void {
-  try {
-    const key = 'crg-records';
-    const raw = localStorage.getItem(key);
-    const existing: _GameRecords = raw ? JSON.parse(raw) : { wins: 0, losses: 0, history: [] };
-    const record: _SessionRecord = { date: new Date().toISOString(), humanWon, turns, playerCount, corrupted, seed };
-    const history = [record, ...existing.history].slice(0, 20);
-    localStorage.setItem(key, JSON.stringify({
-      wins: existing.wins + (humanWon ? 1 : 0),
-      losses: existing.losses + (humanWon ? 0 : 1),
-      history,
-    }));
-  } catch { /* localStorage unavailable */ }
+  const key = 'crg-records';
+  const existing = safeStorage.getJson<_GameRecords>(key, { wins: 0, losses: 0, history: [] }, (value): value is _GameRecords => {
+    if (!value || typeof value !== 'object') return false;
+    const record = value as Partial<_GameRecords>;
+    return Number.isFinite(record.wins) && Number.isFinite(record.losses) && Array.isArray(record.history);
+  });
+  const record: _SessionRecord = { date: new Date().toISOString(), humanWon, turns, playerCount, corrupted, seed };
+  const history = [record, ...existing.history].slice(0, 20);
+  safeStorage.set(key, JSON.stringify({
+    wins: existing.wins + (humanWon ? 1 : 0),
+    losses: existing.losses + (humanWon ? 0 : 1),
+    history,
+  }));
 }
 
 // targetIndex — when provided (human targeting), use it directly.
@@ -231,7 +233,7 @@ export function applyCardEffect(card: Card, players: PlayerState[], actorIndex: 
       const actorWins = !isTie && actorRoll > targetRoll;
       // Tie: both lose the winner's cycle amount when warTiePenalty is on, otherwise no loss.
       const tieCycleLoss = isTie ? (warTiePenalty ? w.winnerLoses : 0) : undefined;
-      const warRollResult: WarRollSnapshot = { actorRoll, actorBase, actorBonus, targetRoll, targetBase, targetBonus, actorWins, isTie, tieCycleLoss, targetName: players[ti].name };
+      const warRollResult: WarRollSnapshot = { actorRoll, actorBase, actorBonus, targetRoll, targetBase, targetBonus, actorWins, isTie, tieCycleLoss, targetIndex: ti, targetName: players[ti].name };
       // Determine credit losses — ties use tieCycleLoss (0 if penalty off), wins use normal schedule
       let actorLoss  = isTie ? (tieCycleLoss ?? 0) : (actorWins ? w.winnerLoses : w.loserLoses);
       let targetLoss = isTie ? (tieCycleLoss ?? 0) : (actorWins ? w.loserLoses  : w.winnerLoses);
@@ -673,7 +675,11 @@ const AI_PERSONALITIES: AIPersonality[] = ['AGGRESSIVE', 'CAUTIOUS', 'TACTICAL',
 export const useGameStore = create<GameStore>((set, get) => ({
   ...defaultState,
   // Persisted UI preference — intentionally NOT in defaultState so startGame never resets it.
-  reducedMotion: localStorage.getItem('crg-reduced-motion') === 'true',
+  reducedMotion: (() => {
+    const stored = safeStorage.get('crg-reduced-motion');
+    if (stored) return stored === 'true';
+    return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+  })(),
 
   startGame: (playerCount: number, playerName = 'You', startingPop = 50, hidePpCounts = false, deadMansSwitch = false, warTiePenalty = false, replaySeed?: number, difficulty: 'EASY' | 'MEDIUM' | 'HARD' = 'MEDIUM') => {
     cancelAllAiTimers();
@@ -692,7 +698,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const deck = stageCorruptionForSession(generateDeck(), initialDealCount);
     const players: PlayerState[] = Array.from({ length: playerCount }, (_, i) => ({
       id: `player_${i}`,
-      name: i === 0 ? playerName.toUpperCase() : AI_NAMES[i] ?? `AGENT ${i}`,
+      name: i === 0 ? playerName.toUpperCase() : AI_NAMES[i - 1] ?? `AGENT ${i}`,
       isHuman: i === 0,
       personality: i === 0 ? undefined : personalityPool[(i - 1) % personalityPool.length],
       cycles: startingPop,
@@ -818,6 +824,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!currentPlayer?.isHuman && state.phase !== 'GAME_OVER' && state.tutorialStep !== null) {
       if (state.phase === 'PHASE_ROLL') {
         scheduleAi(() => { if (!get().paused && !get().tutorialModalOpen) get().triggerRoll(); }, AI_ROLL_DELAY);
+      } else if (state.phase === 'DRAW') {
+        scheduleAi(() => { if (!get().paused && !get().tutorialModalOpen) get().runAiTurn(); }, AI_DRAW_DELAY);
       } else if (state.phase === 'MAIN') {
         scheduleAi(() => { if (!get().paused && !get().tutorialModalOpen) get().runAiTurn(); }, AI_CARD_DELAY);
       }
@@ -827,7 +835,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resetToSetup: () => { cancelAllAiTimers(); set({ ...defaultState, reducedMotion: get().reducedMotion, selectedCardId: null, turnNumber: 1 }); },
 
   setReducedMotion: (v: boolean) => {
-    localStorage.setItem('crg-reduced-motion', String(v));
+    safeStorage.set('crg-reduced-motion', String(v));
     set({ reducedMotion: v });
   },
 
@@ -844,6 +852,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const phase = state.phase;
         if (phase === 'PHASE_ROLL') {
           scheduleAi(() => { if (!get().paused) get().triggerRoll(); }, AI_ROLL_DELAY);
+        } else if (phase === 'DRAW') {
+          scheduleAi(() => { if (!get().paused) get().runAiTurn(); }, AI_DRAW_DELAY);
         } else if (phase === 'MAIN') {
           scheduleAi(() => {
             if (get().paused) return;
@@ -1069,8 +1079,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
 
-    // ── WAR counter opportunity — when AI targets human with a WAR card ───────
-    // Give the human a chance to play a counter card before the war resolves.
+    // ── WAR briefing — when AI targets human with a WAR card ──────────────────
+    // Pause every human-involved attack before the roll, even without counters.
     // Reactive COUNTER cards: TACTICAL_ADVANTAGE (+1 roll) and SHIELD (System Interrupt, cancel).
     // NEGOTIATE (Quarantine) is now proactive — handled via negotiating flag, not the counter window.
     // Skip the window entirely if the human already has negotiating armed.
@@ -1079,27 +1089,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
         .map((p, i) => ({ p, i }))
         .filter(({ p, i }) => i !== actorIndex && !p.eliminated);
       if (liveOpponents.length > 0) {
-        const targetI = pickAiTarget(actor, state.players, actorIndex, card, state.startingPop)
+        const targetI = targetIndex ?? pickAiTarget(actor, state.players, actorIndex, card, state.startingPop)
           ?? liveOpponents[Math.floor(random() * liveOpponents.length)].i;
         const target  = state.players[targetI];
         if (target.isHuman && !target.negotiating) {
-          const eligibleCounters = target.hand.filter(c =>
-            c.category === 'COUNTER'
-          ) as CounterCard[];
+          const eligibleCounters = target.hand.filter((c): c is CounterCard =>
+            c.category === 'COUNTER' && c.counterType !== 'NEGOTIATE'
+          );
+          trackEvent('war_briefing_shown', { eligible_count: eligibleCounters.length });
           if (eligibleCounters.length > 0) {
             trackEvent('counter_opportunity_shown', { eligible_count: eligibleCounters.length });
-            // Fire the Phaser incoming-war animation first; the scene calls
-            // proceedToCounterPending() after ~1.2s to show the React overlay.
-            set({ warIncomingReveal: {
-              attackerName: actor.name,
-              cardName: card.name,
-              attackerIndex: actorIndex,
-              cardId,
-              targetIndex: targetI,
-              eligibleCounters,
-            }});
-            return; // resume via proceedToCounterPending → resolveCounterOpportunity
           }
+          // Fire the Phaser incoming-war animation first; the scene calls
+          // proceedToCounterPending() after ~1.2s to show the React briefing.
+          set({ warIncomingReveal: {
+            attackerName: actor.name,
+            cardName: card.name,
+            attackerIndex: actorIndex,
+            cardId,
+            targetIndex: targetI,
+            eligibleCounters,
+          }});
+          return; // resume via proceedToCounterPending → resolveCounterOpportunity
         }
       }
     }
@@ -1358,14 +1369,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ? { attackerName: actor.name, defenderName: negotiateBlockedBy }
         : null,
       warRollDisplay: capturedWarRoll ? (() => {
-        const warTargetIsHuman = targetIndex !== undefined && (state.players[targetIndex]?.isHuman ?? false);
+        const resolvedTargetIndex = capturedWarRoll.targetIndex;
+        const warTargetIsHuman = state.players[resolvedTargetIndex]?.isHuman ?? false;
         const warHumanIsActor = isHuman;
         const warHumanInvolved = warHumanIsActor || warTargetIsHuman;
         const warHumanCycleLoss = warHumanIsActor
           ? Math.max(0, cyclesBefore[actorIndex] - players[actorIndex].cycles)
-          : (targetIndex !== undefined ? Math.max(0, cyclesBefore[targetIndex] - players[targetIndex].cycles) : 0);
+          : Math.max(0, cyclesBefore[resolvedTargetIndex] - players[resolvedTargetIndex].cycles);
         const warOpponentCycleLoss = warHumanIsActor
-          ? (targetIndex !== undefined ? Math.max(0, cyclesBefore[targetIndex] - players[targetIndex].cycles) : 0)
+          ? Math.max(0, cyclesBefore[resolvedTargetIndex] - players[resolvedTargetIndex].cycles)
           : Math.max(0, cyclesBefore[actorIndex] - players[actorIndex].cycles);
         return {
           r1: capturedWarRoll.actorBase,
@@ -1382,6 +1394,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           humanIsActor: warHumanIsActor,
           humanCycleLoss: warHumanCycleLoss,
           opponentCycleLoss: warOpponentCycleLoss,
+          actorCyclesAfter: players[actorIndex].cycles,
+          targetCyclesAfter: players[resolvedTargetIndex].cycles,
         };
       })() : null,
       gameStats: {
@@ -1732,23 +1746,32 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const attacker   = state.players[attackerIndex];
     const attackCard = attacker?.hand.find(c => c.id === cardId);
     const human      = state.players.find(p => p.isHuman);
-    const counterCard = human?.hand.find(c => c.id === counterCardId) as CounterCard | undefined;
+    const counterIsEligible = pending.eligibleCounters.some(c => c.id === counterCardId);
+    const counterCard = counterIsEligible
+      ? human?.hand.find(c => c.id === counterCardId) as CounterCard | undefined
+      : undefined;
     if (!attackCard || !counterCard) { set({ counterPending: null }); return; }
 
     trackEvent('counter_used', { counter_type: counterCard.counterType, attack_card: attackCard.name });
 
     if (counterCard.counterType === 'TACTICAL_ADVANTAGE') {
-      // Firewall Surge in a WAR — boost human's roll but let the war proceed.
+      // Firewall Surge boosts the human's roll, then returns to the briefing so
+      // the player explicitly starts the conflict roll when preparation is done.
       const players = state.players.map(p =>
         p.isHuman
           ? { ...p, hand: p.hand.filter(c => c.id !== counterCardId), tacticalBonus: p.tacticalBonus + 1 }
           : p
       );
       const discard = [...state.discard, counterCard];
-      set({ players, discard, counterPending: null });
+      set({
+        players,
+        discard,
+        counterPending: {
+          ...pending,
+          eligibleCounters: pending.eligibleCounters.filter(c => c.id !== counterCardId),
+        },
+      });
       get().addLog(`${human!.name} plays ${counterCard.name} — +1 to their war roll!`, 'effect');
-      // Let the WAR resolve at the pre-resolved target with the bonus now applied.
-      get().applyPlayCard(cardId, targetIndex, true);
     } else {
       // NEGOTIATE or SHIELD — cancel the war entirely.
       const players = state.players.map((p, i) => {
@@ -1861,7 +1884,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         r2: capturedWarRoll.targetBase,
         actorBonus: capturedWarRoll.actorBonus,
         targetBonus: capturedWarRoll.targetBonus,
-        actorName: state.players[actorIndex].name,
+        actorName: state.players[p1Index].name,
         targetName: capturedWarRoll.targetName,
         actorWins: capturedWarRoll.actorWins,
         isTie: capturedWarRoll.isTie,
@@ -1871,6 +1894,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         humanIsActor: warHumanIsActor,
         humanCycleLoss: warHumanCycleLoss,
         opponentCycleLoss: warOpponentCycleLoss,
+        actorCyclesAfter: players[p1Index].cycles,
+        targetCyclesAfter: players[p2Index].cycles,
       };
     })() : null;
 
@@ -2039,7 +2064,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   triggerRoll: () => {
     const s = get();
-    if (s.phase !== 'PHASE_ROLL') return;
+    if (s.phase !== 'PHASE_ROLL' || s.rollTriggered || s.paused) return;
     if (s.tutorialModalOpen) return;
     set({ rollTriggered: true });
   },
@@ -2244,6 +2269,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ...(state.tutorialStep === 0 ? { tutorialStep: 1, tutorialModalOpen: true } : {}),
       });
     } else {
+      // Leave PHASE_ROLL as soon as the display's completion callback fires.
+      // This closes the window where a stale trigger timer could start a second
+      // roll while the completed roll was already releasing the AI to act.
+      set({ phase: 'DRAW' });
       scheduleAi(() => { if (!get().paused) get().runAiTurn(); }, AI_DRAW_DELAY);
     }
   },
@@ -2253,10 +2282,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     trackEvent('war_resolved', { winner_name: display?.actorWins ? display.actorName : display?.targetName ?? 'unknown' });
     // Flush the deferred WAR log entry now that the animation has finished
     if (display?.logText) get().addLog(display.logText, 'card');
-    // If human was a combatant (and no loot pick pending), show the result overlay before advancing
+    // If the human was a combatant, show the result overlay before any loot pick or turn advance.
     const humanInvolved = display?.humanInvolved ?? false;
     const lootPending = get().warLootPending;
-    const warResult = (display && humanInvolved && !lootPending) ? {
+    const warResult = (display && humanInvolved) ? {
       humanWon: display.humanIsActor ? display.actorWins : !display.actorWins,
       isTie: display.isTie ?? false,
       actorName: display.actorName,
@@ -2268,6 +2297,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       humanIsActor: display.humanIsActor,
       humanCycleLoss: display.humanCycleLoss,
       opponentCycleLoss: display.opponentCycleLoss,
+      humanCyclesAfter: display.humanIsActor ? display.actorCyclesAfter : display.targetCyclesAfter,
+      opponentCyclesAfter: display.humanIsActor ? display.targetCyclesAfter : display.actorCyclesAfter,
       tieCycleLoss: display.tieCycleLoss,
     } : null;
     set({ warRollDisplay: null, warResultPending: warResult });
@@ -2305,7 +2336,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   runAiTurn: () => {
     if (get().paused) return; // ← guard: don't start a new AI turn while paused
     const state = get();
-    if (state.phase === 'GAME_OVER') return;
+    if ((state.phase !== 'DRAW' && state.phase !== 'MAIN') || state.rollTriggered) return;
 
     const actorIndex = state.currentPlayerIndex;
     const actor = state.players[actorIndex];
@@ -2341,6 +2372,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     scheduleAi(() => {
       if (get().paused) return; // ← guard: paused between draw and card pick
       const currentState = get();
+      if (
+        currentState.phase !== 'MAIN' ||
+        currentState.currentPlayerIndex !== actorIndex ||
+        currentState.rollTriggered
+      ) return;
       const currentActor = currentState.players[currentState.currentPlayerIndex];
       const card =
         getTutorialAiCard(currentState.tutorialStep, currentActor.hand) ??

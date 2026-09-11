@@ -2,17 +2,18 @@
 import Phaser from 'phaser';
 import type { PlayerState } from '../../types/gameState';
 import type { DaemonType } from '../../types/cards';
+import { COLORS, PHASER_COLORS } from '../../theme/tokens';
 
 const W = 230;
 const H = 108;
 const PAD = 10;
 const DPR = () => window.devicePixelRatio;
 
-const HUMAN_COLOR  = 0x00ffcc;
-const AI_COLOR     = 0xff3366;
+const HUMAN_COLOR  = PHASER_COLORS.signal;
+const AI_COLOR     = PHASER_COLORS.rival;
 const BAR_BG_COLOR = 0x1a1a2e;
-const BAR_FG_COLOR_HUMAN = 0x00ffcc;
-const BAR_FG_COLOR_AI    = 0xff3366;
+const BAR_FG_COLOR_HUMAN = PHASER_COLORS.signal;
+const BAR_FG_COLOR_AI    = PHASER_COLORS.rival;
 const MAX_CYCLES = 200;
 
 const IMP_LABEL: Record<string, string> = {
@@ -55,7 +56,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
   private build() {
     const p = this.player;
     const accent = p.isHuman ? HUMAN_COLOR : AI_COLOR;
-    const accentHex = p.isHuman ? '#00ffcc' : '#ff3366';
+    const accentHex = p.isHuman ? COLORS.signal : COLORS.rival;
     const left = -W / 2, top = -H / 2;
 
     // ── Background ──────────────────────────────────────────────────────────
@@ -88,14 +89,14 @@ export class PlayerZone extends Phaser.GameObjects.Container {
 
     // ── Player handle ────────────────────────────────────────────────────────
     const handle = this.txt(left + PAD, top + PAD + 2, `> ${p.name.toUpperCase()}`, {
-      fontFamily: 'monospace', fontSize: '10px', color: accentHex,
+      fontFamily: 'monospace', fontSize: '11px', color: accentHex,
       fontStyle: 'bold', letterSpacing: 1,
     }).setOrigin(0, 0);
     this.add(handle);
 
     if (!p.isHuman) {
       const tag = this.txt(left + PAD, top + PAD + 18, p.personality ?? 'AI', {
-        fontFamily: 'monospace', fontSize: '7px', color: '#556677', letterSpacing: 2,
+      fontFamily: 'monospace', fontSize: '7px', color: COLORS.muted, letterSpacing: 2,
       }).setOrigin(0, 0);
       this.add(tag);
     }
@@ -121,7 +122,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     this.add(this.popLabel);
 
     const popUnit = this.txt(left + W - PAD, barY + barH + 6, 'CYCLES', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#334455', letterSpacing: 3,
+      fontFamily: 'monospace', fontSize: '7px', color: COLORS.muted, letterSpacing: 3,
     }).setOrigin(1, 0);
     this.add(popUnit);
 
@@ -140,7 +141,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
     // AI card count badge placeholder (right-aligned, updated on refresh)
     if (!p.isHuman) {
       this.cardCountText = this.txt(-left - PAD, impY + 8, `[${p.hand.length}] CARDS`, {
-        fontFamily: 'monospace', fontSize: '7px', color: '#334455',
+        fontFamily: 'monospace', fontSize: '7px', color: COLORS.muted,
       }).setOrigin(1, 0.5);
       this.add(this.cardCountText);
     }
@@ -159,7 +160,7 @@ export class PlayerZone extends Phaser.GameObjects.Container {
 
     const p = this.player;
     const accent = p.isHuman ? HUMAN_COLOR : AI_COLOR;
-    const accentHex = p.isHuman ? '#00ffcc' : '#ff3366';
+    const accentHex = p.isHuman ? COLORS.signal : COLORS.rival;
     const top = -H / 2;
     const barY = top + 42;
     const barH = 8;
@@ -176,8 +177,8 @@ export class PlayerZone extends Phaser.GameObjects.Container {
       const startX = -rowWidth / 2;
       pills.forEach((label, i) => {
         const isQuarantine = label === '[QT] QUARANTINE';
-        const pillAccent = isQuarantine ? 0x00ccff : accent;
-        const pillAccentHex = isQuarantine ? '#00ccff' : accentHex;
+        const pillAccent = isQuarantine ? PHASER_COLORS.positive : accent;
+        const pillAccentHex = isQuarantine ? COLORS.positive : accentHex;
         const pill = this.scene.add.graphics();
         const pillX = startX + i * (PILL_W + PILL_GAP);
         pill.fillStyle(pillAccent, 0.12);
@@ -188,14 +189,14 @@ export class PlayerZone extends Phaser.GameObjects.Container {
         this.daemonItems.push(pill);
 
         const impText = this.txt(pillX + PILL_W / 2, impY + 8, label, {
-          fontFamily: 'monospace', fontSize: '6px', color: pillAccentHex,
+          fontFamily: 'monospace', fontSize: '7px', color: pillAccentHex,
         }).setOrigin(0.5);
         this.add(impText);
         this.daemonItems.push(impText);
       });
     } else {
       const noImp = this.txt(0, impY + 8, 'NO DAEMONS', {
-        fontFamily: 'monospace', fontSize: '6px', color: '#223344', letterSpacing: 2,
+        fontFamily: 'monospace', fontSize: '7px', color: COLORS.muted, letterSpacing: 2,
       }).setOrigin(0.5);
       this.add(noImp);
       this.daemonItems.push(noImp);
@@ -321,8 +322,8 @@ export class PlayerZone extends Phaser.GameObjects.Container {
 
     const label = this.scene.add.text(0, H / 2 - 18, 'v  CLICK TO TARGET  v', {
       fontFamily: 'monospace',
-      fontSize: '8px',
-      color: '#ff4444',
+      fontSize: '11px',
+      color: COLORS.rival,
       letterSpacing: 2,
       resolution: window.devicePixelRatio,
     }).setOrigin(0.5);

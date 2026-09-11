@@ -1,6 +1,5 @@
 // src/App.tsx
-import { useEffect, useRef } from 'react';
-import { createGame, destroyGame } from './game';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useGameStore } from './state/useGameStore';
 import { SetupScreen } from './ui/SetupScreen';
 import { HUD } from './ui/HUD';
@@ -26,6 +25,13 @@ const AMBIENT_STYLE = `
 }
 `;
 
+type GameRuntime = typeof import('./game');
+let gameRuntimePromise: Promise<GameRuntime> | null = null;
+const loadGameRuntime = () => {
+  gameRuntimePromise ??= import('./game');
+  return gameRuntimePromise;
+};
+
 function App() {
   const phase      = useGameStore(s => s.phase);
   const corruption = useGameStore(s => s.globalCorruptionMode);
@@ -33,7 +39,10 @@ function App() {
   const winnerId   = useGameStore(s => s.winnerId);
   const players    = useGameStore(s => s.players);
   const turnNumber = useGameStore(s => s.turnNumber);
+  const reducedMotion = useGameStore(s => s.reducedMotion);
   const previousPhase = useRef(phase);
+  const runtimeRef = useRef<GameRuntime | null>(null);
+  const [gameReady, setGameReady] = useState(false);
 
   useGameAudio();
 
@@ -45,10 +54,30 @@ function App() {
     return () => { document.head.removeChild(el); };
   }, []);
 
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('crg-reduced-motion', reducedMotion);
+    return () => document.documentElement.classList.remove('crg-reduced-motion');
+  }, [reducedMotion]);
+
   useEffect(() => {
-    createGame();
-    return () => destroyGame();
-  }, []);
+    let cancelled = false;
+    const needsGame = phase !== 'SETUP' && phase !== 'GAME_OVER';
+    if (!needsGame) {
+      runtimeRef.current?.destroyGame();
+      runtimeRef.current = null;
+      queueMicrotask(() => { if (!cancelled) setGameReady(false); });
+      return () => { cancelled = true; };
+    }
+    void loadGameRuntime().then(runtime => {
+      if (cancelled) return;
+      runtimeRef.current = runtime;
+      runtime.createGame();
+      setGameReady(true);
+    });
+    return () => { cancelled = true; };
+  }, [phase]);
+
+  useEffect(() => () => runtimeRef.current?.destroyGame(), []);
 
   // Resume AudioContext + start music on the first browser-approved gesture.
   useEffect(() => listenForAudioUnlock(), []);
@@ -101,7 +130,7 @@ function App() {
   return (
     <>
       {/* Phaser canvas mounts here */}
-      <div id="phaser-container" style={{ position: 'fixed', inset: 0 }} />
+      <div id="phaser-container" aria-hidden="true" style={{ position: 'fixed', inset: 0 }} />
 
       {/* Corruption vignette — red border bleeds in from the edges */}
       {corruption && (
@@ -116,7 +145,7 @@ function App() {
       )}
 
       {/* Ambient scanline sweep — visible during active gameplay only */}
-      {active && (
+      {active && !reducedMotion && (
         <div style={{
           position: 'fixed', inset: 0,
           pointerEvents: 'none', zIndex: 2,
@@ -140,7 +169,17 @@ function App() {
 
       {/* React UI overlays */}
       {phase === 'SETUP' && <SetupScreen />}
-      {phase !== 'SETUP' && phase !== 'GAME_OVER' && <HUD />}
+      {phase !== 'SETUP' && phase !== 'GAME_OVER' && gameReady && <HUD />}
+      {phase !== 'SETUP' && phase !== 'GAME_OVER' && !gameReady && (
+        <div role="status" aria-live="polite" style={{
+          position: 'fixed', inset: 0, zIndex: 20,
+          display: 'grid', placeItems: 'center',
+          background: 'var(--crg-void)', color: 'var(--crg-signal)',
+          fontFamily: 'monospace', fontSize: '0.9rem', letterSpacing: 3,
+        }}>
+          LOADING COMMAND TABLE…
+        </div>
+      )}
       {phase === 'GAME_OVER' && <GameOverScreen />}
       <DeadMansSwitchOverlay />
       <DaemonStealOverlay />

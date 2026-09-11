@@ -1,6 +1,7 @@
 // src/game/objects/CentreZone.ts
 import Phaser from 'phaser';
 import type { Card as CardData, CardCategory } from '../../types/cards';
+import { COLORS } from '../../theme/tokens';
 
 const W = 400;
 const H = 200;
@@ -80,7 +81,7 @@ export class CentreZone extends Phaser.GameObjects.Container {
     // ── Discard pile ──────────────────────────────────────────────────────────
     this.buildPile(W / 2 - PILE_W - 16, -PILE_H / 2, 'DISCARD', false);
     this.discardCountLabel = this.txt(W / 2 - PILE_W / 2 - 16, DISCARD_Y + PILE_CARD_H + 12, '0', {
-      fontFamily: 'monospace', fontSize: '18px', color: '#334455', fontStyle: 'bold',
+      fontFamily: 'monospace', fontSize: '18px', color: COLORS.muted, fontStyle: 'bold',
     }).setOrigin(0.5, 0);
     this.add(this.discardCountLabel);
 
@@ -89,12 +90,12 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
     // ── Phase / turn labels ───────────────────────────────────────────────────
     this.phaseLabel = this.txt(0, -H / 2 + 10, 'STABILITY PHASE', {
-      fontFamily: 'monospace', fontSize: '8px', color: Ahex, letterSpacing: 3,
+      fontFamily: 'monospace', fontSize: '11px', color: Ahex, letterSpacing: 2,
     }).setOrigin(0.5);
     this.add(this.phaseLabel);
 
     this.turnLabel = this.txt(0, H / 2 - 10, 'TURN 1', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#334455', letterSpacing: 2,
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.muted, letterSpacing: 2,
     }).setOrigin(0.5);
     this.add(this.turnLabel);
   }
@@ -134,7 +135,7 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
     const lbl = this.txt(x + PILE_W / 2, y - 6, label, {
       fontFamily: 'monospace', fontSize: '7px',
-      color: isDraw ? Ahex : '#334455', letterSpacing: 3,
+      color: isDraw ? Ahex : COLORS.muted, letterSpacing: 3,
     }).setOrigin(0.5, 1);
     this.add(lbl);
   }
@@ -176,7 +177,7 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
     // "ACTIVE PROTOCOL" label
     this.protocolLabel = this.txt(0, zH / 2 - 14, 'ACTIVE PROTOCOL', {
-      fontFamily: 'monospace', fontSize: '6px', color: '#00ffcc44', letterSpacing: 3,
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.body, letterSpacing: 2,
     }).setOrigin(0.5);
     this.protocolLabel.setVisible(!this.corruptionActive);
     this.add(this.protocolLabel);
@@ -184,14 +185,14 @@ export class CentreZone extends Phaser.GameObjects.Container {
     // Corruption alert
     this.corruptionContainer = this.scene.add.container(0, zH / 2 - 28);
     const alertLine = this.txt(0, 0, '⚠  SYSTEM ALERT  ⚠', {
-      fontFamily: 'monospace', fontSize: '6px', color: '#ff1e3c', letterSpacing: 3,
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.corruption, letterSpacing: 2,
     }).setOrigin(0.5);
     const corruptLine = this.txt(0, 10, 'CORRUPTION DETECTED', {
-      fontFamily: 'monospace', fontSize: '7px', color: '#ff4466',
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.rival,
       fontStyle: 'bold', letterSpacing: 2,
     }).setOrigin(0.5);
     const subLine = this.txt(0, 21, 'STABILITY ROLLS INVERTED', {
-      fontFamily: 'monospace', fontSize: '5px', color: '#ff1e3c66', letterSpacing: 1,
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.corruption, letterSpacing: 1,
     }).setOrigin(0.5);
     this.corruptionContainer.add([alertLine, corruptLine, subLine]);
     this.corruptionContainer.setVisible(this.corruptionActive);
@@ -224,7 +225,7 @@ export class CentreZone extends Phaser.GameObjects.Container {
   setDrawCount(n: number) {
     this.savedDrawCount = n;
     this.drawCountLabel.setText(`${n}`);
-    this.drawCountLabel.setColor(n > 0 ? this.accentHex : '#334455');
+    this.drawCountLabel.setColor(n > 0 ? this.accentHex : COLORS.muted);
   }
 
   setDiscardCount(n: number) {
@@ -289,7 +290,7 @@ export class CentreZone extends Phaser.GameObjects.Container {
 
     // Category label
     const cat = this.scene.add.text(0, cardH / 2 - 10, card.category.replace('_', ' '), {
-      fontFamily: 'monospace', fontSize: '5px', color: catHex,
+      fontFamily: 'monospace', fontSize: '7px', color: catHex,
       letterSpacing: 1, resolution: DPR(),
     }).setOrigin(0.5, 1);
     con.add(cat);

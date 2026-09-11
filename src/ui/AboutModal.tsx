@@ -1,5 +1,7 @@
 // src/ui/AboutModal.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { OverlayShell } from './OverlayShell';
+import { useGameStore } from '../state/useGameStore';
 
 const ANIM_CSS = `
 @keyframes modal-unfold {
@@ -30,54 +32,39 @@ interface Props {
 
 export const AboutModal: React.FC<Props> = ({ onClose }) => {
   const [closing, setClosing] = useState(false);
+  const reducedMotion = useGameStore(s => s.reducedMotion);
 
   const handleClose = useCallback(() => {
+    if (reducedMotion) {
+      onClose();
+      return;
+    }
     setClosing(true);
     setTimeout(onClose, 300);
-  }, [onClose]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [handleClose]);
+  }, [onClose, reducedMotion]);
 
   return (
     <>
       <style>{ANIM_CSS}</style>
-      <div
-        onClick={handleClose}
-        className={closing ? 'about-backdrop-out' : 'about-backdrop-in'}
-        style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(2,4,12,0.96)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 500,
-          fontFamily: 'monospace',
-          overflow: 'hidden',
-          boxSizing: 'border-box',
-          padding: 'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
-        }}
-      >
-        <div
-          onClick={e => e.stopPropagation()}
-          className={closing ? 'about-fold' : 'about-unfold'}
-          style={{
+      <OverlayShell
+        ariaLabel="About Corrupt Reality"
+        background="rgba(2,4,12,0.96)"
+        zIndex={500}
+        maxWidth={480}
+        onBackdropClick={handleClose}
+        onRequestClose={handleClose}
+        panelClassName={closing ? 'about-fold about-backdrop-out' : 'about-unfold about-backdrop-in'}
+        panelStyle={{
             border: '1px solid #00ffcc33',
             background: 'rgba(5,10,20,0.98)',
             padding: '2rem 2.5rem',
-            maxWidth: 480,
-            width: '90%',
             color: '#00ffcc',
-            maxHeight: '100%',
-            overflowY: 'auto',
-            boxSizing: 'border-box',
-          }}
-        >
+        }}
+      >
           <div className={closing ? 'about-contents-out' : 'about-contents-in'}>
 
             {/* Header */}
-            <div style={{ fontSize: '0.5rem', letterSpacing: 6, color: '#00ffcc44', marginBottom: '0.4rem' }}>
+            <div style={{ fontSize: '0.75rem', letterSpacing: 6, color: 'var(--crg-muted)', marginBottom: '0.4rem' }}>
               SYSTEM INFO
             </div>
             <h2 style={{ margin: '0 0 1.5rem', fontSize: '1rem', letterSpacing: 4, color: '#00ffcc' }}>
@@ -85,7 +72,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
             </h2>
 
             {/* Game blurb */}
-            <p style={{ fontSize: '0.65rem', color: '#446655', letterSpacing: 1, lineHeight: 1.8, margin: '0 0 1.5rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--crg-body)', letterSpacing: 1, lineHeight: 1.8, margin: '0 0 1.5rem' }}>
               A cyberpunk card game of survival, corruption, and calculated betrayal.
               Outmaneuver rival agents, deploy daemons, and be the last operative standing
               when the system collapses.
@@ -94,14 +81,14 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
             <div style={{ borderBottom: '1px solid #00ffcc11', marginBottom: '1.5rem' }} />
 
             {/* Cycles */}
-            <div style={{ fontSize: '0.5rem', letterSpacing: 4, color: '#00ffcc33', marginBottom: '0.75rem' }}>
+            <div style={{ fontSize: '0.75rem', letterSpacing: 4, color: 'var(--crg-muted)', marginBottom: '0.75rem' }}>
               CYCLES
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', marginBottom: '1.5rem' }}>
 
               <div>
-                <div style={{ fontSize: '0.55rem', color: '#557766', letterSpacing: 2, marginBottom: '0.2rem' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--crg-muted)', letterSpacing: 2, marginBottom: '0.2rem' }}>
                   GAME DESIGN &amp; DEVELOPMENT
                 </div>
                 <div style={{ fontSize: '0.7rem', color: '#00ffcc99', letterSpacing: 1 }}>
@@ -110,7 +97,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
               </div>
 
               <div>
-                <div style={{ fontSize: '0.55rem', color: '#557766', letterSpacing: 2, marginBottom: '0.2rem' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--crg-muted)', letterSpacing: 2, marginBottom: '0.2rem' }}>
                   BACKGROUND MUSIC
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -118,13 +105,13 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
                     <div style={{ fontSize: '0.7rem', color: '#00ffcc99', letterSpacing: 1, marginBottom: '0.25rem' }}>
                       Suspense Cyberpunk
                     </div>
-                    <div style={{ fontSize: '0.6rem', color: '#446655', letterSpacing: 0.5, lineHeight: 1.7 }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--crg-body)', letterSpacing: 0.5, lineHeight: 1.7 }}>
                       by{' '}
                       <a
                         href="https://pixabay.com/music/ambient-suspense-cyberpunk-375986/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                        style={{ color: 'var(--crg-signal)', textDecoration: 'underline', textUnderlineOffset: 3 }}
                       >
                         The_Mountain
                       </a>
@@ -134,7 +121,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
                         href="https://pixabay.com/service/license-summary/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                        style={{ color: 'var(--crg-signal)', textDecoration: 'underline', textUnderlineOffset: 3 }}
                       >
                         Pixabay Content License
                       </a>
@@ -145,13 +132,13 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
                     <div style={{ fontSize: '0.7rem', color: '#00ffcc99', letterSpacing: 1, marginBottom: '0.25rem' }}>
                       Dark Ambient - Futuristic - Dystopian (Vector Eleven)
                     </div>
-                    <div style={{ fontSize: '0.6rem', color: '#446655', letterSpacing: 0.5, lineHeight: 1.7 }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--crg-body)', letterSpacing: 0.5, lineHeight: 1.7 }}>
                       by{' '}
                       <a
                         href="https://pixabay.com/music/ambient-dark-ambient-futuristic-dystopian-vector-eleven-484657/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                        style={{ color: 'var(--crg-signal)', textDecoration: 'underline', textUnderlineOffset: 3 }}
                       >
                         Ame_Atmos
                       </a>
@@ -161,7 +148,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
                         href="https://pixabay.com/service/license-summary/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                        style={{ color: 'var(--crg-signal)', textDecoration: 'underline', textUnderlineOffset: 3 }}
                       >
                         Pixabay Content License
                       </a>
@@ -172,19 +159,19 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
               </div>
 
               <div>
-                <div style={{ fontSize: '0.55rem', color: '#557766', letterSpacing: 2, marginBottom: '0.2rem' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--crg-muted)', letterSpacing: 2, marginBottom: '0.2rem' }}>
                   UI SOUND EFFECTS
                 </div>
                 <div style={{ fontSize: '0.7rem', color: '#00ffcc99', letterSpacing: 1, marginBottom: '0.25rem' }}>
                   Cyberpunk 2077 UI SFX PACK
                 </div>
-                <div style={{ fontSize: '0.6rem', color: '#446655', letterSpacing: 0.5, lineHeight: 1.7 }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--crg-body)', letterSpacing: 0.5, lineHeight: 1.7 }}>
                   by{' '}
                   <a
                     href="https://deckthemes.com/packs/view?themeId=4e22b111-612b-46b7-b94d-296018fc2708"
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: '#00ffcc66', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                    style={{ color: 'var(--crg-signal)', textDecoration: 'underline', textUnderlineOffset: 3 }}
                   >
                     MasterXCortez
                   </a>
@@ -198,22 +185,23 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
             <div style={{ borderBottom: '1px solid #00ffcc11', marginBottom: '1.5rem' }} />
 
             {/* Version */}
-            <div style={{ fontSize: '0.5rem', color: '#334455', letterSpacing: 2, marginBottom: '1.5rem' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--crg-muted)', letterSpacing: 2, marginBottom: '1.5rem' }}>
               VERSION {__APP_VERSION__} &nbsp;·&nbsp; BUILT WITH REACT + PHASER 3
             </div>
 
             {/* Close */}
             <button
+              type="button"
               onClick={handleClose}
               className="crg-btn-cyan"
               style={{
                 width: '100%',
                 background: 'transparent',
                 border: '1px solid #00ffcc33',
-                color: '#446655',
+                color: 'var(--crg-muted)',
                 fontFamily: 'monospace',
-                fontSize: '0.65rem', letterSpacing: 3,
-                padding: '0.5rem',
+                fontSize: '0.75rem', letterSpacing: 3,
+                padding: '0.5rem', minHeight: 44,
                 cursor: 'pointer',
                 transition: 'all 0.15s',
               }}
@@ -222,8 +210,7 @@ export const AboutModal: React.FC<Props> = ({ onClose }) => {
             </button>
 
           </div>
-        </div>
-      </div>
+      </OverlayShell>
     </>
   );
 };

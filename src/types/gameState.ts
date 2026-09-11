@@ -93,9 +93,9 @@ export interface GameState {
     biggestRoll: Record<string, number>;
   };
   /** Non-null when a WAR card just resolved — scene shows a dice-roll animation then clears this. */
-  warRollDisplay: { r1: number; r2: number; actorBonus: number; targetBonus: number; actorName: string; targetName: string; actorWins: boolean; isTie?: boolean; tieCycleLoss?: number; logText: string; humanInvolved: boolean; humanIsActor: boolean; humanCycleLoss: number; opponentCycleLoss: number } | null;
+  warRollDisplay: { r1: number; r2: number; actorBonus: number; targetBonus: number; actorName: string; targetName: string; actorWins: boolean; isTie?: boolean; tieCycleLoss?: number; logText: string; humanInvolved: boolean; humanIsActor: boolean; humanCycleLoss: number; opponentCycleLoss: number; actorCyclesAfter: number; targetCyclesAfter: number } | null;
   /** Non-null after the war dice animation when the human was a combatant — cleared by dismissWarResult(). */
-  warResultPending: { humanWon: boolean; isTie: boolean; actorName: string; targetName: string; actorRoll: number; actorBonus: number; targetRoll: number; targetBonus: number; humanIsActor: boolean; humanCycleLoss: number; opponentCycleLoss: number; tieCycleLoss?: number } | null;
+  warResultPending: { humanWon: boolean; isTie: boolean; actorName: string; targetName: string; actorRoll: number; actorBonus: number; targetRoll: number; targetBonus: number; humanIsActor: boolean; humanCycleLoss: number; opponentCycleLoss: number; humanCyclesAfter: number; opponentCyclesAfter: number; tieCycleLoss?: number } | null;
   /** When set, the next advanceTurn call routes to this player index (first turn after Corruption card). */
   postCorruptionTargetIndex: number | null;
   /**
@@ -126,8 +126,8 @@ export interface GameState {
     eligibleCounters: CounterCard[];
   } | null;
   /**
-   * Non-null when an AI declared WAR on the human and they have a counter card in hand
-   * — pauses the AI turn so the human can respond before the war roll.
+   * Non-null when an AI declares WAR on the human — pauses the AI turn for a
+   * conflict briefing and any available countermeasures before the war roll.
    */
   counterPending: {
     /** Counter cards are WAR-only — this is always 'WAR'. */

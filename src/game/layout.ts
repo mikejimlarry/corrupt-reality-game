@@ -13,6 +13,18 @@ export interface ViewportLayout {
   ledScale: number;
 }
 
+export type AiSeat = 0 | 1 | 2 | 3;
+
+/** Stable seat order for one to four AI opponents. */
+export function getAiSeatOrder(aiCount: number): AiSeat[] {
+  return [
+    [0],
+    [2, 0],
+    [2, 0, 1],
+    [2, 0, 3, 1],
+  ][aiCount - 1] as AiSeat[] | undefined ?? [0];
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }

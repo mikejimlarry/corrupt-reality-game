@@ -1,4 +1,23 @@
 /* src/index.css */
+:root {
+  --crg-signal: #00ffcc;
+  --crg-rival: #ff3355;
+  --crg-corruption: #ff1e3c;
+  --crg-conflict: #ff8800;
+  --crg-positive: #00ccff;
+  --crg-counter: #bb44ff;
+  --crg-cycle: #00ff88;
+  --crg-legendary: #ffaa00;
+  --crg-void: #0a0a0f;
+  --crg-panel: #05050f;
+  --crg-card: #0d0d1f;
+  --crg-text: #aabbcc;
+  --crg-body: #8baaa0;
+  --crg-muted: #778899;
+  --crg-control-min: 44px;
+  --crg-control-primary: 48px;
+}
+
 *, *::before, *::after { box-sizing: border-box; }
 
 html, body, #root {
@@ -7,8 +26,29 @@ html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #0a0a0f;
+  background: var(--crg-void);
 }
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--crg-signal);
+  outline-offset: 3px;
+}
+
+.crg-touch-target { min-width: var(--crg-control-min); min-height: var(--crg-control-min); }
 
 /* Responsive setup shell. Tall screens keep the original centered composition;
    short landscape screens start at the top and scroll so every action remains
@@ -60,7 +100,7 @@ html, body, #root {
   }
 
   .crg-setup-subtitle {
-    font-size: 0.62rem !important;
+    font-size: 0.75rem !important;
     line-height: 1.35 !important;
   }
 
@@ -74,27 +114,28 @@ html, body, #root {
 
 /* Overlay action buttons — bg + border + color */
 .crg-btn-cyan:hover   { background: rgba(0,255,204,0.13)   !important; border-color: #00ffcc55 !important; color: #00ffcc  !important; }
-.crg-btn-red:hover    { background: rgba(255,0,68,0.14)    !important; border-color: #ff004488 !important; color: #ff5566  !important; }
-.crg-btn-war:hover    { background: rgba(255,51,102,0.14)  !important; border-color: #ff336666 !important; color: #ff5577  !important; }
-.crg-btn-orange:hover { background: rgba(255,153,51,0.16)  !important; border-color: #ff993355 !important; color: #ffaa44  !important; }
-.crg-btn-blue:hover   { background: rgba(100,100,255,0.16) !important; border-color: #5555ff55 !important; color: #8899ee  !important; }
+.crg-btn-red:hover    { background: color-mix(in srgb, var(--crg-corruption) 14%, transparent) !important; border-color: var(--crg-rival) !important; color: var(--crg-rival) !important; }
+.crg-btn-war:hover    { background: color-mix(in srgb, var(--crg-rival) 14%, transparent) !important; border-color: var(--crg-rival) !important; color: var(--crg-rival) !important; }
+.crg-btn-orange:hover { background: color-mix(in srgb, var(--crg-conflict) 16%, transparent) !important; border-color: var(--crg-conflict) !important; color: var(--crg-conflict) !important; }
+.crg-btn-blue:hover   { background: color-mix(in srgb, var(--crg-positive) 16%, transparent) !important; border-color: var(--crg-positive) !important; color: var(--crg-positive) !important; }
 
 /* Background-only variants */
-.crg-btn-war-proceed:hover { background: rgba(255,51,102,0.20) !important; }
-.crg-btn-war-pass:hover    { background: rgba(255,51,102,0.26) !important; }
-.crg-btn-war-confirm:hover { background: rgba(255,51,102,0.28) !important; }
+.crg-btn-war-proceed:hover { background: color-mix(in srgb, var(--crg-rival) 20%, transparent) !important; }
+.crg-btn-war-pass:hover    { background: color-mix(in srgb, var(--crg-rival) 26%, transparent) !important; }
+.crg-btn-war-roll:hover    { background: color-mix(in srgb, var(--crg-conflict) 82%, var(--crg-panel)) !important; }
+.crg-btn-war-confirm:hover { background: color-mix(in srgb, var(--crg-rival) 28%, transparent) !important; }
 
 /* Dismiss / skip buttons */
-.crg-btn-dismiss-red:hover  { color: #aa6666 !important; border-color: #664444 !important; }
-.crg-btn-dismiss-teal:hover { color: #669988 !important; border-color: #446655 !important; }
-.crg-btn-dismiss-war:hover  { color: #885566 !important; border-color: #664455 !important; }
+.crg-btn-dismiss-red:hover  { color: var(--crg-rival) !important; border-color: var(--crg-rival) !important; }
+.crg-btn-dismiss-teal:hover { color: var(--crg-body) !important; border-color: var(--crg-muted) !important; }
+.crg-btn-dismiss-war:hover  { color: var(--crg-rival) !important; border-color: var(--crg-muted) !important; }
 
 /* ── Credits range slider ─────────────────────────────────────────────────── */
 .cycles-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 14px;
+  height: 44px;
   background: transparent;
   outline: none;
   border-radius: 0;
@@ -105,9 +146,9 @@ html, body, #root {
 .cycles-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
-  margin-top: -6px; /* center 14px thumb over 2px track */
+  width: 20px;
+  height: 20px;
+  margin-top: -9px; /* center 20px thumb over 2px track */
   background: #00ffcc;
   border: none;
   border-radius: 0;
@@ -115,13 +156,24 @@ html, body, #root {
   box-shadow: 0 0 6px #00ffcc88;
 }
 .cycles-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 20px;
+  height: 20px;
   background: #00ffcc;
   border: none;
   border-radius: 0;
   cursor: pointer;
   box-shadow: 0 0 6px #00ffcc88;
+}
+
+/* The app preference initializes from the OS setting, then becomes the single
+   authority so users can explicitly restore motion from Game Options. */
+.crg-reduced-motion *,
+.crg-reduced-motion *::before,
+.crg-reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.001ms !important;
 }
 .cycles-slider::-webkit-slider-runnable-track {
   height: 2px;

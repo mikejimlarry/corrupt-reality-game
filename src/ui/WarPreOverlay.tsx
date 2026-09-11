@@ -28,25 +28,29 @@ export const WarPreOverlay: React.FC = () => {
   const renderPlayer = (player: typeof players[0], isActive: boolean) => (
     <div style={{
       padding: '0.4rem 0.75rem',
-      background: isActive ? 'rgba(255,51,102,0.20)' : 'rgba(255,51,102,0.10)',
-      border: `1px solid ${isActive ? '#ff557799' : '#ff336666'}`,
-      fontSize: '0.7rem', letterSpacing: 2,
+      background: isActive
+        ? 'color-mix(in srgb, var(--crg-rival) 20%, transparent)'
+        : 'color-mix(in srgb, var(--crg-rival) 10%, transparent)',
+      border: isActive
+        ? '1px solid color-mix(in srgb, var(--crg-rival) 60%, transparent)'
+        : '1px solid color-mix(in srgb, var(--crg-rival) 45%, transparent)',
+      fontSize: '0.75rem', letterSpacing: 2,
       minWidth: 120,
     }}>
-      <div style={{ color: '#ff5577', fontWeight: 'bold', marginBottom: 3 }}>
+      <div style={{ color: 'var(--crg-rival)', fontWeight: 'bold', marginBottom: 3 }}>
         {player.name}
       </div>
-      <div style={{ fontSize: '0.55rem', color: '#ff336688', marginBottom: 3 }}>
+      <div style={{ fontSize: '0.75rem', color: 'var(--crg-body)', marginBottom: 3 }}>
         {player.cycles}⟳
         {player.tacticalBonus > 0 && (
-          <span style={{ color: '#ff9955', marginLeft: 6 }}>+{player.tacticalBonus} roll</span>
+          <span style={{ color: 'var(--crg-conflict)', marginLeft: 6 }}>+{player.tacticalBonus} roll</span>
         )}
       </div>
       {player.daemons.includes('HARDENED_NODE') && (
         <span style={{
-          fontSize: '0.45rem', padding: '1px 4px',
+          fontSize: '0.75rem', padding: '1px 4px',
           background: 'rgba(0,255,204,0.07)', border: '1px solid #00ffcc22',
-          color: '#00ffcc55', borderRadius: 2, letterSpacing: 1,
+          color: 'var(--crg-signal)', borderRadius: 2, letterSpacing: 1,
         }}>
           Hardened Node
         </span>
@@ -59,21 +63,21 @@ export const WarPreOverlay: React.FC = () => {
       ariaLabel="Pre-conflict preparation"
       background="rgba(5,0,10,0.94)"
       panelStyle={{
-        border: '1px solid #ff336644',
+        border: '1px solid color-mix(in srgb, var(--crg-rival) 35%, transparent)',
         padding: '2rem',
-        background: 'rgba(15,0,10,0.90)',
+        background: 'color-mix(in srgb, var(--crg-rival) 6%, var(--crg-panel))',
       }}
     >
 
         {/* Header */}
         <div style={{
-          color: '#ff5566', letterSpacing: 6, fontSize: '0.55rem',
+          color: 'var(--crg-rival)', letterSpacing: 4, fontSize: '0.75rem',
           textAlign: 'center', marginBottom: '0.3rem',
         }}>
           ⚔ PRE-CONFLICT PREPARATION
         </div>
         <h2 style={{
-          color: '#ff4466', letterSpacing: 3, fontSize: '1rem',
+          color: 'var(--crg-rival)', letterSpacing: 3, fontSize: '1rem',
           margin: '0 0 0.25rem', textAlign: 'center',
         }}>
           {warCard.name.toUpperCase()}
@@ -85,18 +89,52 @@ export const WarPreOverlay: React.FC = () => {
           gap: 12, marginBottom: '1.2rem', marginTop: '0.5rem',
         }}>
           {renderPlayer(players[p1Index], step === 1)}
-          <div style={{ color: '#552233', fontSize: '0.8rem', flexShrink: 0 }}>VS</div>
+          <div style={{ color: 'var(--crg-muted)', fontSize: '0.875rem', flexShrink: 0 }}>VS</div>
           {renderPlayer(players[p2Index], step === 2)}
+        </div>
+
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem',
+          marginBottom: '0.5rem', fontSize: '0.75rem', letterSpacing: 1,
+        }}>
+          <div style={{
+            padding: '0.65rem', textAlign: 'center',
+            border: '1px solid color-mix(in srgb, var(--crg-conflict) 28%, transparent)',
+            color: 'var(--crg-body)',
+          }}>
+            WINNER <strong style={{ color: 'var(--crg-conflict)' }}>−{warCard.winnerLoses} CYCLES</strong>
+          </div>
+          <div style={{
+            padding: '0.65rem', textAlign: 'center',
+            border: '1px solid color-mix(in srgb, var(--crg-conflict) 28%, transparent)',
+            color: 'var(--crg-body)',
+          }}>
+            LOSER <strong style={{ color: 'var(--crg-conflict)' }}>−{warCard.loserLoses} CYCLES</strong>
+          </div>
+        </div>
+        {warCard.loserLosesImprovement && (
+          <div style={{
+            color: 'var(--crg-conflict)', fontSize: '0.75rem', letterSpacing: 2,
+            textAlign: 'center', marginBottom: '0.5rem',
+          }}>
+            LOSER ALSO LOSES 1 DAEMON
+          </div>
+        )}
+        <div style={{
+          color: 'var(--crg-body)', fontSize: '0.75rem', letterSpacing: 1,
+          textAlign: 'center', marginBottom: '1rem',
+        }}>
+          Higher modified roll wins.
         </div>
 
         {/* Whose turn it is */}
         <div style={{
-          fontSize: '0.6rem', color: '#ff336688', letterSpacing: 2,
+          fontSize: '0.75rem', color: 'var(--crg-body)', letterSpacing: 2,
           textAlign: 'center', marginBottom: '1rem',
         }}>
           {combatant.name.toUpperCase()} — PREPARE FOR BATTLE
           {currentBonus > 0 && (
-            <span style={{ color: '#ff9955', marginLeft: 8 }}>
+            <span style={{ color: 'var(--crg-conflict)', marginLeft: 8 }}>
               (+{currentBonus} to roll)
             </span>
           )}
@@ -105,12 +143,15 @@ export const WarPreOverlay: React.FC = () => {
         {/* Eligible cards */}
         {surgeCards.length === 0 ? (
           <div style={{
-            fontSize: '0.65rem', color: '#442233', letterSpacing: 1,
+            fontSize: '0.75rem', color: 'var(--crg-muted)', letterSpacing: 1,
             textAlign: 'center', padding: '1rem',
-            border: '1px solid #33112211',
+            border: '1px solid color-mix(in srgb, var(--crg-rival) 12%, transparent)',
             marginBottom: '1rem',
           }}>
-            No eligible cards in hand
+            <strong style={{ display: 'block', color: 'var(--crg-conflict)', letterSpacing: 2 }}>
+              NO COUNTERMEASURES AVAILABLE
+            </strong>
+            Outcome will be decided by the roll.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1rem' }}>
@@ -118,23 +159,25 @@ export const WarPreOverlay: React.FC = () => {
             {/* Firewall Surge cards — can play multiple */}
             {surgeCards.length > 0 && (
               <>
-                <div style={{ fontSize: '0.5rem', color: '#ff336644', letterSpacing: 3, marginBottom: 2 }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--crg-body)', letterSpacing: 3, marginBottom: 2 }}>
                   FIREWALL SURGE — adds +1 to your CONFLICT roll (stackable)
                 </div>
                 {surgeCards.map(c => (
                   <button
+                    type="button"
                     key={c.id}
                     onClick={() => playPreCard(c.id)}
                     style={{
-                      background: 'rgba(255,153,51,0.06)',
-                      border: '1px solid #ff993322',
-                      color: '#cc7733',
+                      background: 'color-mix(in srgb, var(--crg-conflict) 6%, transparent)',
+                      border: '1px solid color-mix(in srgb, var(--crg-conflict) 20%, transparent)',
+                      color: 'var(--crg-conflict)',
                       fontFamily: 'monospace',
-                      fontSize: '0.72rem', letterSpacing: 2,
+                      fontSize: '0.75rem', letterSpacing: 2,
                       padding: '0.6rem 0.9rem',
                       textAlign: 'left',
                       cursor: 'pointer',
                       transition: 'all 0.12s',
+                      minHeight: 44,
                     }}
                     className="crg-btn-orange"
                   >
@@ -149,35 +192,37 @@ export const WarPreOverlay: React.FC = () => {
 
         {/* Go to battle */}
         <button
+          type="button"
           onClick={() => pass()}
           style={{
             width: '100%',
-            background: 'rgba(255,51,102,0.14)',
-            border: '1px solid #ff336666',
-            color: '#ff4466',
+            background: 'var(--crg-conflict)',
+            border: '1px solid var(--crg-conflict)',
+            color: 'var(--crg-void)',
             fontFamily: 'monospace',
             fontSize: '0.75rem', letterSpacing: 3,
-            padding: '0.65rem',
+            padding: '0.65rem', minHeight: 44,
             cursor: 'pointer',
             transition: 'all 0.12s',
             marginBottom: '0.5rem',
           }}
-          className="crg-btn-war-pass"
+          className="crg-btn-war-roll"
         >
-          ⚔ GO TO BATTLE
+          ROLL FOR CONFLICT
         </button>
 
         {/* Abort */}
         <button
+          type="button"
           onClick={() => cancel()}
           style={{
             width: '100%',
             background: 'transparent',
             border: '1px solid #22223322',
-            color: '#442233',
+            color: 'var(--crg-muted)',
             fontFamily: 'monospace',
-            fontSize: '0.6rem', letterSpacing: 3,
-            padding: '0.4rem',
+            fontSize: '0.75rem', letterSpacing: 3,
+            padding: '0.4rem', minHeight: 44,
             cursor: 'pointer',
             transition: 'all 0.12s',
           }}

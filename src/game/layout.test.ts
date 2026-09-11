@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getCompactBoardBands, getViewportLayout } from './layout';
+import { getAiSeatOrder, getCompactBoardBands, getViewportLayout } from './layout';
 
 describe('responsive table layout', () => {
   it.each([
@@ -29,5 +29,12 @@ describe('responsive table layout', () => {
     expect(layout.actionBottom).toBeGreaterThanOrEqual(layout.activityLogHeight);
     expect(layout.handScale).toBeLessThan(0.7);
     expect(layout.handLiftRatio).toBeLessThan(0.2);
+  });
+
+  it('gives four AI opponents distinct seats', () => {
+    const seats = getAiSeatOrder(4);
+
+    expect(seats).toEqual([2, 0, 3, 1]);
+    expect(new Set(seats).size).toBe(4);
   });
 });

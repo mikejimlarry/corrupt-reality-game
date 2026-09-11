@@ -2,6 +2,7 @@
 // Plays Cyberpunk 2077 UI SFX pack WAV files via the Web Audio API.
 // All buffers are preloaded on first use; same public function signatures
 // as before so useGameAudio.ts needs no changes.
+import { safeStorage } from './storage';
 
 let _ctx: AudioContext | null = null;
 
@@ -106,17 +107,17 @@ function retryMusicOnNextGesture(): void {
 }
 
 export function getMusicEnabled(): boolean {
-  return localStorage.getItem(MUSIC_KEY) !== 'false';
+  return safeStorage.get(MUSIC_KEY, 'true') !== 'false';
 }
 
 /** Returns the active track index (0 or 1). */
 export function getMusicTrack(): number {
-  const stored = parseInt(localStorage.getItem(MUSIC_TRACK_KEY) ?? '0', 10);
+  const stored = parseInt(safeStorage.get(MUSIC_TRACK_KEY, '0'), 10);
   return (stored === 1) ? 1 : 0;
 }
 
 export function setMusicEnabled(enabled: boolean): void {
-  localStorage.setItem(MUSIC_KEY, String(enabled));
+  safeStorage.set(MUSIC_KEY, String(enabled));
   if (enabled) {
     _playMusicEl();
   } else {
@@ -127,7 +128,7 @@ export function setMusicEnabled(enabled: boolean): void {
 /** Switch to the next track (cycles 0 → 1 → 0). Persists choice. */
 export function nextMusicTrack(): void {
   const next = (getMusicTrack() + 1) % MUSIC_FILES.length;
-  localStorage.setItem(MUSIC_TRACK_KEY, String(next));
+  safeStorage.set(MUSIC_TRACK_KEY, String(next));
   clearMusicRetry();
   // Stop all tracks then play the new one
   _musicEls.forEach(el => { if (el) { el.pause(); el.currentTime = 0; } });

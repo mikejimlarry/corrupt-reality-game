@@ -1,6 +1,6 @@
 // src/data/deck.ts
 // 70-card deck with a mix of resource, event, conflict, counter, and daemon cards.
-import type { Card, CardRarity } from '../types/cards';
+import type { Card, CardCategory, CardRarity } from '../types/cards';
 import { random } from '../lib/rng';
 
 let _id = 0;
@@ -232,18 +232,43 @@ const daemonCards: Card[] = [
   })),
 ];
 
-// ── Assembly & shuffle ────────────────────────────────────────────────────────
+// ── Assembly, catalogue & shuffle ────────────────────────────────────────────
+
+const allCards: Card[] = [
+  ...cycleCards,
+  ...positiveEvents,
+  ...negativeEvents,
+  ...warCards,
+  ...counterCards,
+  ...daemonCards,
+];
+
+export interface DeckCatalogEntry {
+  name: string;
+  category: CardCategory;
+  count: number;
+  effect: string;
+}
+
+/** Read-only manual data derived from the exact cards used by the game. */
+export const DECK_CATALOG: DeckCatalogEntry[] = Array.from(
+  allCards.reduce((catalog, card) => {
+    const existing = catalog.get(card.name);
+    if (existing) existing.count += 1;
+    else catalog.set(card.name, {
+      name: card.name,
+      category: card.category,
+      count: 1,
+      effect: card.description.replace(/\n/g, ' '),
+    });
+    return catalog;
+  }, new Map<string, DeckCatalogEntry>()).values(),
+);
+
+export const DECK_SIZE = allCards.length;
 
 export const generateDeck = (): Card[] => {
-  const all = [
-    ...cycleCards,     // 12
-    ...positiveEvents, //  8
-    ...negativeEvents, // 28
-    ...warCards,       //  7
-    ...counterCards,   //  5
-    ...daemonCards,    // 10  -> total: 70
-  ];
-  return shuffle(all);
+  return shuffle(allCards);
 };
 
 export const shuffle = <T>(array: T[]): T[] => {

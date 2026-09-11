@@ -1,4 +1,4 @@
-import type { CSSProperties, MouseEvent, ReactNode } from 'react';
+import { useEffect, useRef, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 
 interface OverlayShellProps {
   children: ReactNode;
@@ -9,6 +9,7 @@ interface OverlayShellProps {
   panelClassName?: string;
   panelStyle?: CSSProperties;
   onBackdropClick?: () => void;
+  onRequestClose?: () => void;
 }
 
 /**
@@ -25,8 +26,69 @@ export function OverlayShell({
   panelClassName,
   panelStyle,
   onBackdropClick,
+  onRequestClose,
 }: OverlayShellProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onRequestClose);
   const stopPanelClick = (event: MouseEvent<HTMLDivElement>) => event.stopPropagation();
+
+  useEffect(() => {
+    closeRef.current = onRequestClose;
+  }, [onRequestClose]);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const focusableSelector = [
+      'button:not([disabled])',
+      'a[href]',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',');
+
+    const focusFirst = () => {
+      const first = panel.querySelector<HTMLElement>(focusableSelector);
+      (first ?? panel).focus();
+    };
+    const frame = window.requestAnimationFrame(focusFirst);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && closeRef.current) {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector))
+        .filter(element => !element.hasAttribute('disabled') && element.getClientRects().length > 0);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, []);
 
   return (
     <div
@@ -49,6 +111,8 @@ export function OverlayShell({
       }}
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         className={panelClassName}
         onClick={stopPanelClick}
         style={{

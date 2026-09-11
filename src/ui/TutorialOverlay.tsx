@@ -51,12 +51,12 @@ export const TutorialOverlay: React.FC = () => {
     >
         {/* Step counter */}
         {!isComplete && (
-          <div style={{ fontSize: '0.45rem', letterSpacing: 6, color: '#00ffcc33' }}>
+          <div style={{ fontSize: '0.75rem', letterSpacing: 4, color: 'var(--crg-muted)' }}>
             TUTORIAL · STEP {tutorialStep + 1} / 13
           </div>
         )}
         {isComplete && (
-          <div style={{ fontSize: '0.45rem', letterSpacing: 6, color: '#00ffcc33' }}>
+          <div style={{ fontSize: '0.75rem', letterSpacing: 4, color: 'var(--crg-muted)' }}>
             TUTORIAL COMPLETE
           </div>
         )}
@@ -68,7 +68,7 @@ export const TutorialOverlay: React.FC = () => {
 
         {/* Body */}
         <p style={{
-          fontSize: '0.7rem', color: '#8baaa0', lineHeight: 1.8,
+          fontSize: '0.875rem', color: 'var(--crg-body)', lineHeight: 1.8,
           letterSpacing: 0.5, margin: 0,
         }}>
           {step.body}
@@ -77,7 +77,7 @@ export const TutorialOverlay: React.FC = () => {
         {/* Hint */}
         {step.hint && (
           <p style={{
-            fontSize: '0.62rem', color: '#446655', lineHeight: 1.6,
+            fontSize: '0.75rem', color: 'var(--crg-muted)', lineHeight: 1.6,
             letterSpacing: 0.5, margin: 0,
             borderLeft: '2px solid #00ffcc22',
             paddingLeft: '0.6rem',
@@ -88,6 +88,7 @@ export const TutorialOverlay: React.FC = () => {
 
         {/* Button */}
         <button
+          type="button"
           onClick={handleNext}
           style={{
             marginTop: '0.25rem',
@@ -101,6 +102,7 @@ export const TutorialOverlay: React.FC = () => {
             cursor: 'pointer',
             alignSelf: 'flex-end',
             transition: 'all 0.15s',
+            minHeight: 44,
           }}
           className="crg-btn-cyan"
         >

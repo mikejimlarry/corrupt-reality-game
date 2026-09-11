@@ -1,6 +1,8 @@
 // src/ui/GameOverScreen.tsx
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../state/useGameStore';
+import { safeStorage } from '../lib/storage';
+import { COLORS, alpha } from '../theme/tokens';
 
 const STYLE = `
 @keyframes go-flicker {
@@ -54,11 +56,11 @@ function useInjectStyle(css: string) {
 interface GameRecords { wins: number; losses: number; }
 
 function readRecords(): GameRecords {
-  try {
-    const raw = localStorage.getItem('crg-records');
-    if (raw) return JSON.parse(raw) as GameRecords;
-  } catch { /* ignore */ }
-  return { wins: 0, losses: 0 };
+  return safeStorage.getJson<GameRecords>('crg-records', { wins: 0, losses: 0 }, (value): value is GameRecords => {
+    if (!value || typeof value !== 'object') return false;
+    const records = value as Partial<GameRecords>;
+    return Number.isFinite(records.wins) && Number.isFinite(records.losses);
+  });
 }
 
 export function GameOverScreen() {
@@ -81,8 +83,8 @@ export function GameOverScreen() {
   const human    = players.find(p => p.isHuman);
   const humanWon = winner?.isHuman ?? false;
 
-  const ACCENT  = corruption ? '#ff1e3c' : '#00ffcc';
-  const DIM     = corruption ? '#661020' : '#00ffcc22';
+  const ACCENT  = corruption ? COLORS.corruption : COLORS.signal;
+  const DIM     = alpha(ACCENT, 0.2);
 
   // Sort: winner first, then by cycles descending, eliminated last
   const ranked = [...players].sort((a, b) => {
@@ -101,15 +103,7 @@ export function GameOverScreen() {
   const hReboot  = useHover();
   const hReplay  = useHover();
 
-  const [visible, setVisible] = useState(false);
   const records = readRecords();
-
-  useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 100);
-    return () => clearTimeout(t);
-  }, []);
-
-  if (!visible) return null;
 
   const totalGames = records.wins + records.losses;
 
@@ -156,7 +150,7 @@ export function GameOverScreen() {
 
         {/* Header */}
         <div className="go-flicker go-fade-in" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.6rem', letterSpacing: 6, color: `${ACCENT}66`, marginBottom: '0.4rem' }}>
+          <div style={{ fontSize: '0.75rem', letterSpacing: 6, color: 'var(--crg-muted)', marginBottom: '0.4rem' }}>
             SESSION TERMINATED
           </div>
           <div style={{
@@ -169,7 +163,7 @@ export function GameOverScreen() {
           }}>
             {humanWon ? 'TASK COMPLETE' : 'FAILURE'}
           </div>
-          <div style={{ fontSize: '0.7rem', color: `${ACCENT}88`, letterSpacing: 3, marginTop: '0.4rem' }}>
+          <div style={{ fontSize: '0.75rem', color: ACCENT, letterSpacing: 3, marginTop: '0.4rem' }}>
             {humanWon
               ? `${human?.name ?? 'YOU'} DOMINATES THE NET`
               : `${winner?.name ?? 'NOTHING'} CONTROLS THE NET`}
@@ -179,16 +173,16 @@ export function GameOverScreen() {
         {/* Meta row */}
         <div className="go-fade-in-2" style={{
           display: 'flex', justifyContent: 'center', gap: '1.5rem',
-          fontSize: '0.6rem', letterSpacing: 3, color: `${ACCENT}55`,
+          fontSize: '0.75rem', letterSpacing: 3, color: 'var(--crg-muted)',
           borderTop: `1px solid ${DIM}`, borderBottom: `1px solid ${DIM}`,
           padding: '0.5rem 0',
           flexWrap: 'wrap',
         }}>
           <span>TURNS: {turnNumber}</span>
           <span>AGENTS: {players.length}</span>
-          {corruption && <span style={{ color: '#ff4466' }}>[!] CORRUPTED</span>}
+          {corruption && <span style={{ color: COLORS.rival }}>[!] CORRUPTED</span>}
           {totalGames > 0 && (
-            <span style={{ color: humanWon ? '#00ffcc88' : '#ff446688' }}>
+            <span style={{ color: humanWon ? COLORS.signal : COLORS.rival }}>
               W/L: {records.wins}/{records.losses}
             </span>
           )}
@@ -196,12 +190,12 @@ export function GameOverScreen() {
 
         {/* Player standings */}
         <div className="go-fade-in-3" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-          <div style={{ fontSize: '0.55rem', letterSpacing: 3, color: `${ACCENT}44`, marginBottom: '0.15rem' }}>
+          <div style={{ fontSize: '0.75rem', letterSpacing: 3, color: ACCENT, marginBottom: '0.15rem' }}>
             FINAL STANDINGS
           </div>
           {ranked.map((p, i) => {
             const isWinner = p.id === winnerId;
-            const rowAccent = isWinner ? ACCENT : p.eliminated ? '#334455' : '#556677';
+            const rowAccent = isWinner ? ACCENT : p.eliminated ? COLORS.muted : COLORS.body;
             const cardsPlayed  = gameStats.cardsPlayed[p.id]  ?? 0;
             const warsWon      = gameStats.warsWon[p.id]      ?? 0;
             const warsLost     = gameStats.warsLost[p.id]     ?? 0;
@@ -211,64 +205,63 @@ export function GameOverScreen() {
               <div key={p.id} className="go-standings-row" style={{
                 display: 'flex', alignItems: 'center', gap: '0.6rem',
                 padding: '0.4rem 0.65rem',
-                background: isWinner ? `${ACCENT}0d` : 'transparent',
+                background: isWinner ? alpha(ACCENT, 0.05) : 'transparent',
                 border: `1px solid ${isWinner ? ACCENT + '44' : '#ffffff08'}`,
                 borderRadius: 3,
-                opacity: p.eliminated ? 0.55 : 1,
               }}>
                 {/* Rank */}
-                <span style={{ fontSize: '0.65rem', color: rowAccent, width: 16, textAlign: 'right', flexShrink: 0 }}>
+                <span style={{ fontSize: '0.75rem', color: rowAccent, width: 16, textAlign: 'right', flexShrink: 0 }}>
                   {isWinner ? '*' : `#${i + 1}`}
                 </span>
 
                 {/* Name */}
                 <span style={{
-                  flex: 1, fontSize: '0.72rem', letterSpacing: 2,
-                  color: isWinner ? ACCENT : p.eliminated ? '#445566' : '#aabbcc',
+                  flex: 1, fontSize: '0.75rem', letterSpacing: 2,
+                  color: isWinner ? ACCENT : p.eliminated ? COLORS.muted : COLORS.text,
                   fontWeight: isWinner ? 'bold' : 'normal',
                 }}>
                   {p.name}
-                  {p.isHuman && <span style={{ fontSize: '0.5rem', color: `${ACCENT}55`, marginLeft: 5 }}>YOU</span>}
+                  {p.isHuman && <span style={{ fontSize: '0.75rem', color: ACCENT, marginLeft: 5 }}>YOU</span>}
                 </span>
 
                 {/* Cards played */}
-                <span className="go-detail-stat" style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 36, textAlign: 'center' }}>
+                <span className="go-detail-stat" style={{ fontSize: '0.75rem', color: rowAccent, width: 36, textAlign: 'center' }}>
                   {cardsPlayed > 0 ? `${cardsPlayed}c` : '--'}
                 </span>
 
                 {/* Damage dealt */}
-                <span className="go-detail-stat" style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 40, textAlign: 'center' }}>
+                <span className="go-detail-stat" style={{ fontSize: '0.75rem', color: rowAccent, width: 40, textAlign: 'center' }}>
                   {(gameStats.damageDealt[p.id] ?? 0) > 0 ? `${gameStats.damageDealt[p.id]}↯` : '--'}
                 </span>
 
                 {/* Wars W/L */}
-                <span className="go-detail-stat" style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 44, textAlign: 'center' }}>
+                <span className="go-detail-stat" style={{ fontSize: '0.75rem', color: rowAccent, width: 44, textAlign: 'center' }}>
                   {(warsWon + warsLost) > 0 ? `${warsWon}W/${warsLost}L` : '--'}
                 </span>
 
                 {/* Daemons held / lost */}
-                <span className="go-detail-stat" style={{ fontSize: '0.6rem', color: rowAccent, letterSpacing: 1, width: 50, textAlign: 'center' }}>
+                <span className="go-detail-stat" style={{ fontSize: '0.75rem', color: rowAccent, letterSpacing: 1, width: 50, textAlign: 'center' }}>
                   {p.daemons.length > 0 || daemonsLost > 0
                     ? `[D]${p.daemons.length}${daemonsLost > 0 ? ` -${daemonsLost}` : ''}`
                     : '--'}
                 </span>
 
                 {/* Biggest roll */}
-                <span className="go-detail-stat" style={{ fontSize: '0.55rem', color: `${rowAccent}88`, width: 36, textAlign: 'center' }}>
+                <span className="go-detail-stat" style={{ fontSize: '0.75rem', color: rowAccent, width: 36, textAlign: 'center' }}>
                   {biggestRoll > 0 ? `↑${biggestRoll}` : '--'}
                 </span>
 
                 {/* Cycles */}
-                <span style={{ fontSize: '0.8rem', color: isWinner ? ACCENT : rowAccent, letterSpacing: 1, width: 44, textAlign: 'right', fontWeight: isWinner ? 'bold' : 'normal' }}>
+                <span style={{ fontSize: '0.875rem', color: isWinner ? ACCENT : rowAccent, letterSpacing: 1, width: 44, textAlign: 'right', fontWeight: isWinner ? 'bold' : 'normal' }}>
                   {p.cycles}⟳
                 </span>
 
                 {/* Status badge */}
                 <span style={{
-                  fontSize: '0.5rem', letterSpacing: 1,
-                  color: isWinner ? '#000' : p.eliminated ? '#ff334488' : `${ACCENT}66`,
+                  fontSize: '0.75rem', letterSpacing: 1,
+                  color: isWinner ? COLORS.void : p.eliminated ? COLORS.rival : ACCENT,
                   background: isWinner ? ACCENT : 'transparent',
-                  border: isWinner ? 'none' : `1px solid ${p.eliminated ? '#ff334433' : '#ffffff11'}`,
+                  border: isWinner ? 'none' : `1px solid ${p.eliminated ? alpha(COLORS.rival, 0.5) : alpha(COLORS.white, 0.2)}`,
                   padding: '1px 5px', borderRadius: 2,
                   flexShrink: 0,
                 }}>
@@ -282,7 +275,7 @@ export function GameOverScreen() {
         {/* Elimination order */}
         {elimOrder.length > 0 && (
           <div className="go-fade-in-4" style={{
-            fontSize: '0.55rem', color: `${ACCENT}33`, letterSpacing: 2,
+            fontSize: '0.75rem', color: 'var(--crg-muted)', letterSpacing: 2,
             textAlign: 'center',
           }}>
             ELIMINATED: {elimOrder.join(' → ')}
@@ -292,6 +285,7 @@ export function GameOverScreen() {
         {/* Reboot / Replay buttons */}
         <div className="go-fade-in-5" style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button
+            type="button"
             onClick={() => resetToSetup()}
             onMouseEnter={hReboot.onMouseEnter}
             onMouseLeave={hReboot.onMouseLeave}
@@ -307,11 +301,13 @@ export function GameOverScreen() {
               textShadow: `0 0 10px ${ACCENT}66`,
               boxShadow: hReboot.hovered ? `0 0 20px ${ACCENT}44` : 'none',
               transition: 'all 0.15s',
+              minHeight: 44,
             }}
           >
             ↺ REBOOT GAME
           </button>
           <button
+            type="button"
             onClick={() => {
               const human = players.find(p => p.isHuman);
               startGame(players.length, human?.name ?? 'Ghost', startingPop, hidePpCounts, deadMansSwitch, warTiePenalty, gameSeed);
@@ -322,12 +318,13 @@ export function GameOverScreen() {
               padding: '0.75rem 2.5rem',
               background: hReplay.hovered ? '#ffffff22' : '#ffffff0e',
               border: '1px solid #ffffff44',
-              color: '#aabbcc',
+              color: COLORS.text,
               fontFamily: 'monospace',
               fontSize: '0.9rem',
               letterSpacing: 5,
               cursor: 'pointer',
               transition: 'all 0.15s',
+              minHeight: 44,
             }}
           >
             ⟳ REPLAY SEED

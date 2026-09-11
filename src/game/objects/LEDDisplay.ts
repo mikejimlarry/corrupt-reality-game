@@ -2,6 +2,7 @@
 import Phaser from 'phaser';
 import { sfxDiceTick, sfxShowDiceRoll, sfxToast } from '../../lib/audio';
 import { useGameStore } from '../../state/useGameStore';
+import { COLORS } from '../../theme/tokens';
 
 const PANEL_W  = 340;
 const PANEL_H  = 230;
@@ -106,7 +107,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
     // ── Header ────────────────────────────────────────────────────────────
     this.headerTxt = this.txt(0, -PANEL_H / 2 + 16, 'RNG · SEQUENCE · GENERATOR', {
-      fontFamily: 'monospace', fontSize: '8px', color: '#00ffcc77', letterSpacing: 5,
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.body, letterSpacing: 3,
     }).setOrigin(0.5);
     this.add(this.headerTxt);
 
@@ -123,30 +124,30 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
     // ── Operator (vertically centred with digits) ─────────────────────────
     this.operatorTxt = this.txt(0, DIGIT_CY, '+', {
-      fontFamily: 'monospace', fontSize: '22px', color: '#334455', fontStyle: 'bold',
+      fontFamily: 'monospace', fontSize: '20px', color: COLORS.muted, fontStyle: 'bold',
     }).setOrigin(0.5);
     this.add(this.operatorTxt);
 
     // ── Total (one clear row below digits) ────────────────────────────────
     this.totalTxt = this.txt(0, BELOW_DIGITS + 6, '', {
-      fontFamily: 'monospace', fontSize: '27px', color: '#334455', fontStyle: 'bold',
+      fontFamily: 'monospace', fontSize: '28px', color: COLORS.muted, fontStyle: 'bold',
     }).setOrigin(0.5);
     this.add(this.totalTxt);
 
     // ── Player name labels (war mode only — shown below each die) ─────────
     this.name1Txt = this.txt(-D_CX, NAME_Y, '', {
-      fontFamily: 'monospace', fontSize: '8px', color: '#ff8800cc', letterSpacing: 2,
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.conflict, letterSpacing: 2,
     }).setOrigin(0.5).setAlpha(0);
     this.add(this.name1Txt);
 
     this.name2Txt = this.txt(D_CX, NAME_Y, '', {
-      fontFamily: 'monospace', fontSize: '8px', color: '#ff8800cc', letterSpacing: 2,
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.conflict, letterSpacing: 2,
     }).setOrigin(0.5).setAlpha(0);
     this.add(this.name2Txt);
 
     // ── Status / result lines (pinned to bottom of panel) ─────────────────
     this.statusTxt = this.txt(0, PANEL_H / 2 - 24, 'AWAITING INPUT', {
-      fontFamily: 'monospace', fontSize: '8px', color: '#334455', letterSpacing: 4,
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.muted, letterSpacing: 3,
     }).setOrigin(0.5);
     this.add(this.statusTxt);
 
@@ -160,13 +161,13 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
     this.toastTxt = this.txt(0, TOAST_Y, '', {
       fontFamily: 'monospace', fontSize: '13px', fontStyle: 'bold',
-      color: '#00ff55', letterSpacing: 2,
+      color: COLORS.cycle, letterSpacing: 2,
     }).setOrigin(0.5);
     this.toastTxt.setAlpha(0);
     this.add(this.toastTxt);
 
     this.daemonBonusTxt = this.txt(0, TOAST_Y + 26, '', {
-      fontFamily: 'monospace', fontSize: '8px', color: '#00ffcc99', letterSpacing: 3,
+      fontFamily: 'monospace', fontSize: '11px', color: COLORS.signal, letterSpacing: 2,
     }).setOrigin(0.5).setAlpha(0);
     this.add(this.daemonBonusTxt);
 
@@ -393,12 +394,12 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
     const isCorruption = useGameStore.getState().globalCorruptionMode;
     this.applyTheme(isCorruption);
     this.standbyTween?.stop();
-    this.totalTxt.setText('').setColor('#334455');
+    this.totalTxt.setText('').setColor(COLORS.muted);
     this.name1Txt.setText('').setAlpha(0);
     this.name2Txt.setText('').setAlpha(0);
     this.toastTxt.setText('').setAlpha(0);
     this.toastBg.clear().setAlpha(0);
-    this.operatorTxt.setText('+').setColor('#334455');
+    this.operatorTxt.setText('+').setColor(COLORS.muted);
     const scanColor = isCorruption ? '#ff113355' : '#00ffcc55';
     this.statusTxt.setText(`SCANNING · ${playerName.toUpperCase()}`).setColor(scanColor);
 
@@ -449,12 +450,12 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
 
     const genColor = warMode ? '#ff880066' : (isCorruption ? '#ff113366' : '#00ffcc66');
     this.statusTxt.setText(warMode ? 'CONFLICT PROTOCOL · EXECUTING' : `GENERATING · ${playerName.toUpperCase()}`).setColor(genColor);
-    this.totalTxt.setText('').setColor('#334455');
+    this.totalTxt.setText('').setColor(COLORS.muted);
     this.toastTxt.setText('').setAlpha(0);
     this.toastBg.setAlpha(0);
     this.daemonBonusTxt.setText('').setAlpha(0);
     // War mode uses "vs" between the two dice; normal rolls use "+"
-    this.operatorTxt.setText(warMode ? 'vs' : '+').setColor('#334455');
+    this.operatorTxt.setText(warMode ? 'vs' : '+').setColor(COLORS.muted);
 
     // ── War player name labels (with optional tactical bonus suffix) ──────
     const trim = (s: string) => s.length > 9 ? s.slice(0, 8) + '…' : s;
@@ -523,7 +524,7 @@ export class LEDDisplay extends Phaser.GameObjects.Container {
             toastBgColor = warMode ? 0x1a0800  : 0x00080f;
           } else if (creditDelta === 0) {
             toastLabel  = '◆  NO CYCLES';
-            toastHex    = '#446655';
+            toastHex    = COLORS.body;
             toastBgColor = 0x111a15;
           } else if (isCorruption) {
             toastLabel  = `▼  ${creditDelta} CYCLES LOST`;

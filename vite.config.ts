@@ -28,7 +28,6 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'icons/*.png', 'sfx/*.mp3', 'sfx/*.wav'],
       manifest: {
         name: 'Corrupt Reality',
         short_name: 'CRG',
@@ -51,11 +50,38 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Precache everything except large music files (handled via runtime cache)
+        // Keep setup and installation light; game code and audio are cached on first use.
         globPatterns: ['**/*.{js,css,html,svg,png,wav}'],
-        globIgnores: ['**/music_bg*.mp3'],
+        globIgnores: [
+          '**/music_bg*.mp3',
+          '**/sfx/*.wav',
+          '**/phaser-*.js',
+          '**/game-*.js',
+          '**/HelpModal-*.js',
+          '**/AboutModal-*.js',
+        ],
         navigateFallback: 'index.html',
         runtimeCaching: [
+          {
+            // Phaser is loaded only when a session begins; keep the setup boot
+            // lightweight, then retain the runtime for subsequent offline play.
+            urlPattern: /\/assets\/(?:phaser|game|HelpModal|AboutModal)-.*\.js$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'crg-game-runtime-cache',
+              expiration: { maxEntries: 6, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /\/sfx\/.*\.wav$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'crg-sfx-cache',
+              expiration: { maxEntries: 24, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // Music files — cache on first play, serve from cache thereafter
             urlPattern: /\/sfx\/music_bg.*\.mp3$/i,

@@ -2,6 +2,7 @@
 // Full-screen "SYSTEM HALTED" overlay shown when the game is paused.
 import React from 'react';
 import { useGameStore } from '../state/useGameStore';
+import { OverlayShell } from './OverlayShell';
 
 const BLINK_CSS = `
 @keyframes halt-blink {
@@ -24,23 +25,19 @@ export const PauseOverlay: React.FC = () => {
   return (
     <>
       <style>{BLINK_CSS}</style>
-      <div
-        style={{
-          position: 'fixed', inset: 0,
-          zIndex: 300,
-          background: 'rgba(5, 2, 0, 0.92)',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'monospace',
-          cursor: 'pointer',
-          overflow: 'hidden',
-        }}
-        onClick={togglePause}
+      <OverlayShell
+        ariaLabel="Game paused"
+        background="rgba(5, 2, 0, 0.92)"
+        zIndex={300}
+        maxWidth={560}
+        onBackdropClick={togglePause}
+        onRequestClose={togglePause}
+        panelStyle={{ overflow: 'hidden', textAlign: 'center', color: '#ff8800', padding: '32px 20px' }}
       >
         {/* Scanline */}
         <div style={{
           position: 'absolute', left: 0, right: 0, height: 2, pointerEvents: 'none',
-          background: 'linear-gradient(to right, transparent, rgba(255,153,0,0.18), transparent)',
+          background: 'linear-gradient(to right, transparent, color-mix(in srgb, var(--crg-conflict) 18%, transparent), transparent)',
           animation: 'halt-scan 5s linear infinite',
         }} />
 
@@ -51,46 +48,60 @@ export const PauseOverlay: React.FC = () => {
         }} />
 
         {/* Content */}
-        <div style={{ textAlign: 'center', zIndex: 1 }}>
+        <div style={{ textAlign: 'center', zIndex: 1, position: 'relative' }}>
           <div style={{
-            fontSize: '0.55rem', letterSpacing: 8,
-            color: '#ff9900aa', marginBottom: '1rem',
+            fontSize: '0.75rem', letterSpacing: 6,
+            color: 'var(--crg-conflict)', marginBottom: '1rem',
           }}>
             ⚠ EXECUTION SUSPENDED ⚠
           </div>
 
           <div style={{
             fontSize: '3rem', fontWeight: 'bold', letterSpacing: 12,
-            color: '#ff9900',
+            color: 'var(--crg-conflict)',
             textShadow: '0 0 40px rgba(255,153,0,0.6), 0 0 80px rgba(255,153,0,0.3)',
           }}>
             SYSTEM
           </div>
           <div style={{
             fontSize: '3rem', fontWeight: 'bold', letterSpacing: 12,
-            color: '#ff9900',
+            color: 'var(--crg-conflict)',
             textShadow: '0 0 40px rgba(255,153,0,0.6), 0 0 80px rgba(255,153,0,0.3)',
             marginBottom: '1.5rem',
           }}>
             HALTED
           </div>
 
-          <div className="halt-blink" style={{
-            fontSize: '0.7rem', letterSpacing: 4,
-            color: '#ff9900bb',
-          }}>
-            CLICK ANYWHERE TO RESUME
-          </div>
+          <button
+            type="button"
+            onClick={togglePause}
+            className="crg-btn-orange halt-blink"
+            style={{
+              minHeight: 48,
+              minWidth: 220,
+              padding: '12px 20px',
+              background: 'transparent',
+              border: '1px solid var(--crg-conflict)',
+              color: 'var(--crg-conflict)',
+              fontFamily: 'monospace',
+              fontSize: '0.9rem',
+              fontWeight: 'bold',
+              letterSpacing: 4,
+              cursor: 'pointer',
+            }}
+          >
+            RESUME SYSTEM
+          </button>
 
           <div style={{
             marginTop: '2rem',
-            fontSize: '0.5rem', letterSpacing: 3,
-            color: '#ff990044',
+            fontSize: '0.75rem', letterSpacing: 3,
+            color: 'var(--crg-muted)',
           }}>
             ALL AI PROCESSES PAUSED
           </div>
         </div>
-      </div>
+      </OverlayShell>
     </>
   );
 };

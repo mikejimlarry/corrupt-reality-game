@@ -31,25 +31,25 @@ export const WarLootOverlay: React.FC = () => {
       background="rgba(10,0,5,0.94)"
       maxWidth={460}
       panelStyle={{
-        border: '1px solid #ff336644',
+        border: '1px solid color-mix(in srgb, var(--crg-rival) 35%, transparent)',
         padding: '2rem',
-        background: 'rgba(15,0,10,0.90)',
+        background: 'color-mix(in srgb, var(--crg-rival) 6%, var(--crg-panel))',
       }}
     >
         <div style={{
-          color: '#ff5566', letterSpacing: 6, fontSize: '0.6rem',
+          color: 'var(--crg-rival)', letterSpacing: 4, fontSize: '0.75rem',
           textAlign: 'center', marginBottom: '0.4rem',
         }}>
           ⚔ TOTAL SIEGE — VICTORY
         </div>
         <h2 style={{
-          color: '#ff4466', letterSpacing: 3, fontSize: '1.1rem',
+          color: 'var(--crg-rival)', letterSpacing: 3, fontSize: '1.1rem',
           margin: '0 0 0.35rem', textAlign: 'center',
         }}>
           WAR SPOILS
         </h2>
         <p style={{
-          color: '#884455', letterSpacing: 1, fontSize: '0.6rem',
+          color: 'var(--crg-body)', letterSpacing: 1, fontSize: '0.875rem',
           textAlign: 'center', margin: '0 0 1.5rem',
           lineHeight: 1.6,
         }}>
@@ -60,25 +60,27 @@ export const WarLootOverlay: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {pending.availableDaemons.map(daemon => (
             <button
+              type="button"
               key={daemon}
               onClick={() => resolve(daemon)}
               style={{
                 background: 'rgba(255,51,102,0.04)',
-                border: '1px solid #ff336622',
-                color: '#cc5566',
+                border: '1px solid color-mix(in srgb, var(--crg-rival) 20%, transparent)',
+                color: 'var(--crg-rival)',
                 fontFamily: 'monospace',
                 padding: '0.7rem 0.9rem',
                 textAlign: 'left',
                 cursor: 'pointer',
                 transition: 'all 0.15s',
                 lineHeight: 1,
+                minHeight: 44,
               }}
               className="crg-btn-war"
             >
-              <div style={{ fontSize: '0.72rem', letterSpacing: 2, marginBottom: '0.3rem' }}>
+              <div style={{ fontSize: '0.75rem', letterSpacing: 2, marginBottom: '0.3rem' }}>
                 {DAEMON_LABELS[daemon]}
               </div>
-              <div style={{ fontSize: '0.58rem', color: '#664455', letterSpacing: 0.5, lineHeight: 1.5 }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--crg-body)', letterSpacing: 0.5, lineHeight: 1.5 }}>
                 {DAEMON_DESCRIPTIONS[daemon]}
               </div>
             </button>

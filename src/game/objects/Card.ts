@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import type { Card as CardData, CardCategory, CardRarity } from '../../types/cards';
 import { useGameStore } from '../../state/useGameStore';
 import { sfxCardSelect, sfxGlitch } from '../../lib/audio';
+import { COLORS, PHASER_COLORS } from '../../theme/tokens';
 
 // ── Dimensions ───────────────────────────────────────────────────────────────
 export const CARD_W = 150;
@@ -10,15 +11,17 @@ export const CARD_H = 210;
 const PAD = 9;
 const ART_H = 52;   // enlarged — now the primary visual zone
 const RADIUS = 8;
+const DESC_MAX_FONT_SIZE = 10;
+const DESC_MIN_FONT_SIZE = 7;
 
 // ── Colour palettes ──────────────────────────────────────────────────────────
 const CAT_COLOR: Record<CardCategory, number> = {
-  CYCLES:       0x00ff88,
-  EVENT_POSITIVE:0x00ccff,
-  EVENT_NEGATIVE:0xff3355,
-  WAR:           0xff8800,
-  COUNTER:       0xbb44ff,
-  DAEMON:        0x00ffcc,
+  CYCLES: PHASER_COLORS.cycle,
+  EVENT_POSITIVE: PHASER_COLORS.positive,
+  EVENT_NEGATIVE: PHASER_COLORS.rival,
+  WAR: PHASER_COLORS.conflict,
+  COUNTER: PHASER_COLORS.counter,
+  DAEMON: PHASER_COLORS.signal,
 };
 
 const CAT_LABEL: Record<CardCategory, string> = {
@@ -31,17 +34,17 @@ const CAT_LABEL: Record<CardCategory, string> = {
 };
 
 const RARITY_COLOR: Record<CardRarity, number> = {
-  COMMON:    0x556677,
+  COMMON:    PHASER_COLORS.muted,
   UNCOMMON:  0x44aaff,
-  RARE:      0xbb44ff,
-  LEGENDARY: 0xffaa00,
+  RARE:      PHASER_COLORS.counter,
+  LEGENDARY: PHASER_COLORS.legendary,
 };
 
 const RARITY_TEXT_COLOR: Record<CardRarity, string> = {
-  COMMON:    '#aabbcc',
+  COMMON:    COLORS.text,
   UNCOMMON:  '#44aaff',
-  RARE:      '#bb44ff',
-  LEGENDARY: '#ffaa00',
+  RARE:      COLORS.counter,
+  LEGENDARY: COLORS.legendary,
 };
 
 const GLITCH_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*></?[]{}\\|';
@@ -107,7 +110,7 @@ export class Card extends Phaser.GameObjects.Container {
 
     // ── Background ────────────────────────────────────────────────────────
     const bg = this.scene.add.graphics();
-    bg.fillStyle(0x0d0d1f, 1);
+    bg.fillStyle(PHASER_COLORS.card, 1);
     bg.fillRoundedRect(left, top, CARD_W, CARD_H, RADIUS);
     bg.lineStyle(1.5, catColor, 0.8);
     bg.strokeRoundedRect(left, top, CARD_W, CARD_H, RADIUS);
@@ -170,7 +173,7 @@ export class Card extends Phaser.GameObjects.Container {
       const stat = this.txt(
         pillX + pillW / 2, nameRowCY,
         initialStat,
-        { fontFamily: 'monospace', fontSize: '9px', color: catHex, fontStyle: 'bold' }
+        { fontFamily: 'monospace', fontSize: '11px', color: catHex, fontStyle: 'bold' }
       ).setOrigin(0.5);
       this.add(stat);
 
@@ -223,18 +226,19 @@ export class Card extends Phaser.GameObjects.Container {
       left + PAD + 4, effectY + 5,
       '',
       {
-        fontFamily: 'monospace', fontSize: '8.5px', color: '#c8d8e8',
-        wordWrap: { width: CARD_W - PAD * 2 - 8 }, lineSpacing: 1,
+        fontFamily: 'monospace', fontSize: `${DESC_MAX_FONT_SIZE}px`, color: COLORS.text,
+        wordWrap: { width: CARD_W - PAD * 2 - 8 }, lineSpacing: 0,
       }
     ).setOrigin(0, 0);
     this.add(this.descText);
+    this.fitDescriptionText(d.description, effectH - 10);
 
     // ── Flavour text ──────────────────────────────────────────────────────
     if (d.flavourText) {
       const flavour = this.txt(
         left + PAD + 4, top + CARD_H - PAD,
         `"${d.flavourText}"`,
-        { fontFamily: 'monospace', fontSize: '7px', color: '#4a5c6a',
+        { fontFamily: 'monospace', fontSize: '7px', color: COLORS.muted,
           fontStyle: 'italic', wordWrap: { width: CARD_W - PAD * 2 - 8 } }
       ).setOrigin(0, 1);
       this.add(flavour);
@@ -248,9 +252,9 @@ export class Card extends Phaser.GameObjects.Container {
 
     // Selection glow (hidden by default)
     const selGlow = this.scene.add.graphics();
-    selGlow.lineStyle(3, 0x00ffcc, 0.85);
+    selGlow.lineStyle(3, PHASER_COLORS.signal, 0.85);
     selGlow.strokeRoundedRect(-CARD_W / 2 - 3, -CARD_H / 2 - 3, CARD_W + 6, CARD_H + 6, RADIUS + 2);
-    selGlow.fillStyle(0x00ffcc, 0.05);
+    selGlow.fillStyle(PHASER_COLORS.signal, 0.05);
     selGlow.fillRoundedRect(-CARD_W / 2 - 3, -CARD_H / 2 - 3, CARD_W + 6, CARD_H + 6, RADIUS + 2);
     selGlow.setVisible(false);
     this.add(selGlow);
@@ -399,7 +403,7 @@ export class Card extends Phaser.GameObjects.Container {
       const glitchText = this.scene.add.text(
         -CARD_W / 2 + 10, this.artAreaY + 6,
         garble,
-        { fontFamily: 'monospace', fontSize: '7px', color: '#ff335555',
+        { fontFamily: 'monospace', fontSize: '7px', color: COLORS.rival,
           resolution: window.devicePixelRatio }
       );
       con.add(glitchText);
@@ -776,6 +780,23 @@ export class Card extends Phaser.GameObjects.Container {
   }
 
   // ── Description typewriter ──────────────────────────────────────────────
+  /**
+   * Fit the complete wrapped description into its panel once at construction.
+   * The typewriter only ever reveals a prefix, so the chosen size remains safe
+   * throughout the animation without changing card geometry.
+   */
+  private fitDescriptionText(description: string, maxHeight: number) {
+    let fontSize = DESC_MAX_FONT_SIZE;
+    this.descText.setText(description);
+
+    while (this.descText.height > maxHeight && fontSize > DESC_MIN_FONT_SIZE) {
+      fontSize -= 1;
+      this.descText.setFontSize(fontSize);
+    }
+
+    this.descText.setText('');
+  }
+
   private startTypewriter() {
     if (!this.scene || !this.active) return;
     const full = this.cardData.description;

@@ -29,8 +29,9 @@ export function UpdateBanner() {
         whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ color: '#667788' }}>▲ UPDATE AVAILABLE</span>
+      <span style={{ color: 'var(--crg-text)' }}>▲ UPDATE AVAILABLE</span>
       <button
+        type="button"
         onClick={() => updateServiceWorker(true)}
         style={{
           background: 'none',
@@ -41,6 +42,7 @@ export function UpdateBanner() {
           fontSize: 11,
           letterSpacing: 2,
           padding: '4px 12px',
+          minHeight: 44,
           cursor: 'pointer',
         }}
       >

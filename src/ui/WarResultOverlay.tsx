@@ -1,6 +1,7 @@
 // src/ui/WarResultOverlay.tsx
 import React from 'react';
 import { useGameStore } from '../state/useGameStore';
+import { OverlayShell } from './OverlayShell';
 
 const WAR_RESULT_CSS = `
 @keyframes war-result-unfold {
@@ -25,7 +26,8 @@ export const WarResultOverlay: React.FC = () => {
   if (!result) return null;
 
   const { humanWon, isTie, actorName, targetName, actorRoll, actorBonus, targetRoll, targetBonus,
-    humanIsActor, humanCycleLoss, opponentCycleLoss, tieCycleLoss } = result;
+    humanIsActor, humanCycleLoss, opponentCycleLoss, humanCyclesAfter, opponentCyclesAfter,
+    tieCycleLoss } = result;
 
   const humanName     = humanIsActor ? actorName : targetName;
   const opponentName  = humanIsActor ? targetName : actorName;
@@ -35,6 +37,8 @@ export const WarResultOverlay: React.FC = () => {
   const oppBonus      = humanIsActor ? targetBonus : actorBonus;
   const humanTotal    = humanRollBase + humanBonus;
   const oppTotal      = oppRollBase + oppBonus;
+  const humanCyclesBefore = humanCyclesAfter + humanCycleLoss;
+  const opponentCyclesBefore = opponentCyclesAfter + opponentCycleLoss;
 
   const WIN_ACCENT  = '#00ffcc';
   const LOSS_ACCENT = '#ff1e3c';
@@ -44,6 +48,17 @@ export const WarResultOverlay: React.FC = () => {
   const baseAccent  = corruption && !humanWon ? LOSS_ACCENT : ACCENT;
 
   const headline = isTie ? 'DEADLOCK' : (humanWon ? 'DOMINANCE' : 'BREACH DETECTED');
+  const winnerName = humanWon ? humanName : opponentName;
+  const winnerTotal = humanWon ? humanTotal : oppTotal;
+  const loserTotal = humanWon ? oppTotal : humanTotal;
+  const describeLoss = (name: string, amount: number) => amount > 0
+    ? `${name} loses ${amount} cycles.`
+    : `${name} loses no cycles.`;
+  const resultSummary = isTie
+    ? tieCycleLoss != null && tieCycleLoss > 0
+      ? `Rolls tied at ${humanTotal}. Both combatants lose ${tieCycleLoss} cycles.`
+      : `Rolls tied at ${humanTotal}. No cycles are lost.`
+    : `${winnerName} wins the roll, ${winnerTotal} to ${loserTotal}. ${describeLoss(humanName, humanCycleLoss)} ${describeLoss(opponentName, opponentCycleLoss)}`;
 
   const handleContinue = () => {
     sfxNavClick();
@@ -53,32 +68,18 @@ export const WarResultOverlay: React.FC = () => {
   return (
     <>
     <style>{WAR_RESULT_CSS}</style>
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'rgba(2,4,12,0.88)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 350,
-      fontFamily: 'monospace',
-      overflow: 'hidden',
-      boxSizing: 'border-box',
-      padding: 'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
-    }}>
-      {/* Vignette for loss */}
-      {!humanWon && !isTie && (
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          boxShadow: 'inset 0 0 120px 50px rgba(200,0,30,0.35)',
-        }} />
-      )}
-
-      <div
-        className={reducedMotion ? undefined : 'war-result-panel'}
-        style={{
+    <OverlayShell
+      ariaLabel="Conflict result"
+      background={!humanWon && !isTie
+        ? 'radial-gradient(circle, transparent 35%, color-mix(in srgb, var(--crg-corruption) 22%, transparent)), rgba(2,4,12,0.88)'
+        : 'rgba(2,4,12,0.88)'}
+      zIndex={350}
+      maxWidth={400}
+      panelClassName={reducedMotion ? undefined : 'war-result-panel'}
+      panelStyle={{
           border: `1px solid ${baseAccent}55`,
           background: 'rgba(4,8,18,0.99)',
           padding: '2rem 2.5rem',
-          maxWidth: 400,
-          width: '90%',
           display: 'flex',
           flexDirection: 'column',
           gap: '1.25rem',
@@ -87,11 +88,12 @@ export const WarResultOverlay: React.FC = () => {
           maxHeight: '100%',
           overflowY: 'auto',
           boxSizing: 'border-box',
-        }}>
+      }}
+    >
 
         {/* Headline */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.45rem', letterSpacing: 6, color: `${baseAccent}55`, marginBottom: '0.5rem' }}>
+          <div style={{ fontSize: '0.75rem', letterSpacing: 4, color: baseAccent, marginBottom: '0.5rem' }}>
             WAR RESOLVED
           </div>
           <div style={{
@@ -105,6 +107,16 @@ export const WarResultOverlay: React.FC = () => {
           </div>
         </div>
 
+        <p style={{
+          margin: 0,
+          color: 'var(--crg-body)',
+          fontSize: '0.8rem',
+          lineHeight: 1.6,
+          textAlign: 'center',
+        }}>
+          {resultSummary}
+        </p>
+
         {/* Roll comparison */}
         <div style={{
           display: 'flex',
@@ -117,32 +129,32 @@ export const WarResultOverlay: React.FC = () => {
         }}>
           {/* Human roll */}
           <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{ fontSize: '0.5rem', letterSpacing: 3, color: `${WIN_ACCENT}66`, marginBottom: '0.3rem' }}>
+            <div style={{ fontSize: '0.75rem', letterSpacing: 2, color: WIN_ACCENT, marginBottom: '0.3rem' }}>
               {humanName}
             </div>
-            <div style={{ fontSize: '2rem', color: humanWon && !isTie ? WIN_ACCENT : '#aabbcc', fontWeight: 'bold' }}>
+            <div style={{ fontSize: 'clamp(1.5rem, 7vw, 3rem)', color: humanWon && !isTie ? WIN_ACCENT : 'var(--crg-text)', fontWeight: 'bold' }}>
               {humanTotal}
             </div>
             {humanBonus > 0 && (
-              <div style={{ fontSize: '0.5rem', color: `${WIN_ACCENT}55`, letterSpacing: 2 }}>
+              <div style={{ fontSize: '0.75rem', color: WIN_ACCENT, letterSpacing: 2 }}>
                 {humanRollBase} +{humanBonus}
               </div>
             )}
           </div>
 
           {/* VS */}
-          <div style={{ fontSize: '0.65rem', color: '#334455', letterSpacing: 2 }}>VS</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--crg-muted)', letterSpacing: 2 }}>VS</div>
 
           {/* Opponent roll */}
           <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{ fontSize: '0.5rem', letterSpacing: 3, color: `${LOSS_ACCENT}55`, marginBottom: '0.3rem' }}>
+            <div style={{ fontSize: '0.75rem', letterSpacing: 2, color: LOSS_ACCENT, marginBottom: '0.3rem' }}>
               {opponentName}
             </div>
-            <div style={{ fontSize: '2rem', color: !humanWon && !isTie ? LOSS_ACCENT : '#aabbcc', fontWeight: 'bold' }}>
+            <div style={{ fontSize: 'clamp(1.5rem, 7vw, 3rem)', color: !humanWon && !isTie ? LOSS_ACCENT : 'var(--crg-text)', fontWeight: 'bold' }}>
               {oppTotal}
             </div>
             {oppBonus > 0 && (
-              <div style={{ fontSize: '0.5rem', color: `${LOSS_ACCENT}44`, letterSpacing: 2 }}>
+              <div style={{ fontSize: '0.75rem', color: LOSS_ACCENT, letterSpacing: 2 }}>
                 {oppRollBase} +{oppBonus}
               </div>
             )}
@@ -151,39 +163,27 @@ export const WarResultOverlay: React.FC = () => {
 
         {/* Cycle losses */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-          {isTie && tieCycleLoss != null && tieCycleLoss > 0 && (
-            <div style={{ fontSize: '0.62rem', color: `${TIE_ACCENT}bb`, letterSpacing: 2, textAlign: 'center' }}>
-              BOTH LOSE {tieCycleLoss} CYCLES
-            </div>
-          )}
-          {!isTie && (
-            <>
-              {humanCycleLoss > 0 && (
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  fontSize: '0.6rem', letterSpacing: 2,
-                  color: humanWon ? `${WIN_ACCENT}77` : `${LOSS_ACCENT}cc`,
-                }}>
-                  <span>{humanName}</span>
-                  <span>-{humanCycleLoss} ⟳</span>
-                </div>
-              )}
-              {opponentCycleLoss > 0 && (
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  fontSize: '0.6rem', letterSpacing: 2,
-                  color: humanWon ? `${WIN_ACCENT}cc` : `${LOSS_ACCENT}77`,
-                }}>
-                  <span>{opponentName}</span>
-                  <span>-{opponentCycleLoss} ⟳</span>
-                </div>
-              )}
-            </>
-          )}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', gap: '1rem',
+            fontSize: '0.75rem', letterSpacing: 1,
+            color: isTie ? TIE_ACCENT : WIN_ACCENT,
+          }}>
+            <span>{humanName}</span>
+            <span>{humanCyclesBefore} → {humanCyclesAfter} ({humanCycleLoss > 0 ? `−${humanCycleLoss}` : 'NO LOSS'})</span>
+          </div>
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', gap: '1rem',
+            fontSize: '0.75rem', letterSpacing: 1,
+            color: isTie ? TIE_ACCENT : LOSS_ACCENT,
+          }}>
+            <span>{opponentName}</span>
+            <span>{opponentCyclesBefore} → {opponentCyclesAfter} ({opponentCycleLoss > 0 ? `−${opponentCycleLoss}` : 'NO LOSS'})</span>
+          </div>
         </div>
 
         {/* Continue button */}
         <button
+          type="button"
           onClick={handleContinue}
           style={{
             marginTop: '0.25rem',
@@ -197,13 +197,13 @@ export const WarResultOverlay: React.FC = () => {
             cursor: 'pointer',
             alignSelf: 'flex-end',
             transition: 'all 0.15s',
+            minHeight: 44,
           }}
           className="crg-btn-cyan"
         >
           CONTINUE →
         </button>
-      </div>
-    </div>
+    </OverlayShell>
     </>
   );
 };
